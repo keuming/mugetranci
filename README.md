@@ -23,17 +23,35 @@ pour une mutuelle de transporteurs en Côte d'Ivoire.
 
 ## Stack
 
-React 18 + Vite + Tailwind CSS + lucide-react. Données en mémoire (`useState`) pour ce prototype —
-prochaine étape : API tRPC + Neon PostgreSQL (voir `docs/NEXT_STEPS.md`).
+React 18 + Vite + Tailwind CSS + lucide-react côté front. API REST via fonctions serverless
+Vercel (`api/*.js`) + Drizzle ORM + Neon PostgreSQL côté back.
+
+## Base de données
+
+```bash
+cp .env.example .env.local        # puis renseignez DATABASE_URL (Neon)
+npm run db:generate                # génère la migration SQL à partir du schéma
+npm run db:migrate                 # applique la migration sur Neon
+npm run db:seed                    # (optionnel) insère des données de démonstration
+npm run db:studio                  # (optionnel) explorateur visuel des tables
+```
 
 ## Développement local
 
+Le frontend seul (sans API) :
 ```bash
 npm install
 npm run dev
 ```
 
+Avec l'API (`/api/*`) en local, utilisez la CLI Vercel plutôt que `vite` seul, car
+`npm run dev` ne sert pas les fonctions serverless :
+```bash
+npm install -g vercel   # une seule fois
+vercel dev
+```
+
 ## Déploiement
 
-Projet Vite standard, déployable tel quel sur Vercel (build command `npm run build`, output
-`dist`).
+Projet Vite + fonctions serverless, déployable tel quel sur Vercel. Pensez à ajouter
+`DATABASE_URL` dans Vercel → Settings → Environment Variables (Production + Preview).

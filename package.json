@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "node db/seed.js"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.1",

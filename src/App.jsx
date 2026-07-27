@@ -112,42 +112,8 @@ function QRMock({ data, size = 96, fg = C.ink }) {
   );
 }
 
-/* ============================================================
-   SEED DATA
-   ============================================================ */
-const seedOwners = [
-  { id: "P-01", nom: "Koffi", prenoms: "Amara Jean", cni: "CI004821035", contact1: "07 08 12 34 56", contact2: "01 02 45 67 89", contact3: "", email: "amara.koffi@gmail.com", ville: "Abidjan", quartier: "Yopougon Niangon", photo: null },
-  { id: "P-02", nom: "Diaby", prenoms: "Fatoumata", cni: "CI009274611", contact1: "05 55 21 09 87", contact2: "", contact3: "", email: "f.diaby@yahoo.fr", ville: "Abidjan", quartier: "Marcory Zone 4", photo: null },
-  { id: "P-03", nom: "N'Guessan", prenoms: "Roland Kouadio", cni: "CI007113390", contact1: "01 45 78 12 03", contact2: "07 90 33 21 44", contact3: "", email: "rk.nguessan@outlook.com", ville: "Bingerville", quartier: "Centre-ville", photo: null },
-];
-
-const seedDrivers = [
-  { id: "C-01", nom: "Traoré", prenoms: "Ibrahim", cni: "CI002238841", permisNumero: "PC-CI-118820", permisDateFin: "2026-08-14", contact1: "01 23 45 67 89", contact2: "07 11 22 33 44", contact3: "", email: "", photo: null },
-  { id: "C-02", nom: "Bamba", prenoms: "Souleymane", cni: "CI005567123", permisNumero: "PC-CI-095512", permisDateFin: "2027-03-02", contact1: "05 90 88 12 10", contact2: "", contact3: "", email: "", photo: null },
-  { id: "C-03", nom: "Yao", prenoms: "Marie-Claire", cni: "CI001129887", permisNumero: "PC-CI-204471", permisDateFin: "2026-11-20", contact1: "07 44 55 66 77", contact2: "01 09 08 07 06", contact3: "", email: "yao.mclaire@gmail.com", photo: null },
-  { id: "C-04", nom: "Kouassi", prenoms: "Didier", cni: "CI008812204", permisNumero: "PC-CI-330198", permisDateFin: "2026-08-02", contact1: "05 12 34 56 78", contact2: "", contact3: "", email: "", photo: null },
-];
-
-const seedVehicles = [
-  {
-    id: "V-01", marque: "Toyota", modele: "Hiace (18 places)", chassis: "JT731HB0900123456", carteGrise: "CG-2021-004821", immatriculation: "CI 1234 AB 01", dateMiseCirculation: "2021-03-12", photo: null,
-    documents: { visiteTechnique: "2026-08-05", assuranceAuto: "2026-12-01", vignette: "2026-07-10", carteStationnement: "2026-09-20" },
-    proprietaireId: "P-01", historiqueProprietaires: [{ proprietaireId: "P-01", depuis: "2021-03-12" }],
-    chauffeurIds: ["C-01", "C-02"],
-  },
-  {
-    id: "V-02", marque: "Nissan", modele: "Urvan (15 places)", chassis: "JN1TBNC26Z0098741", carteGrise: "CG-2022-009274", immatriculation: "CI 5678 CD 02", dateMiseCirculation: "2022-06-01", photo: null,
-    documents: { visiteTechnique: "2027-01-18", assuranceAuto: "2027-02-11", vignette: "2027-01-05", carteStationnement: "2026-08-15" },
-    proprietaireId: "P-02", historiqueProprietaires: [{ proprietaireId: "P-02", depuis: "2022-06-01" }],
-    chauffeurIds: ["C-03"],
-  },
-  {
-    id: "V-03", marque: "Toyota", modele: "Corolla (taxi compteur)", chassis: "JTDBR32E720045678", carteGrise: "CG-2019-007113", immatriculation: "CI 9012 EF 01", dateMiseCirculation: "2019-11-27", photo: null,
-    documents: { visiteTechnique: "2026-07-01", assuranceAuto: "2026-08-09", vignette: "2027-01-05", carteStationnement: "2026-08-01" },
-    proprietaireId: "P-03", historiqueProprietaires: [{ proprietaireId: "P-01", depuis: "2019-11-27" }, { proprietaireId: "P-03", depuis: "2025-02-10" }],
-    chauffeurIds: ["C-04"],
-  },
-];
+/* Les données de démonstration sont désormais insérées directement en base
+   via `npm run db:seed` (voir db/seed.js) plutôt que codées en dur ici. */
 
 /* ============================================================
    SMALL UI PRIMITIVES
@@ -276,40 +242,51 @@ function VehicleForm({ owners, drivers, onCancel, onSave, addOwner, addDriver })
   const [photo, setPhoto] = useState(null);
   const [docs, setDocs] = useState({ visiteTechnique: "", assuranceAuto: "", vignette: "", carteStationnement: "" });
 
-  const [ownerMode, setOwnerMode] = useState("existing"); // existing | new
+  const [ownerMode, setOwnerMode] = useState(owners.length ? "existing" : "new"); // existing | new
   const [ownerId, setOwnerId] = useState(owners[0]?.id || "");
   const [newOwner, setNewOwner] = useState({ nom: "", prenoms: "", cni: "", contact1: "", contact2: "", contact3: "", email: "", ville: "", quartier: "", photo: null });
 
-  const [driverRows, setDriverRows] = useState([{ mode: "existing", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null } }]);
+  const [driverRows, setDriverRows] = useState([{ mode: drivers.length ? "existing" : "new", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null } }]);
 
   const addDriverRow = () => setDriverRows((r) => [...r, { mode: "existing", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null } }]);
   const removeDriverRow = (i) => setDriverRows((r) => r.filter((_, idx) => idx !== i));
   const updateDriverRow = (i, patch) => setDriverRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
   const updateDriverDraft = (i, patch) => setDriverRows((r) => r.map((row, idx) => (idx === i ? { ...row, draft: { ...row.draft, ...patch } } : row)));
 
-  const canSave = marque && modele && immatriculation && chassis;
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+  const canSave = marque && modele && immatriculation && chassis && !saving;
 
-  const handleSave = () => {
-    let finalOwnerId = ownerId;
-    if (ownerMode === "new") {
-      const created = { id: uid("P"), ...newOwner };
-      addOwner(created);
-      finalOwnerId = created.id;
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      let finalOwnerId = ownerId;
+      if (ownerMode === "new") {
+        const created = await addOwner(newOwner); // POST /api/proprietaires — id réel renvoyé par Neon
+        finalOwnerId = created.id;
+      }
+
+      const finalDriverIds = [];
+      for (const row of driverRows) {
+        if (row.mode === "existing") {
+          if (row.id) finalDriverIds.push(row.id);
+        } else {
+          const created = await addDriver(row.draft); // POST /api/chauffeurs
+          finalDriverIds.push(created.id);
+        }
+      }
+
+      await onSave({
+        marque, modele, chassis, carteGrise, immatriculation, dateMiseCirculation, photo,
+        documents: docs,
+        proprietaireId: finalOwnerId || null,
+        chauffeurIds: finalDriverIds,
+      }); // POST /api/vehicules
+    } catch (err) {
+      setSaveError(err.message || "Erreur lors de l'enregistrement. Vérifiez la connexion à la base.");
+      setSaving(false);
     }
-    const finalDriverIds = driverRows.map((row) => {
-      if (row.mode === "existing") return row.id;
-      const created = { id: uid("C"), ...row.draft };
-      addDriver(created);
-      return created.id;
-    }).filter(Boolean);
-
-    onSave({
-      id: uid("V"), marque, modele, chassis, carteGrise, immatriculation, dateMiseCirculation, photo,
-      documents: docs,
-      proprietaireId: finalOwnerId,
-      historiqueProprietaires: [{ proprietaireId: finalOwnerId, depuis: dateMiseCirculation || new Date().toISOString().slice(0, 10) }],
-      chauffeurIds: finalDriverIds,
-    });
   };
 
   return (
@@ -419,6 +396,7 @@ function VehicleForm({ owners, drivers, onCancel, onSave, addOwner, addDriver })
       </SectionCard>
 
       <div className="flex items-center justify-end gap-3 pb-1">
+        {saveError && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{saveError}</span>}
         <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
         <button
           onClick={handleSave}
@@ -426,7 +404,7 @@ function VehicleForm({ owners, drivers, onCancel, onSave, addOwner, addDriver })
           className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2"
           style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}
         >
-          <Check size={16} /> Enregistrer le véhicule
+          <Check size={16} /> {saving ? "Enregistrement…" : "Enregistrer le véhicule"}
         </button>
       </div>
     </div>
@@ -653,22 +631,80 @@ function computeAlerts(vehicles, owners, drivers) {
   return rows.sort((a, b) => (a.days ?? 9999) - (b.days ?? 9999));
 }
 
+async function apiGet(path) {
+  const res = await fetch(path);
+  if (!res.ok) throw new Error(`${path} a répondu ${res.status}`);
+  return res.json();
+}
+async function apiPost(path, body) {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `${path} a répondu ${res.status}`);
+  }
+  return res.json();
+}
+
 export default function App() {
-  const [owners, setOwners] = useState(seedOwners);
-  const [drivers, setDrivers] = useState(seedDrivers);
-  const [vehicles, setVehicles] = useState(seedVehicles);
+  const [owners, setOwners] = useState([]);
+  const [drivers, setDrivers] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [page, setPage] = useState("dashboard");
   const [showForm, setShowForm] = useState(false);
   const [ficheVehicle, setFicheVehicle] = useState(null);
   const [cardDriver, setCardDriver] = useState(null);
   const [search, setSearch] = useState("");
 
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [o, d, v] = await Promise.all([
+          apiGet("/api/proprietaires"),
+          apiGet("/api/chauffeurs"),
+          apiGet("/api/vehicules"),
+        ]);
+        if (cancelled) return;
+        setOwners(o);
+        setDrivers(d);
+        setVehicles(v);
+      } catch (err) {
+        if (!cancelled) setLoadError(err.message || "Impossible de charger les données depuis la base.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const alerts = useMemo(() => computeAlerts(vehicles, owners, drivers), [vehicles, owners, drivers]);
   const critical = alerts.filter((a) => a.days !== null && a.days <= 30);
 
-  const addOwner = (o) => setOwners((s) => [...s, o]);
-  const addDriver = (d) => setDrivers((s) => [...s, d]);
-  const addVehicle = (v) => { setVehicles((s) => [...s, v]); setShowForm(false); setFicheVehicle(v); };
+  // Chaque fonction écrit d'abord en base (Neon), puis synchronise l'état local
+  // avec l'enregistrement réel renvoyé par le serveur (id, valeurs par défaut…).
+  const addOwner = async (o) => {
+    const created = await apiPost("/api/proprietaires", o);
+    setOwners((s) => [...s, created]);
+    return created;
+  };
+  const addDriver = async (d) => {
+    const created = await apiPost("/api/chauffeurs", d);
+    setDrivers((s) => [...s, created]);
+    return created;
+  };
+  const addVehicle = async (v) => {
+    const created = await apiPost("/api/vehicules", v);
+    setVehicles((s) => [...s, created]);
+    setShowForm(false);
+    setFicheVehicle(created);
+    return created;
+  };
 
   const filteredVehicles = vehicles.filter((v) =>
     !search || v.immatriculation.toLowerCase().includes(search.toLowerCase()) || v.marque.toLowerCase().includes(search.toLowerCase()) || v.modele.toLowerCase().includes(search.toLowerCase())
@@ -733,12 +769,30 @@ export default function App() {
                 <Search size={15} color={C.slate} />
                 <input placeholder="Rechercher un véhicule…" value={search} onChange={(e) => setSearch(e.target.value)} className="font-body text-sm" style={{ border: "none", outline: "none", width: 180 }} />
               </div>
-              <button onClick={() => setShowForm(true)} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: C.orange, color: "#fff" }}>
+              <button onClick={() => setShowForm(true)} disabled={loading} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: loading ? "#D8B48A" : C.orange, color: "#fff", cursor: loading ? "not-allowed" : "pointer" }}>
                 <Plus size={16} /> Ajouter un véhicule
               </button>
             </div>
           </div>
 
+          {loadError && (
+            <div className="font-body text-sm mb-5 px-4 py-3 rounded-lg" style={{ background: C.redLight, color: C.red }}>
+              {loadError} — vérifiez que <code>DATABASE_URL</code> est bien configurée (Vercel en production, <code>.env.local</code> en local avec <code>vercel dev</code>).
+            </div>
+          )}
+
+          {loading && !loadError && (
+            <div className="font-body text-sm mb-5" style={{ color: C.slate }}>Chargement des données depuis la base…</div>
+          )}
+
+          {!loading && !loadError && vehicles.length === 0 && owners.length === 0 && drivers.length === 0 && page === "dashboard" && (
+            <div className="font-body text-sm mb-5 px-4 py-3 rounded-lg" style={{ background: C.greenLight, color: C.greenDark }}>
+              La base est vide. Ajoutez un véhicule pour commencer, ou lancez <code>npm run db:seed</code> depuis votre terminal pour charger des données de démonstration.
+            </div>
+          )}
+
+          {!loading && (
+          <>
           {page === "dashboard" && (
             <div className="flex flex-col gap-6">
               <div className="flex gap-4">
@@ -855,6 +909,8 @@ export default function App() {
                 ))}
               </div>
             </SectionCard>
+          )}
+          </>
           )}
         </main>
       </div>
