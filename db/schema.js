@@ -8,6 +8,8 @@ export const proprietaires = pgTable("proprietaires", {
   nom: varchar("nom", { length: 120 }).notNull(),
   prenoms: varchar("prenoms", { length: 120 }).notNull(),
   cni: varchar("cni", { length: 40 }).notNull(),
+  carteTransporteurNumero: varchar("carte_transporteur_numero", { length: 60 }),
+  numeroPermis: varchar("numero_permis", { length: 60 }),
   contact1: varchar("contact1", { length: 30 }),
   contact2: varchar("contact2", { length: 30 }),
   contact3: varchar("contact3", { length: 30 }),
@@ -45,6 +47,7 @@ export const vehicules = pgTable("vehicules", {
   modele: varchar("modele", { length: 120 }).notNull(),
   chassis: varchar("chassis", { length: 60 }).notNull().unique(),
   carteGrise: varchar("carte_grise", { length: 60 }),
+  nomCarteGrise: varchar("nom_carte_grise", { length: 160 }), // titulaire inscrit sur la carte grise (peut différer du propriétaire actuel)
   immatriculation: varchar("immatriculation", { length: 30 }).notNull().unique(),
   dateMiseCirculation: date("date_mise_circulation"),
   photoUrl: text("photo_url"),

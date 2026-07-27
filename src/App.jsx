@@ -96,7 +96,18 @@ function ficheUrl(vehicleId) {
 /* ============================================================
    SMALL UI PRIMITIVES
    ============================================================ */
-function Badge({ status }) {
+function Badge({ status, small }) {
+  if (small) {
+    return (
+      <span
+        className="font-body inline-flex items-center gap-1 rounded-full font-semibold"
+        style={{ color: status.color, background: status.bg, padding: "1.5px 6px", fontSize: 7.5, whiteSpace: "nowrap" }}
+      >
+        <span style={{ width: 4, height: 4, borderRadius: 999, background: status.color, flexShrink: 0 }} />
+        {status.label}
+      </span>
+    );
+  }
   return (
     <span
       className="font-body inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
@@ -327,6 +338,7 @@ function VehicleForm({ owners, drivers, onCancel, onSave, addOwner, addDriver })
   const [modele, setModele] = useState("");
   const [chassis, setChassis] = useState("");
   const [carteGrise, setCarteGrise] = useState("");
+  const [nomCarteGrise, setNomCarteGrise] = useState("");
   const [immatriculation, setImmatriculation] = useState("");
   const [dateMiseCirculation, setDateMiseCirculation] = useState("");
   const [photo, setPhoto] = useState(null);
@@ -334,11 +346,11 @@ function VehicleForm({ owners, drivers, onCancel, onSave, addOwner, addDriver })
 
   const [ownerMode, setOwnerMode] = useState(owners.length ? "existing" : "new"); // existing | new
   const [ownerId, setOwnerId] = useState(owners[0]?.id || "");
-  const [newOwner, setNewOwner] = useState({ nom: "", prenoms: "", cni: "", contact1: "", contact2: "", contact3: "", email: "", ville: "", quartier: "", photo: null });
+  const [newOwner, setNewOwner] = useState({ nom: "", prenoms: "", cni: "", carteTransporteurNumero: "", numeroPermis: "", contact1: "", contact2: "", contact3: "", email: "", ville: "", quartier: "", photo: null });
 
   const [driverRows, setDriverRows] = useState([{ mode: drivers.length ? "existing" : "new", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null } }]);
 
-  const addDriverRow = () => setDriverRows((r) => [...r, { mode: "existing", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null } }]);
+  const addDriverRow = () => setDriverRows((r) => r.length >= 3 ? r : [...r, { mode: "existing", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null } }]);
   const removeDriverRow = (i) => setDriverRows((r) => r.filter((_, idx) => idx !== i));
   const updateDriverRow = (i, patch) => setDriverRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
   const updateDriverDraft = (i, patch) => setDriverRows((r) => r.map((row, idx) => (idx === i ? { ...row, draft: { ...row.draft, ...patch } } : row)));
@@ -375,7 +387,7 @@ function VehicleForm({ owners, drivers, onCancel, onSave, addOwner, addDriver })
       }
 
       await onSave({
-        marque, modele, chassis, carteGrise, immatriculation, dateMiseCirculation, photo,
+        marque, modele, chassis, carteGrise, nomCarteGrise, immatriculation, dateMiseCirculation, photo,
         documents: docs,
         proprietaireId: finalOwnerId || null,
         chauffeurIds: finalDriverIds,
@@ -403,6 +415,7 @@ function VehicleForm({ owners, drivers, onCancel, onSave, addOwner, addDriver })
               <Field label="Modèle"><TextInput value={modele} onChange={(e) => setModele(e.target.value)} placeholder="Hiace 18 places" /></Field>
               <Field label="Numéro de châssis"><TextInput value={chassis} onChange={(e) => setChassis(e.target.value)} placeholder="JT731HB0900123456" /></Field>
               <Field label="Numéro carte grise"><TextInput value={carteGrise} onChange={(e) => setCarteGrise(e.target.value)} placeholder="CG-2024-000000" /></Field>
+              <Field label="Nom sur la carte grise" hint="Peut différer du propriétaire actuel"><TextInput value={nomCarteGrise} onChange={(e) => setNomCarteGrise(e.target.value)} placeholder="Nom du titulaire inscrit sur le document" /></Field>
               <Field label="Numéro d'immatriculation"><TextInput value={immatriculation} onChange={(e) => setImmatriculation(e.target.value)} placeholder="CI 1234 AB 01" /></Field>
               <Field label="1ère mise en circulation"><DateInput value={dateMiseCirculation} onChange={(e) => setDateMiseCirculation(e.target.value)} /></Field>
             </div>
@@ -447,6 +460,8 @@ function VehicleForm({ owners, drivers, onCancel, onSave, addOwner, addDriver })
                   <Field label="Nom"><TextInput value={newOwner.nom} onChange={(e) => setNewOwner({ ...newOwner, nom: e.target.value })} /></Field>
                   <Field label="Prénoms"><TextInput value={newOwner.prenoms} onChange={(e) => setNewOwner({ ...newOwner, prenoms: e.target.value })} /></Field>
                   <Field label="Numéro CNI"><TextInput value={newOwner.cni} onChange={(e) => setNewOwner({ ...newOwner, cni: e.target.value })} /></Field>
+                  <Field label="Numéro carte transporteur"><TextInput value={newOwner.carteTransporteurNumero} onChange={(e) => setNewOwner({ ...newOwner, carteTransporteurNumero: e.target.value })} /></Field>
+                  <Field label="Numéro permis de conduire"><TextInput value={newOwner.numeroPermis} onChange={(e) => setNewOwner({ ...newOwner, numeroPermis: e.target.value })} /></Field>
                   <Field label="Adresse email"><TextInput value={newOwner.email} onChange={(e) => setNewOwner({ ...newOwner, email: e.target.value })} /></Field>
                   <Field label="Contact 1"><TextInput value={newOwner.contact1} onChange={(e) => setNewOwner({ ...newOwner, contact1: e.target.value })} /></Field>
                   <Field label="Contact 2"><TextInput value={newOwner.contact2} onChange={(e) => setNewOwner({ ...newOwner, contact2: e.target.value })} /></Field>
@@ -463,10 +478,16 @@ function VehicleForm({ owners, drivers, onCancel, onSave, addOwner, addDriver })
           <SectionCard
             accent={C.greenDark}
             icon={<Users size={18} />}
-            title="Chauffeur(s)"
+            title={`Chauffeur(s) — ${driverRows.length}/3`}
             right={
-              <button type="button" onClick={addDriverRow} className="font-body flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full" style={{ background: C.greenLight, color: C.greenDark }}>
-                <Plus size={14} /> Ajouter un chauffeur
+              <button
+                type="button"
+                onClick={addDriverRow}
+                disabled={driverRows.length >= 3}
+                className="font-body flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full"
+                style={{ background: driverRows.length >= 3 ? "#E4E1D8" : C.greenLight, color: driverRows.length >= 3 ? C.slate : C.greenDark, cursor: driverRows.length >= 3 ? "not-allowed" : "pointer" }}
+              >
+                <Plus size={14} /> {driverRows.length >= 3 ? "Maximum atteint (3)" : "Ajouter un chauffeur"}
               </button>
             }
           >
@@ -579,34 +600,35 @@ function FicheVehicule({ vehicle, owners, drivers, onClose }) {
         </div>
         <TricolorRule />
 
-        <div style={{ padding: 28 }}>
+        <div style={{ padding: "16px 22px 14px" }}>
 
         {/* Véhicule */}
-        <div className="mb-6">
-          <div className="font-display flex items-center gap-2 mb-3" style={{ fontSize: 15, fontWeight: 600, color: C.green }}>
-            <Car size={16} /> Véhicule
+        <div className="mb-3">
+          <div className="font-display flex items-center gap-1.5 mb-2" style={{ fontSize: 12.5, fontWeight: 700, color: C.green }}>
+            <Car size={13} /> Véhicule
           </div>
-          <div className="flex gap-5">
-            <div style={{ width: 84, height: 84, borderRadius: 10, overflow: "hidden", background: C.cream, flexShrink: 0, border: `1px solid ${C.border}` }}>
-              {vehicle.photo ? <img src={vehicle.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center"><Car size={26} color={C.slate} /></div>}
+          <div className="flex gap-3">
+            <div style={{ width: 54, height: 54, borderRadius: 8, overflow: "hidden", background: C.cream, flexShrink: 0, border: `1px solid ${C.border}` }}>
+              {vehicle.photo ? <img src={vehicle.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center"><Car size={18} color={C.slate} /></div>}
             </div>
-            <div className="font-body grid grid-cols-3 gap-x-6 gap-y-2 text-sm flex-1" style={{ color: C.ink }}>
-              <div><span style={{ color: C.slate }}>Marque</span><div className="font-medium">{vehicle.marque}</div></div>
-              <div><span style={{ color: C.slate }}>Modèle</span><div className="font-medium">{vehicle.modele}</div></div>
-              <div><span style={{ color: C.slate }}>Immatriculation</span><div className="font-mono font-medium">{vehicle.immatriculation}</div></div>
-              <div><span style={{ color: C.slate }}>Châssis</span><div className="font-mono font-medium">{vehicle.chassis}</div></div>
-              <div><span style={{ color: C.slate }}>Carte grise</span><div className="font-mono font-medium">{vehicle.carteGrise}</div></div>
-              <div><span style={{ color: C.slate }}>Mise en circulation</span><div className="font-medium">{fmt(vehicle.dateMiseCirculation)}</div></div>
+            <div className="font-body grid grid-cols-4 gap-x-3 gap-y-1 flex-1" style={{ color: C.ink, fontSize: 10.5 }}>
+              <div><span style={{ color: C.slate, fontSize: 8.5 }}>Marque</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{vehicle.marque}</div></div>
+              <div><span style={{ color: C.slate, fontSize: 8.5 }}>Modèle</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{vehicle.modele}</div></div>
+              <div><span style={{ color: C.slate, fontSize: 8.5 }}>Immatriculation</span><div className="font-mono font-medium" style={{ lineHeight: 1.3 }}>{vehicle.immatriculation}</div></div>
+              <div><span style={{ color: C.slate, fontSize: 8.5 }}>Châssis</span><div className="font-mono font-medium" style={{ lineHeight: 1.3 }}>{vehicle.chassis}</div></div>
+              <div><span style={{ color: C.slate, fontSize: 8.5 }}>Carte grise n°</span><div className="font-mono font-medium" style={{ lineHeight: 1.3 }}>{vehicle.carteGrise || "—"}</div></div>
+              <div><span style={{ color: C.slate, fontSize: 8.5 }}>Nom sur carte grise</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{vehicle.nomCarteGrise || "—"}</div></div>
+              <div><span style={{ color: C.slate, fontSize: 8.5 }}>Mise en circulation</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{fmt(vehicle.dateMiseCirculation)}</div></div>
             </div>
           </div>
-          <div className="grid grid-cols-4 gap-3 mt-4">
+          <div className="grid grid-cols-4 gap-2 mt-2">
             {[["Visite technique", vehicle.documents.visiteTechnique], ["Assurance auto", vehicle.documents.assuranceAuto], ["Vignette", vehicle.documents.vignette], ["Carte stationnement", vehicle.documents.carteStationnement]].map(([label, date]) => {
               const s = statusOf(date);
               return (
-                <div key={label} style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
-                  <div className="font-body text-[11px] mb-1" style={{ color: C.slate }}>{label}</div>
-                  <div className="font-mono text-xs mb-1.5" style={{ color: C.ink }}>{fmt(date)}</div>
-                  <Badge status={s} />
+                <div key={label} style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: "5px 7px" }}>
+                  <div className="font-body" style={{ fontSize: 8, marginBottom: 2, color: C.slate }}>{label}</div>
+                  <div className="font-mono" style={{ fontSize: 9.5, marginBottom: 3, color: C.ink }}>{fmt(date)}</div>
+                  <Badge status={s} small />
                 </div>
               );
             })}
@@ -616,27 +638,29 @@ function FicheVehicule({ vehicle, owners, drivers, onClose }) {
         <div style={{ height: 1, background: C.border }} />
 
         {/* Propriétaire */}
-        <div className="my-6">
-          <div className="font-display flex items-center gap-2 mb-3" style={{ fontSize: 15, fontWeight: 600, color: C.orangeDark }}>
-            <User size={16} /> Propriétaire
+        <div className="my-3">
+          <div className="font-display flex items-center gap-1.5 mb-2" style={{ fontSize: 12.5, fontWeight: 700, color: C.orangeDark }}>
+            <User size={13} /> Propriétaire
           </div>
           {owner ? (
-            <div className="flex gap-5">
-              <div style={{ width: 64, height: 64, borderRadius: 999, overflow: "hidden", background: C.cream, flexShrink: 0, border: `1px solid ${C.border}` }}>
-                {owner.photo ? <img src={owner.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-semibold" style={{ color: C.slate }}>{initials(owner.nom, owner.prenoms)}</div>}
+            <div className="flex gap-3">
+              <div style={{ width: 44, height: 44, borderRadius: 999, overflow: "hidden", background: C.cream, flexShrink: 0, border: `1px solid ${C.border}` }}>
+                {owner.photo ? <img src={owner.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-semibold" style={{ color: C.slate, fontSize: 11 }}>{initials(owner.nom, owner.prenoms)}</div>}
               </div>
-              <div className="font-body grid grid-cols-3 gap-x-6 gap-y-2 text-sm flex-1" style={{ color: C.ink }}>
-                <div><span style={{ color: C.slate }}>Nom & prénoms</span><div className="font-medium">{owner.prenoms} {owner.nom}</div></div>
-                <div><span style={{ color: C.slate }}>CNI</span><div className="font-mono font-medium">{owner.cni}</div></div>
-                <div><span style={{ color: C.slate }}>Email</span><div className="font-medium">{owner.email || "—"}</div></div>
-                <div><span style={{ color: C.slate }}>Contacts</span><div className="font-medium">{[owner.contact1, owner.contact2, owner.contact3].filter(Boolean).join(" · ")}</div></div>
-                <div><span style={{ color: C.slate }}>Ville</span><div className="font-medium">{owner.ville}</div></div>
-                <div><span style={{ color: C.slate }}>Quartier</span><div className="font-medium">{owner.quartier}</div></div>
+              <div className="font-body grid grid-cols-4 gap-x-3 gap-y-1 flex-1" style={{ color: C.ink, fontSize: 10.5 }}>
+                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Nom & prénoms</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.prenoms} {owner.nom}</div></div>
+                <div><span style={{ color: C.slate, fontSize: 8.5 }}>CNI</span><div className="font-mono font-medium" style={{ lineHeight: 1.3 }}>{owner.cni}</div></div>
+                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Carte transporteur</span><div className="font-mono font-medium" style={{ lineHeight: 1.3 }}>{owner.carteTransporteurNumero || "—"}</div></div>
+                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Permis de conduire</span><div className="font-mono font-medium" style={{ lineHeight: 1.3 }}>{owner.numeroPermis || "—"}</div></div>
+                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Contacts</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{[owner.contact1, owner.contact2, owner.contact3].filter(Boolean).join(" · ")}</div></div>
+                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Email</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.email || "—"}</div></div>
+                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Ville</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.ville}</div></div>
+                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Quartier</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.quartier}</div></div>
               </div>
             </div>
-          ) : <div className="font-body text-sm" style={{ color: C.slate }}>Aucun propriétaire enregistré.</div>}
+          ) : <div className="font-body text-xs" style={{ color: C.slate }}>Aucun propriétaire enregistré.</div>}
           {vehicle.historiqueProprietaires.length > 1 && (
-            <div className="font-body text-[11px] mt-3" style={{ color: C.slate }}>
+            <div className="font-body" style={{ fontSize: 8.5, marginTop: 6, color: C.slate }}>
               Historique : {vehicle.historiqueProprietaires.map((h, i) => {
                 const o = owners.find((x) => x.id === h.proprietaireId);
                 return `${o ? o.prenoms + " " + o.nom : "?"} (depuis ${fmt(h.depuis)})`;
@@ -647,63 +671,80 @@ function FicheVehicule({ vehicle, owners, drivers, onClose }) {
 
         <div style={{ height: 1, background: C.border }} />
 
-        {/* Chauffeurs */}
-        <div className="mt-6">
-          <div className="font-display flex items-center gap-2 mb-3" style={{ fontSize: 15, fontWeight: 600, color: C.greenDark }}>
-            <Users size={16} /> Chauffeur{vDrivers.length > 1 ? "s" : ""}
+        {/* Chauffeurs — tableau compact, jusqu'à 3 par véhicule */}
+        <div className="mt-3">
+          <div className="font-display flex items-center gap-1.5 mb-2" style={{ fontSize: 12.5, fontWeight: 700, color: C.greenDark }}>
+            <Users size={13} /> Chauffeur{vDrivers.length > 1 ? "s" : ""} ({vDrivers.length}/3)
           </div>
-          <div className="flex flex-col gap-4">
-            {vDrivers.map((d) => {
-              const s = statusOf(d.permisDateFin);
-              return (
-                <div key={d.id} className="flex gap-5">
-                  <div style={{ width: 64, height: 64, borderRadius: 999, overflow: "hidden", background: C.cream, flexShrink: 0, border: `1px solid ${C.border}` }}>
-                    {d.photo ? <img src={d.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-semibold" style={{ color: C.slate }}>{initials(d.nom, d.prenoms)}</div>}
-                  </div>
-                  <div className="font-body grid grid-cols-3 gap-x-6 gap-y-2 text-sm flex-1" style={{ color: C.ink }}>
-                    <div><span style={{ color: C.slate }}>Nom & prénoms</span><div className="font-medium">{d.prenoms} {d.nom}</div></div>
-                    <div><span style={{ color: C.slate }}>CNI</span><div className="font-mono font-medium">{d.cni}</div></div>
-                    <div><span style={{ color: C.slate }}>Permis n°</span><div className="font-mono font-medium">{d.permisNumero}</div></div>
-                    <div><span style={{ color: C.slate }}>Fin validité permis</span><div className="font-medium flex items-center gap-2">{fmt(d.permisDateFin)} <Badge status={s} /></div></div>
-                    <div><span style={{ color: C.slate }}>Contacts</span><div className="font-medium">{[d.contact1, d.contact2, d.contact3].filter(Boolean).join(" · ")}</div></div>
-                    <div><span style={{ color: C.slate }}>Email</span><div className="font-medium">{d.email || "—"}</div></div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {vDrivers.length === 0 ? (
+            <div className="font-body text-xs" style={{ color: C.slate }}>Aucun chauffeur affecté.</div>
+          ) : (
+            <table className="w-full font-body" style={{ borderCollapse: "collapse", fontSize: 9.5 }}>
+              <thead>
+                <tr style={{ color: C.slate, fontSize: 8 }}>
+                  <th className="text-left" style={{ paddingBottom: 3, fontWeight: 500 }}></th>
+                  <th className="text-left" style={{ paddingBottom: 3, fontWeight: 500 }}>Nom & prénoms</th>
+                  <th className="text-left" style={{ paddingBottom: 3, fontWeight: 500 }}>CNI</th>
+                  <th className="text-left" style={{ paddingBottom: 3, fontWeight: 500 }}>Permis n°</th>
+                  <th className="text-left" style={{ paddingBottom: 3, fontWeight: 500 }}>Fin validité</th>
+                  <th className="text-left" style={{ paddingBottom: 3, fontWeight: 500 }}>Contacts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vDrivers.map((d) => {
+                  const s = statusOf(d.permisDateFin);
+                  return (
+                    <tr key={d.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                      <td style={{ padding: "4px 6px 4px 0" }}>
+                        <div style={{ width: 26, height: 26, borderRadius: 999, overflow: "hidden", background: C.cream, border: `1px solid ${C.border}` }}>
+                          {d.photo ? <img src={d.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-semibold" style={{ color: C.slate, fontSize: 7.5 }}>{initials(d.nom, d.prenoms)}</div>}
+                        </div>
+                      </td>
+                      <td className="font-medium" style={{ padding: "4px 6px" }}>{d.prenoms} {d.nom}</td>
+                      <td className="font-mono" style={{ padding: "4px 6px" }}>{d.cni}</td>
+                      <td className="font-mono" style={{ padding: "4px 6px" }}>{d.permisNumero}</td>
+                      <td style={{ padding: "4px 6px" }}>
+                        <div className="flex items-center gap-1.5">{fmt(d.permisDateFin)} <Badge status={s} small /></div>
+                      </td>
+                      <td style={{ padding: "4px 6px" }}>{[d.contact1, d.contact2].filter(Boolean).join(" · ")}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* Signature & authentification */}
-        <div className="mt-8 pt-6" style={{ borderTop: `1.5px dashed ${C.border}` }}>
-          <div className="flex items-start justify-between gap-8">
+        <div className="mt-4 pt-3" style={{ borderTop: `1.5px dashed ${C.border}` }}>
+          <div className="flex items-start justify-between gap-6">
             <div className="flex flex-col items-center">
-              <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 8, padding: 8 }}>
-                <QRCodeSVG value={ficheUrl(vehicle.id)} size={110} bgColor="#ffffff" fgColor={C.ink} level="M" />
+              <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 6, padding: 5 }}>
+                <QRCodeSVG value={ficheUrl(vehicle.id)} size={72} bgColor="#ffffff" fgColor={C.ink} level="M" />
               </div>
-              <div className="font-body text-center mt-2" style={{ fontSize: 11, color: C.slate }}>
+              <div className="font-body text-center" style={{ fontSize: 8.5, color: C.slate, marginTop: 4 }}>
                 Scanner pour ouvrir cette fiche en ligne
               </div>
-              <div className="font-body text-center" style={{ fontSize: 10.5, color: C.slate }}>
+              <div className="font-body text-center" style={{ fontSize: 8.5, color: C.slate }}>
                 Fait à Abidjan, le {fmt(new Date().toISOString().slice(0, 10))}
               </div>
             </div>
 
-            <div className="flex flex-col items-center" style={{ minWidth: 220 }}>
+            <div className="flex flex-col items-center" style={{ minWidth: 170 }}>
               <div
                 style={{
-                  width: 72, height: 72, borderRadius: 999, border: `1.5px dashed ${C.slate}`,
-                  display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10,
-                  color: C.slate, fontSize: 9, textAlign: "center", lineHeight: 1.25,
+                  width: 50, height: 50, borderRadius: 999, border: `1.5px dashed ${C.slate}`,
+                  display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 6,
+                  color: C.slate, fontSize: 7, textAlign: "center", lineHeight: 1.2,
                 }}
                 className="font-body"
               >
                 CACHET<br />MUGETRAN-CI
               </div>
-              <div style={{ width: 220, borderBottom: `1px solid ${C.ink}`, height: 34 }} />
-              <div className="font-body text-center mt-2" style={{ fontSize: 11.5, color: C.ink }}>
+              <div style={{ width: 170, borderBottom: `1px solid ${C.ink}`, height: 22 }} />
+              <div className="font-body text-center" style={{ fontSize: 9.5, color: C.ink, marginTop: 4 }}>
                 <div style={{ fontWeight: 700 }}>Le Président de la Mutuelle</div>
-                <div style={{ color: C.slate }}>MUGETRAN-CI</div>
+                <div style={{ color: C.slate, fontSize: 8.5 }}>MUGETRAN-CI</div>
               </div>
             </div>
           </div>
