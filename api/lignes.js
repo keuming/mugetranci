@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
-import { db } from "../../db/index.js";
-import { lignes, affectations } from "../../db/schema.js";
-import { requireAuth } from "../../lib/auth.js";
+import { db } from "../db/index.js";
+import { lignes, affectations } from "../db/schema.js";
+import { requireAuth } from "../lib/auth.js";
 
 export default async function handler(req, res) {
   const idParam = req.query.id;

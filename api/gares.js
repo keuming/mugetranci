@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
-import { db } from "../../db/index.js";
-import { gares, lignes } from "../../db/schema.js";
-import { requireAuth, requireAdmin } from "../../lib/auth.js";
+import { db } from "../db/index.js";
+import { gares, lignes } from "../db/schema.js";
+import { requireAuth, requireAdmin } from "../lib/auth.js";
 
 function toApi(row) {
   const { pinCode, ...rest } = row; // le PIN ne transite jamais côté client, admin inclus

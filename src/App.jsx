@@ -1285,32 +1285,32 @@ function Dashboard({ auth, onLogout }) {
     return created;
   };
   const updateDriverPhoto = async (driverId, photoDataUrl) => {
-    const updated = await apiPatch(`/api/chauffeurs/${driverId}`, { photo: photoDataUrl });
+    const updated = await apiPatch(`/api/chauffeurs?id=${driverId}`, { photo: photoDataUrl });
     setDrivers((s) => s.map((d) => (d.id === driverId ? updated : d)));
   };
   const updateDriverQr = async (driverId, qrDataUrl) => {
-    const updated = await apiPatch(`/api/chauffeurs/${driverId}`, { qrPaiement: qrDataUrl });
+    const updated = await apiPatch(`/api/chauffeurs?id=${driverId}`, { qrPaiement: qrDataUrl });
     setDrivers((s) => s.map((d) => (d.id === driverId ? updated : d)));
   };
   const updateOwnerPhoto = async (ownerId, photoDataUrl) => {
-    const updated = await apiPatch(`/api/proprietaires/${ownerId}`, { photo: photoDataUrl });
+    const updated = await apiPatch(`/api/proprietaires?id=${ownerId}`, { photo: photoDataUrl });
     setOwners((s) => s.map((o) => (o.id === ownerId ? updated : o)));
   };
   const updateVehiclePhoto = async (vehiculeId, photoDataUrl) => {
-    const updated = await apiPatch(`/api/vehicules/${vehiculeId}`, { photo: photoDataUrl });
+    const updated = await apiPatch(`/api/vehicules?id=${vehiculeId}`, { photo: photoDataUrl });
     // La route renvoie une forme "plate" (sans documents/chauffeurIds imbriqués) :
     // on ne fusionne que la photo pour ne pas perdre le reste de l'objet local.
     setVehicles((s) => s.map((v) => (v.id === vehiculeId ? { ...v, photo: updated.photo } : v)));
   };
   const updateVehicle = async (vehiculeId, payload) => {
-    const updated = await apiPatch(`/api/vehicules/${vehiculeId}`, payload);
+    const updated = await apiPatch(`/api/vehicules?id=${vehiculeId}`, payload);
     setVehicles((s) => s.map((v) => (v.id === vehiculeId
       ? { ...v, ...updated, documents: { ...v.documents, ...(payload.documents || {}) } }
       : v)));
     return updated;
   };
   const deleteVehicle = async (vehiculeId) => {
-    await apiDelete(`/api/vehicules/${vehiculeId}`);
+    await apiDelete(`/api/vehicules?id=${vehiculeId}`);
     setVehicles((s) => s.filter((v) => v.id !== vehiculeId));
   };
   const addAchat = async (payload) => {
@@ -1324,12 +1324,12 @@ function Dashboard({ auth, onLogout }) {
     return created;
   };
   const updateGare = async (gareId, payload) => {
-    const updated = await apiPatch(`/api/gares/${gareId}`, payload);
+    const updated = await apiPatch(`/api/gares?id=${gareId}`, payload);
     setGares((s) => s.map((g) => (g.id === gareId ? updated : g)));
     return updated;
   };
   const deleteGare = async (gareId) => {
-    await apiDelete(`/api/gares/${gareId}`);
+    await apiDelete(`/api/gares?id=${gareId}`);
     setGares((s) => s.filter((g) => g.id !== gareId));
   };
   const addLigne = async (payload) => {
@@ -1338,12 +1338,12 @@ function Dashboard({ auth, onLogout }) {
     return created;
   };
   const updateLigne = async (ligneId, payload) => {
-    const updated = await apiPatch(`/api/lignes/${ligneId}`, payload);
+    const updated = await apiPatch(`/api/lignes?id=${ligneId}`, payload);
     setLignes((s) => s.map((l) => (l.id === ligneId ? updated : l)));
     return updated;
   };
   const deleteLigne = async (ligneId) => {
-    await apiDelete(`/api/lignes/${ligneId}`);
+    await apiDelete(`/api/lignes?id=${ligneId}`);
     setLignes((s) => s.filter((l) => l.id !== ligneId));
   };
   const affecterVehicule = async (payload) => {

@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
-import { db } from "../../db/index.js";
+import { db } from "../db/index.js";
 import {
   vehicules, historiqueProprietaires, vehiculeChauffeurs, affectations, achatsCarburant,
-} from "../../db/schema.js";
-import { requireAuth } from "../../lib/auth.js";
+} from "../db/schema.js";
+import { requireAuth } from "../lib/auth.js";
 
 function toApiFull(vehicule, chauffeurIds = [], historique = []) {
   const {
