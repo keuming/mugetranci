@@ -224,7 +224,7 @@ function FileUploadButton({ label, icon, onUpload, style }) {
 /* Avatar circulaire cliquable : clic → sélection d'image → upload immédiat
    via onUpload(dataUrl). Utilisé pour ajouter/changer la photo d'une
    personne déjà créée (ex. chauffeur) directement depuis sa fiche/liste. */
-function AvatarUpload({ photo, nom, prenoms, size = 48, onUpload }) {
+function AvatarUpload({ photo, nom, prenoms, size = 48, onUpload, shape = "circle", fallbackIcon = null }) {
   const ref = useRef(null);
   const [uploading, setUploading] = useState(false);
   const onFile = (e) => {
@@ -248,12 +248,14 @@ function AvatarUpload({ photo, nom, prenoms, size = 48, onUpload }) {
       onClick={(e) => { e.stopPropagation(); ref.current?.click(); }}
       title="Cliquer pour ajouter/changer la photo"
       style={{
-        width: size, height: size, borderRadius: 999, overflow: "hidden", background: C.cream,
+        width: size, height: size, borderRadius: shape === "circle" ? 999 : 8, overflow: "hidden", background: C.cream,
         border: `1px solid ${C.border}`, flexShrink: 0, position: "relative", cursor: "pointer",
       }}
     >
       {photo ? (
         <img src={photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      ) : fallbackIcon ? (
+        <div className="w-full h-full flex items-center justify-center">{fallbackIcon}</div>
       ) : (
         <div className="w-full h-full flex items-center justify-center font-semibold text-sm" style={{ color: C.slate }}>{initials(nom, prenoms)}</div>
       )}
@@ -1077,6 +1079,16 @@ export default function App() {
     const updated = await apiPatch(`/api/chauffeurs/${driverId}`, { qrPaiement: qrDataUrl });
     setDrivers((s) => s.map((d) => (d.id === driverId ? updated : d)));
   };
+  const updateOwnerPhoto = async (ownerId, photoDataUrl) => {
+    const updated = await apiPatch(`/api/proprietaires/${ownerId}`, { photo: photoDataUrl });
+    setOwners((s) => s.map((o) => (o.id === ownerId ? updated : o)));
+  };
+  const updateVehiclePhoto = async (vehiculeId, photoDataUrl) => {
+    const updated = await apiPatch(`/api/vehicules/${vehiculeId}`, { photo: photoDataUrl });
+    // La route renvoie une forme "plate" (sans documents/chauffeurIds imbriqués) :
+    // on ne fusionne que la photo pour ne pas perdre le reste de l'objet local.
+    setVehicles((s) => s.map((v) => (v.id === vehiculeId ? { ...v, photo: updated.photo } : v)));
+  };
   const addAchat = async (payload) => {
     const created = await apiPost("/api/carburant", payload);
     setAchats((s) => [created, ...s]);
@@ -1206,14 +1218,14 @@ export default function App() {
               </SectionCard>
 
               <SectionCard accent={C.green} icon={<Car size={18} />} title="Véhicules récemment ajoutés">
-                <VehicleTable vehicles={vehicles.slice(-5).reverse()} owners={owners} onFiche={openFiche} />
+                <VehicleTable vehicles={vehicles.slice(-5).reverse()} owners={owners} onFiche={openFiche} onPhoto={updateVehiclePhoto} />
               </SectionCard>
             </div>
           )}
 
           {page === "vehicles" && (
             <SectionCard accent={C.green} icon={<Car size={18} />} title={`Tous les véhicules (${filteredVehicles.length})`}>
-              <VehicleTable vehicles={filteredVehicles} owners={owners} onFiche={openFiche} />
+              <VehicleTable vehicles={filteredVehicles} owners={owners} onFiche={openFiche} onPhoto={updateVehiclePhoto} />
             </SectionCard>
           )}
 
@@ -1224,9 +1236,7 @@ export default function App() {
                 return (
                   <div key={o.id} style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 18 }}>
                     <div className="flex items-center gap-3 mb-3">
-                      <div style={{ width: 48, height: 48, borderRadius: 999, overflow: "hidden", background: C.cream, border: `1px solid ${C.border}`, flexShrink: 0 }}>
-                        {o.photo ? <img src={o.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-semibold text-sm" style={{ color: C.slate }}>{initials(o.nom, o.prenoms)}</div>}
-                      </div>
+                      <AvatarUpload photo={o.photo} nom={o.nom} prenoms={o.prenoms} size={48} onUpload={(dataUrl) => updateOwnerPhoto(o.id, dataUrl)} />
                       <div>
                         <div className="font-semibold text-sm">{o.prenoms} {o.nom}</div>
                         <div className="text-xs" style={{ color: C.slate }}>{ownedCount} véhicule{ownedCount > 1 ? "s" : ""}</div>
@@ -1498,7 +1508,7 @@ function FuelPurchaseForm({ drivers, vehicles, onCancel, onSave }) {
   );
 }
 
-function VehicleTable({ vehicles, owners, onFiche }) {
+function VehicleTable({ vehicles, owners, onFiche, onPhoto }) {
   return (
     <table className="w-full font-body text-sm" style={{ borderCollapse: "collapse" }}>
       <thead>
@@ -1520,9 +1530,7 @@ function VehicleTable({ vehicles, owners, onFiche }) {
             <tr key={v.id} style={{ borderTop: `1px solid ${C.border}` }}>
               <td className="py-3">
                 <div className="flex items-center gap-3">
-                  <div style={{ width: 38, height: 38, borderRadius: 8, overflow: "hidden", background: C.cream, border: `1px solid ${C.border}`, flexShrink: 0 }}>
-                    {v.photo ? <img src={v.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center"><Car size={16} color={C.slate} /></div>}
-                  </div>
+                  <AvatarUpload photo={v.photo} size={38} shape="square" fallbackIcon={<Car size={16} color={C.slate} />} onUpload={(dataUrl) => onPhoto(v.id, dataUrl)} />
                   <div>
                     <div className="font-medium">{v.marque} {v.modele}</div>
                     <div className="text-xs" style={{ color: C.slate }}>{v.chauffeurIds.length} chauffeur{v.chauffeurIds.length > 1 ? "s" : ""}</div>
