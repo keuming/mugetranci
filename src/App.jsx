@@ -3,7 +3,7 @@ import { QRCodeSVG } from "qrcode.react";
 import {
   Car, User, Users, Bell, Plus, X, Check, AlertTriangle, CreditCard,
   Camera, Printer, Search, Home, FileText, Phone, Mail, MapPin,
-  BadgeCheck, Calendar, ChevronRight, ChevronLeft, RotateCw, Trash2, Building2
+  BadgeCheck, Calendar, ChevronRight, ChevronLeft, RotateCw, Trash2, Building2, QrCode, Fuel
 } from "lucide-react";
 
 /* ============================================================
@@ -179,6 +179,37 @@ function PhotoUpload({ value, onChange, label, shape = "circle" }) {
   );
 }
 
+/* Bouton compact déclenchant un import de fichier immédiat (upload direct,
+   pas de formulaire). Utilisé pour le QR de paiement d'un chauffeur existant. */
+function FileUploadButton({ label, icon, onUpload, style }) {
+  const ref = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const onFile = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      setBusy(true);
+      try {
+        await onUpload(ev.target.result);
+      } catch (err) {
+        alert(err.message || "Échec de l'envoi du fichier.");
+      } finally {
+        setBusy(false);
+      }
+    };
+    reader.readAsDataURL(f);
+  };
+  return (
+    <>
+      <button type="button" onClick={() => ref.current?.click()} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={style}>
+        {icon} {busy ? "Envoi…" : label}
+      </button>
+      <input ref={ref} type="file" accept="image/*" onChange={onFile} style={{ display: "none" }} />
+    </>
+  );
+}
+
 /* Avatar circulaire cliquable : clic → sélection d'image → upload immédiat
    via onUpload(dataUrl). Utilisé pour ajouter/changer la photo d'une
    personne déjà créée (ex. chauffeur) directement depuis sa fiche/liste. */
@@ -305,9 +336,9 @@ function VehicleForm({ owners, drivers, onCancel, onSave, addOwner, addDriver })
   const [ownerId, setOwnerId] = useState(owners[0]?.id || "");
   const [newOwner, setNewOwner] = useState({ nom: "", prenoms: "", cni: "", contact1: "", contact2: "", contact3: "", email: "", ville: "", quartier: "", photo: null });
 
-  const [driverRows, setDriverRows] = useState([{ mode: drivers.length ? "existing" : "new", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null } }]);
+  const [driverRows, setDriverRows] = useState([{ mode: drivers.length ? "existing" : "new", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null } }]);
 
-  const addDriverRow = () => setDriverRows((r) => [...r, { mode: "existing", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null } }]);
+  const addDriverRow = () => setDriverRows((r) => [...r, { mode: "existing", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null } }]);
   const removeDriverRow = (i) => setDriverRows((r) => r.filter((_, idx) => idx !== i));
   const updateDriverRow = (i, patch) => setDriverRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
   const updateDriverDraft = (i, patch) => setDriverRows((r) => r.map((row, idx) => (idx === i ? { ...row, draft: { ...row.draft, ...patch } } : row)));
@@ -464,7 +495,10 @@ function VehicleForm({ owners, drivers, onCancel, onSave, addOwner, addDriver })
                     )
                   ) : (
                     <div className="flex flex-col gap-4">
-                      <PhotoUpload value={row.draft.photo} onChange={(v) => updateDriverDraft(i, { photo: v })} label="Photo du chauffeur" />
+                      <div className="flex gap-6">
+                        <PhotoUpload value={row.draft.photo} onChange={(v) => updateDriverDraft(i, { photo: v })} label="Photo du chauffeur" />
+                        <PhotoUpload value={row.draft.qrPaiement} onChange={(v) => updateDriverDraft(i, { qrPaiement: v })} label="QR code de paiement (wallet Mobile Money)" shape="square" />
+                      </div>
                       <div className="grid grid-cols-2 gap-4">
                         <Field label="Nom"><TextInput value={row.draft.nom} onChange={(e) => updateDriverDraft(i, { nom: e.target.value })} /></Field>
                         <Field label="Prénoms"><TextInput value={row.draft.prenoms} onChange={(e) => updateDriverDraft(i, { prenoms: e.target.value })} /></Field>
@@ -691,8 +725,10 @@ function FicheVehicule({ vehicle, owners, drivers, onClose }) {
 /* ============================================================
    CARTE DE MEMBRE (chauffeur)
    ============================================================ */
-function cardUrl(driverId, face) {
-  return `${window.location.origin}${window.location.pathname}?carte=${driverId}&face=${face}`;
+function fuelQrData(driverId, carteGrise) {
+  // Format lu par l'app mobile du pompiste au scan : identifiant de la
+  // carte + numéro de carte grise du véhicule (pas une URL vers le dashboard).
+  return `carte=${driverId}&carteGrise=${encodeURIComponent(carteGrise || "")}`;
 }
 
 function CardFace({ driver, vehicle, side, scale = 1 }) {
@@ -731,15 +767,21 @@ function CardFace({ driver, vehicle, side, scale = 1 }) {
               <div className="font-mono" style={{ fontWeight: 600, fontSize: 12 }}>{vehicle?.immatriculation || "—"}</div>
               <div style={{ opacity: 0.75, marginTop: 4 }}>{driver.contact1}{driver.contact2 ? " · " + driver.contact2 : ""}</div>
             </div>
-            <div style={{ background: "#fff", borderRadius: 6, padding: 3 }}>
-              <QRCodeSVG value={cardUrl(driver.id, "paiement")} size={54} bgColor="#ffffff" fgColor={C.ink} level="M" />
+            {/* QR de paiement Mobile Money : image importée depuis le wallet du
+                chauffeur (pas générée par l'application). */}
+            <div style={{ background: "#fff", borderRadius: 6, padding: 3, width: 54, height: 54, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+              {driver.qrPaiement ? (
+                <img src={driver.qrPaiement} alt="QR paiement" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+              ) : (
+                <span className="font-body" style={{ fontSize: 6.5, color: C.slate, textAlign: "center", lineHeight: 1.15 }}>QR MobilePay<br />non importé</span>
+              )}
             </div>
           </div>
         </div>
       ) : (
         <div className="flex flex-col h-full items-center justify-center gap-2">
           <div style={{ background: "#fff", borderRadius: 8, padding: 6 }}>
-            <QRCodeSVG value={cardUrl(driver.id, "carburant")} size={92} bgColor="#ffffff" fgColor={C.ink} level="M" />
+            <QRCodeSVG value={fuelQrData(driver.id, vehicle?.carteGrise)} size={92} bgColor="#ffffff" fgColor={C.ink} level="M" />
           </div>
           <div className="font-body text-center" style={{ fontSize: 9.5, opacity: 0.85 }}>
             Pointage carburant en station · Carte n° {driver.id.slice(0, 8)}
@@ -899,21 +941,25 @@ export default function App() {
   const [cardDriver, setCardDriver] = useState(null);
   const [cardFace, setCardFace] = useState("recto");
   const [selectedDriverIds, setSelectedDriverIds] = useState([]);
+  const [achats, setAchats] = useState([]);
+  const [showFuelForm, setShowFuelForm] = useState(false);
   const [search, setSearch] = useState("");
 
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [o, d, v] = await Promise.all([
+        const [o, d, v, ac] = await Promise.all([
           apiGet("/api/proprietaires"),
           apiGet("/api/chauffeurs"),
           apiGet("/api/vehicules"),
+          apiGet("/api/carburant"),
         ]);
         if (cancelled) return;
         setOwners(o);
         setDrivers(d);
         setVehicles(v);
+        setAchats(ac);
 
         const params = new URLSearchParams(window.location.search);
 
@@ -986,6 +1032,15 @@ export default function App() {
     const updated = await apiPatch(`/api/chauffeurs/${driverId}`, { photo: photoDataUrl });
     setDrivers((s) => s.map((d) => (d.id === driverId ? updated : d)));
   };
+  const updateDriverQr = async (driverId, qrDataUrl) => {
+    const updated = await apiPatch(`/api/chauffeurs/${driverId}`, { qrPaiement: qrDataUrl });
+    setDrivers((s) => s.map((d) => (d.id === driverId ? updated : d)));
+  };
+  const addAchat = async (payload) => {
+    const created = await apiPost("/api/carburant", payload);
+    setAchats((s) => [created, ...s]);
+    return created;
+  };
   const addVehicle = async (v) => {
     const created = await apiPost("/api/vehicules", v);
     setVehicles((s) => [...s, created]);
@@ -1003,6 +1058,7 @@ export default function App() {
     { key: "vehicles", label: "Véhicules", icon: <Car size={17} /> },
     { key: "owners", label: "Propriétaires", icon: <User size={17} /> },
     { key: "drivers", label: "Chauffeurs", icon: <Users size={17} /> },
+    { key: "carburant", label: "Carburant", icon: <Fuel size={17} /> },
     { key: "alerts", label: "Alertes documents", icon: <Bell size={17} />, count: critical.length },
   ];
 
@@ -1048,7 +1104,7 @@ export default function App() {
           <div className="flex items-center justify-between mb-7">
             <div>
               <h1 className="font-display" style={{ fontSize: 24, fontWeight: 700 }}>
-                {{ dashboard: "Tableau de bord", vehicles: "Véhicules", owners: "Propriétaires", drivers: "Chauffeurs", alerts: "Alertes documents" }[page]}
+                {{ dashboard: "Tableau de bord", vehicles: "Véhicules", owners: "Propriétaires", drivers: "Chauffeurs", carburant: "Carburant", alerts: "Alertes documents" }[page]}
               </h1>
               <p className="text-sm" style={{ color: C.slate }}>Registre unifié véhicules · propriétaires · chauffeurs</p>
             </div>
@@ -1196,14 +1252,72 @@ export default function App() {
                     </div>
                     <div className="flex items-center justify-between">
                       <Badge status={s} />
-                      <button onClick={() => openCard(d)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: C.greenLight, color: C.greenDark }}>
-                        <CreditCard size={13} /> Carte membre
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <FileUploadButton
+                          label="QR paiement"
+                          icon={<QrCode size={13} />}
+                          onUpload={(dataUrl) => updateDriverQr(d.id, dataUrl)}
+                          style={{ background: d.qrPaiement ? C.greenLight : C.amberLight, color: d.qrPaiement ? C.greenDark : C.amber }}
+                        />
+                        <button onClick={() => openCard(d)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: C.greenLight, color: C.greenDark }}>
+                          <CreditCard size={13} /> Carte membre
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
               })}
               </div>
+            </div>
+          )}
+
+          {page === "carburant" && (
+            <div className="flex flex-col gap-6">
+              <div className="flex gap-4">
+                <StatCard icon={<Fuel size={17} />} label="Volume total (litres)" value={achats.reduce((s, a) => s + a.volumeLitres, 0).toLocaleString("fr-FR")} accent={C.green} />
+                <StatCard icon={<CreditCard size={17} />} label="Montant total (FCFA)" value={achats.reduce((s, a) => s + a.montantFcfa, 0).toLocaleString("fr-FR")} accent={C.orange} />
+                <StatCard icon={<BadgeCheck size={17} />} label="Commission Mutuelle (FCFA)" value={achats.reduce((s, a) => s + a.commissionFcfa, 0).toLocaleString("fr-FR")} accent={C.greenDark} />
+              </div>
+
+              <SectionCard
+                accent={C.orange}
+                icon={<Fuel size={18} />}
+                title={`Achats de carburant (${achats.length})`}
+                right={
+                  <button onClick={() => setShowFuelForm(true)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: C.orange, color: "#fff" }}>
+                    <Plus size={14} /> Enregistrer un achat
+                  </button>
+                }
+              >
+                {achats.length === 0 ? (
+                  <p className="font-body text-sm" style={{ color: C.slate }}>Aucun achat enregistré pour le moment.</p>
+                ) : (
+                  <table className="w-full font-body text-sm" style={{ borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ color: C.slate, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                        <th className="text-left pb-2 font-medium">Date</th>
+                        <th className="text-left pb-2 font-medium">Chauffeur</th>
+                        <th className="text-left pb-2 font-medium">Carte grise</th>
+                        <th className="text-right pb-2 font-medium">Volume (L)</th>
+                        <th className="text-right pb-2 font-medium">Montant</th>
+                        <th className="text-right pb-2 font-medium">Commission</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {achats.map((a) => (
+                        <tr key={a.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                          <td className="py-2.5">{fmt(a.createdAt?.slice(0, 10))}</td>
+                          <td className="py-2.5">{a.chauffeurNom || "—"}</td>
+                          <td className="py-2.5 font-mono">{a.carteGrise}</td>
+                          <td className="py-2.5 text-right font-mono">{a.volumeLitres.toLocaleString("fr-FR")}</td>
+                          <td className="py-2.5 text-right font-mono">{a.montantFcfa.toLocaleString("fr-FR")} F</td>
+                          <td className="py-2.5 text-right font-mono" style={{ color: C.greenDark }}>{a.commissionFcfa.toLocaleString("fr-FR")} F</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </SectionCard>
             </div>
           )}
 
@@ -1244,6 +1358,101 @@ export default function App() {
       </Modal>}
 
       <CardSheet drivers={drivers} vehicles={vehicles} selectedIds={selectedDriverIds} />
+
+      {showFuelForm && <Modal onClose={() => setShowFuelForm(false)} title="Enregistrer un achat de carburant" wide>
+        <FuelPurchaseForm drivers={drivers} vehicles={vehicles} onCancel={() => setShowFuelForm(false)} onSave={async (payload) => { await addAchat(payload); setShowFuelForm(false); }} />
+      </Modal>}
+    </div>
+  );
+}
+
+/* ============================================================
+   SAISIE D'UN ACHAT CARBURANT (simule le scan du QR verso par le
+   pompiste : sélection du chauffeur → carte grise + contact affichés
+   automatiquement → saisie du volume et du montant)
+   ============================================================ */
+const FUEL_COMMISSION_RATE = 0.02; // doit rester cohérent avec api/carburant.js
+
+function FuelPurchaseForm({ drivers, vehicles, onCancel, onSave }) {
+  const [chauffeurId, setChauffeurId] = useState(drivers[0]?.id || "");
+  const [volume, setVolume] = useState("");
+  const [montant, setMontant] = useState("");
+  const [station, setStation] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const driver = drivers.find((d) => d.id === chauffeurId);
+  const vehicle = driver ? vehicles.find((v) => v.chauffeurIds.includes(driver.id)) : null;
+  const commission = montant ? Math.round(Number(montant) * FUEL_COMMISSION_RATE) : 0;
+  const canSave = chauffeurId && vehicle?.carteGrise && Number(volume) > 0 && Number(montant) > 0 && !saving;
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave({
+        chauffeurId,
+        vehiculeId: vehicle?.id || null,
+        carteGrise: vehicle?.carteGrise || "",
+        volumeLitres: volume,
+        montantFcfa: Number(montant),
+        station: station || null,
+      });
+    } catch (err) {
+      setError(err.message || "Erreur lors de l'enregistrement.");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="font-body text-xs px-3 py-2.5 rounded-lg" style={{ background: C.cream, color: C.slate }}>
+        💡 En station, ce sont le scan du QR verso de la carte de membre qui identifie automatiquement le chauffeur et la carte grise sur l'application mobile du pompiste. Ce formulaire simule cette étape en attendant l'application mobile.
+      </div>
+
+      <Field label="Chauffeur (scanné)">
+        <select style={inputStyle} className="font-body" value={chauffeurId} onChange={(e) => setChauffeurId(e.target.value)}>
+          {drivers.map((d) => <option key={d.id} value={d.id}>{d.prenoms} {d.nom}</option>)}
+        </select>
+      </Field>
+
+      {driver && (
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Numéro carte grise (véhicule affecté)">
+            <TextInput value={vehicle?.carteGrise || ""} readOnly style={{ background: C.cream, color: C.slate }} />
+          </Field>
+          <Field label="Contact chauffeur">
+            <TextInput value={driver.contact1 || "—"} readOnly style={{ background: C.cream, color: C.slate }} />
+          </Field>
+        </div>
+      )}
+      {driver && !vehicle?.carteGrise && (
+        <p className="font-body text-xs" style={{ color: C.red }}>Ce chauffeur n'est rattaché à aucun véhicule avec une carte grise renseignée.</p>
+      )}
+
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Volume acheté (litres)"><TextInput type="number" min="0" step="0.01" value={volume} onChange={(e) => setVolume(e.target.value)} placeholder="45.5" /></Field>
+        <Field label="Montant saisi par le pompiste (FCFA)"><TextInput type="number" min="0" value={montant} onChange={(e) => setMontant(e.target.value)} placeholder="30000" /></Field>
+      </div>
+      <Field label="Station (optionnel)"><TextInput value={station} onChange={(e) => setStation(e.target.value)} placeholder="Station Total Yopougon" /></Field>
+
+      <div className="flex items-center justify-between px-3 py-2.5 rounded-lg" style={{ background: C.greenLight }}>
+        <span className="font-body text-sm" style={{ color: C.greenDark }}>Commission Mutuelle ({(FUEL_COMMISSION_RATE * 100).toFixed(0)}%)</span>
+        <span className="font-mono font-semibold" style={{ color: C.greenDark }}>{commission.toLocaleString("fr-FR")} FCFA</span>
+      </div>
+
+      <div className="flex items-center justify-end gap-3">
+        {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
+        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
+        <button
+          onClick={handleSave}
+          disabled={!canSave}
+          className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2"
+          style={{ background: canSave ? C.orange : "#D8B48A", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}
+        >
+          <Check size={16} /> {saving ? "Enregistrement…" : "Enregistrer l'achat"}
+        </button>
+      </div>
     </div>
   );
 }

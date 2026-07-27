@@ -1,5 +1,5 @@
 import {
-  pgTable, uuid, varchar, text, date, timestamp, boolean,
+  pgTable, uuid, varchar, text, date, timestamp, boolean, integer, numeric,
 } from "drizzle-orm/pg-core";
 
 /* ---------- Propriétaires ---------- */
@@ -31,6 +31,10 @@ export const chauffeurs = pgTable("chauffeurs", {
   contact3: varchar("contact3", { length: 30 }),
   email: varchar("email", { length: 160 }),
   photoUrl: text("photo_url"),
+  // QR code de paiement Mobile Money : image générée par le wallet du
+  // chauffeur (ex. application MobilePay), importée telle quelle — ce n'est
+  // pas un QR généré par notre application.
+  qrPaiementUrl: text("qr_paiement_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -72,4 +76,21 @@ export const vehiculeChauffeurs = pgTable("vehicule_chauffeurs", {
   chauffeurId: uuid("chauffeur_id").references(() => chauffeurs.id).notNull(),
   actif: boolean("actif").default(true).notNull(),
   depuis: date("depuis").defaultNow(),
+});
+
+/* ---------- Achats de carburant (pointage station) ----------
+   Créé lors du scan du QR verso de la carte de membre (ID carte +
+   numéro de carte grise) : le pompiste saisit ensuite le volume et le
+   montant sur l'application mobile. Une commission de la mutuelle est
+   calculée automatiquement sur chaque transaction. */
+export const achatsCarburant = pgTable("achats_carburant", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  chauffeurId: uuid("chauffeur_id").references(() => chauffeurs.id).notNull(),
+  vehiculeId: uuid("vehicule_id").references(() => vehicules.id),
+  carteGrise: varchar("carte_grise", { length: 60 }).notNull(), // dénormalisé : lu depuis le QR au scan
+  volumeLitres: numeric("volume_litres", { precision: 8, scale: 2 }).notNull(),
+  montantFcfa: integer("montant_fcfa").notNull(),
+  commissionFcfa: integer("commission_fcfa").notNull(),
+  station: varchar("station", { length: 160 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });

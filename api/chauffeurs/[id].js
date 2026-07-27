@@ -3,8 +3,8 @@ import { db } from "../../db/index.js";
 import { chauffeurs } from "../../db/schema.js";
 
 function toApi(row) {
-  const { photoUrl, ...rest } = row;
-  return { ...rest, photo: photoUrl };
+  const { photoUrl, qrPaiementUrl, ...rest } = row;
+  return { ...rest, photo: photoUrl, qrPaiement: qrPaiementUrl };
 }
 
 export default async function handler(req, res) {
@@ -14,6 +14,7 @@ export default async function handler(req, res) {
     const body = req.body || {};
     const patch = {};
     if ("photo" in body) patch.photoUrl = body.photo;
+    if ("qrPaiement" in body) patch.qrPaiementUrl = body.qrPaiement;
     if ("nom" in body) patch.nom = body.nom;
     if ("prenoms" in body) patch.prenoms = body.prenoms;
     if ("contact1" in body) patch.contact1 = body.contact1;

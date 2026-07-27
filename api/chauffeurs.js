@@ -2,12 +2,12 @@ import { db } from "../db/index.js";
 import { chauffeurs } from "../db/schema.js";
 
 function toApi(row) {
-  const { photoUrl, ...rest } = row;
-  return { ...rest, photo: photoUrl };
+  const { photoUrl, qrPaiementUrl, ...rest } = row;
+  return { ...rest, photo: photoUrl, qrPaiement: qrPaiementUrl };
 }
 function toDb(body) {
-  const { photo, ...rest } = body;
-  return { ...rest, photoUrl: photo ?? null };
+  const { photo, qrPaiement, ...rest } = body;
+  return { ...rest, photoUrl: photo ?? null, qrPaiementUrl: qrPaiement ?? null };
 }
 
 export default async function handler(req, res) {
