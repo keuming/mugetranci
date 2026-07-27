@@ -1199,16 +1199,9 @@ function Dashboard({ auth, onLogout }) {
     let cancelled = false;
     (async () => {
       try {
-        const [o, d, v, ac, ga, li, af] = await Promise.all([
-          apiGet("/api/proprietaires"),
-          apiGet("/api/chauffeurs"),
-          apiGet("/api/vehicules"),
-          apiGet("/api/carburant"),
-          apiGet("/api/gares"),
-          apiGet("/api/lignes"),
-          apiGet("/api/affectations"),
-        ]);
+        const data = await apiGet("/api/bootstrap");
         if (cancelled) return;
+        const { proprietaires: o, chauffeurs: d, vehicules: v, carburant: ac, gares: ga, lignes: li, affectations: af } = data;
         setOwners(o);
         setDrivers(d);
         setVehicles(v);
