@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import {
   Car, User, Users, Bell, Plus, X, Check, AlertTriangle, CreditCard,
   Camera, Printer, Search, Home, FileText, Phone, Mail, MapPin,
@@ -73,6 +74,9 @@ function uid(prefix) {
 }
 function initials(nom, prenoms) {
   return `${(prenoms || "?")[0] || ""}${(nom || "?")[0] || ""}`.toUpperCase();
+}
+function ficheUrl(vehicleId) {
+  return `${window.location.origin}${window.location.pathname}?vehicule=${vehicleId}`;
 }
 
 /* Deterministic pseudo-QR pattern (visual mockup only — swap for a real
@@ -635,10 +639,10 @@ function FicheVehicule({ vehicle, owners, drivers, onClose }) {
               Fait à Abidjan, le {fmt(new Date().toISOString().slice(0, 10))}
               <div className="mt-3 flex items-center gap-2">
                 <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 5, padding: 3 }}>
-                  <QRMock data={"FICHE:" + vehicle.id} size={44} />
+                  <QRCodeSVG value={ficheUrl(vehicle.id)} size={44} bgColor="#ffffff" fgColor={C.ink} level="M" />
                 </div>
                 <div style={{ fontSize: 10, lineHeight: 1.3 }}>
-                  Document vérifiable<br />Réf. {vehicle.id.slice(0, 8)}
+                  Scanner pour ouvrir<br />cette fiche en ligne
                 </div>
               </div>
             </div>
@@ -815,6 +819,14 @@ export default function App() {
         setOwners(o);
         setDrivers(d);
         setVehicles(v);
+
+        // Ouvre automatiquement la fiche si l'URL contient ?vehicule=ID
+        // (c'est ce lien que le QR code de la fiche encode).
+        const targetId = new URLSearchParams(window.location.search).get("vehicule");
+        if (targetId) {
+          const match = v.find((vv) => vv.id === targetId);
+          if (match) setFicheVehicle(match);
+        }
       } catch (err) {
         if (!cancelled) setLoadError(err.message || "Impossible de charger les données depuis la base.");
       } finally {
@@ -823,6 +835,15 @@ export default function App() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  const openFiche = (v) => {
+    setFicheVehicle(v);
+    window.history.pushState({}, "", `?vehicule=${v.id}`);
+  };
+  const closeFiche = () => {
+    setFicheVehicle(null);
+    window.history.pushState({}, "", window.location.pathname);
+  };
 
   const alerts = useMemo(() => computeAlerts(vehicles, owners, drivers), [vehicles, owners, drivers]);
   const critical = alerts.filter((a) => a.days !== null && a.days <= 30);
@@ -843,7 +864,7 @@ export default function App() {
     const created = await apiPost("/api/vehicules", v);
     setVehicles((s) => [...s, created]);
     setShowForm(false);
-    setFicheVehicle(created);
+    openFiche(created);
     return created;
   };
 
@@ -962,14 +983,14 @@ export default function App() {
               </SectionCard>
 
               <SectionCard accent={C.green} icon={<Car size={18} />} title="Véhicules récemment ajoutés">
-                <VehicleTable vehicles={vehicles.slice(-5).reverse()} owners={owners} onFiche={setFicheVehicle} />
+                <VehicleTable vehicles={vehicles.slice(-5).reverse()} owners={owners} onFiche={openFiche} />
               </SectionCard>
             </div>
           )}
 
           {page === "vehicles" && (
             <SectionCard accent={C.green} icon={<Car size={18} />} title={`Tous les véhicules (${filteredVehicles.length})`}>
-              <VehicleTable vehicles={filteredVehicles} owners={owners} onFiche={setFicheVehicle} />
+              <VehicleTable vehicles={filteredVehicles} owners={owners} onFiche={openFiche} />
             </SectionCard>
           )}
 
@@ -1061,8 +1082,8 @@ export default function App() {
         <VehicleForm owners={owners} drivers={drivers} onCancel={() => setShowForm(false)} onSave={addVehicle} addOwner={addOwner} addDriver={addDriver} />
       </Modal>}
 
-      {ficheVehicle && <Modal onClose={() => setFicheVehicle(null)} title="Fiche Véhicule Commercial" wide>
-        <FicheVehicule vehicle={ficheVehicle} owners={owners} drivers={drivers} onClose={() => setFicheVehicle(null)} />
+      {ficheVehicle && <Modal onClose={closeFiche} title="Fiche Véhicule Commercial" wide>
+        <FicheVehicule vehicle={ficheVehicle} owners={owners} drivers={drivers} onClose={closeFiche} />
       </Modal>}
 
       {cardDriver && <Modal onClose={() => setCardDriver(null)} title="Carte de membre">
