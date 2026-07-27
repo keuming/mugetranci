@@ -34,8 +34,10 @@ const FONTS = `
 .font-mono { font-family: 'IBM Plex Mono', monospace; }
 
 .print-card-duo { display: none; }
+.print-card-sheet { display: none; }
 
 @media print {
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
   body * { visibility: hidden; }
   .print-area, .print-area * { visibility: visible; }
   .fiche-modal-scroll, .modal-box { overflow: visible !important; max-height: none !important; }
@@ -45,6 +47,9 @@ const FONTS = `
     max-height: none !important; overflow: visible !important;
   }
   .print-card-duo { display: flex !important; }
+  .print-card-sheet { display: block !important; }
+  .card-sheet-page { break-after: page; page-break-after: always; }
+  .card-sheet-page:last-child { break-after: auto; page-break-after: auto; }
   .no-print { display: none !important; }
   @page { margin: 14mm; }
 }
@@ -643,16 +648,16 @@ function cardUrl(driverId, face) {
   return `${window.location.origin}${window.location.pathname}?carte=${driverId}&face=${face}`;
 }
 
-function CardFace({ driver, vehicle, side }) {
+function CardFace({ driver, vehicle, side, scale = 1 }) {
   const isRecto = side === "recto";
-  return (
+  const card = (
     <div
       style={{
         width: 340, height: 214, borderRadius: 16, position: "relative", flexShrink: 0,
         background: isRecto
           ? `linear-gradient(135deg, ${C.green} 0%, ${C.green} 60%, ${C.orange} 130%)`
           : `linear-gradient(135deg, ${C.greenDark}, ${C.green})`,
-        color: "#fff", padding: 18, boxShadow: "0 12px 28px rgba(11,110,79,0.28)",
+        color: "#fff", padding: 18, boxShadow: scale === 1 ? "0 12px 28px rgba(11,110,79,0.28)" : "none",
       }}
     >
       {isRecto ? (
@@ -697,6 +702,15 @@ function CardFace({ driver, vehicle, side }) {
       )}
     </div>
   );
+
+  if (scale === 1) return card;
+  return (
+    <div style={{ width: 340 * scale, height: 214 * scale, overflow: "hidden", flexShrink: 0 }}>
+      <div style={{ width: 340, height: 214, transform: `scale(${scale})`, transformOrigin: "top left" }}>
+        {card}
+      </div>
+    </div>
+  );
 }
 
 function MembershipCard({ driver, vehicle, initialFace = "recto" }) {
@@ -722,6 +736,46 @@ function MembershipCard({ driver, vehicle, initialFace = "recto" }) {
           <Printer size={13} /> Imprimer (recto + verso)
         </button>
       </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   PLANCHE D'IMPRESSION GROUPÉE (pour l'imprimerie)
+   6 chauffeurs par feuille, recto + verso côte à côte par ligne
+   ============================================================ */
+const CARDS_PER_SHEET = 6;
+const SHEET_CARD_SCALE = 254 / 340; // ~0.747 — réduit la carte pour que 6 lignes tiennent sur une page A4
+
+function CardSheet({ drivers, vehicles, selectedIds }) {
+  const selected = drivers.filter((d) => selectedIds.includes(d.id));
+  if (!selected.length) return null;
+
+  const groups = [];
+  for (let i = 0; i < selected.length; i += CARDS_PER_SHEET) groups.push(selected.slice(i, i + CARDS_PER_SHEET));
+
+  return (
+    <div className="print-area print-card-sheet">
+      {groups.map((group, gi) => (
+        <div key={gi} className="card-sheet-page" style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: gi === 0 ? 0 : 10 }}>
+          {gi === 0 && (
+            <div className="font-body" style={{ fontSize: 11, color: C.slate, marginBottom: 4 }}>
+              MUGETRAN-CI — Planche de production, cartes de membre chauffeurs ({selected.length} carte{selected.length > 1 ? "s" : ""}) — recto/verso par ligne, {CARDS_PER_SHEET} cartes/feuille.
+              Planche de référence pour impression ; l'imprimerie ajuste l'échelle exacte selon le support (CR80, 85,6 × 54 mm).
+            </div>
+          )}
+          {group.map((d) => {
+            const v = vehicles.find((vv) => vv.chauffeurIds.includes(d.id));
+            return (
+              <div key={d.id} className="flex items-center gap-4" style={{ borderBottom: `1px dashed ${C.border}`, paddingBottom: 8 }}>
+                <CardFace driver={d} vehicle={v} side="recto" scale={SHEET_CARD_SCALE} />
+                <CardFace driver={d} vehicle={v} side="verso" scale={SHEET_CARD_SCALE} />
+                <div className="font-body" style={{ fontSize: 10, color: C.slate }}>{d.prenoms} {d.nom}</div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
     </div>
   );
 }
@@ -785,6 +839,7 @@ export default function App() {
   const [ficheVehicle, setFicheVehicle] = useState(null);
   const [cardDriver, setCardDriver] = useState(null);
   const [cardFace, setCardFace] = useState("recto");
+  const [selectedDriverIds, setSelectedDriverIds] = useState([]);
   const [search, setSearch] = useState("");
 
   React.useEffect(() => {
@@ -847,6 +902,10 @@ export default function App() {
   const closeCard = () => {
     setCardDriver(null);
     window.history.pushState({}, "", window.location.pathname);
+  };
+
+  const toggleDriverSelection = (id) => {
+    setSelectedDriverIds((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
   };
 
   const alerts = useMemo(() => computeAlerts(vehicles, owners, drivers), [vehicles, owners, drivers]);
@@ -1026,12 +1085,40 @@ export default function App() {
           )}
 
           {page === "drivers" && (
-            <div className="grid grid-cols-3 gap-4">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between px-4 py-3 rounded-lg" style={{ background: "#fff", border: `1px solid ${C.border}` }}>
+                <div className="font-body text-sm" style={{ color: C.slate }}>
+                  {selectedDriverIds.length > 0 ? `${selectedDriverIds.length} chauffeur${selectedDriverIds.length > 1 ? "s" : ""} sélectionné${selectedDriverIds.length > 1 ? "s" : ""}` : "Sélectionnez des chauffeurs pour générer une planche de cartes à imprimer"}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setSelectedDriverIds(selectedDriverIds.length === drivers.length ? [] : drivers.map((d) => d.id))}
+                    className="font-body text-xs font-semibold px-3 py-1.5 rounded-full"
+                    style={{ border: `1px solid ${C.border}`, color: C.ink }}
+                  >
+                    {selectedDriverIds.length === drivers.length && drivers.length > 0 ? "Tout désélectionner" : "Tout sélectionner"}
+                  </button>
+                  <button
+                    onClick={() => window.print()}
+                    disabled={selectedDriverIds.length === 0}
+                    className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+                    style={{ background: selectedDriverIds.length ? C.orange : "#D8B48A", color: "#fff", cursor: selectedDriverIds.length ? "pointer" : "not-allowed" }}
+                  >
+                    <Printer size={13} /> Générer la planche PDF ({CARDS_PER_SHEET} cartes/feuille)
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
               {drivers.map((d) => {
                 const veh = vehicles.find((v) => v.chauffeurIds.includes(d.id));
                 const s = statusOf(d.permisDateFin);
+                const isSelected = selectedDriverIds.includes(d.id);
                 return (
-                  <div key={d.id} style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 18 }}>
+                  <div key={d.id} style={{ background: "#fff", border: `1.5px solid ${isSelected ? C.orange : C.border}`, borderRadius: 14, padding: 18, position: "relative" }}>
+                    <label className="flex items-center gap-1.5" style={{ position: "absolute", top: 14, right: 14, cursor: "pointer" }}>
+                      <input type="checkbox" checked={isSelected} onChange={() => toggleDriverSelection(d.id)} style={{ width: 15, height: 15, accentColor: C.orange }} />
+                    </label>
                     <div className="flex items-center gap-3 mb-3">
                       <div style={{ width: 48, height: 48, borderRadius: 999, overflow: "hidden", background: C.cream, border: `1px solid ${C.border}`, flexShrink: 0 }}>
                         {d.photo ? <img src={d.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-semibold text-sm" style={{ color: C.slate }}>{initials(d.nom, d.prenoms)}</div>}
@@ -1055,6 +1142,7 @@ export default function App() {
                   </div>
                 );
               })}
+              </div>
             </div>
           )}
 
@@ -1093,6 +1181,8 @@ export default function App() {
       {cardDriver && <Modal onClose={closeCard} title="Carte de membre">
         <MembershipCard driver={cardDriver} vehicle={vehicles.find((v) => v.chauffeurIds.includes(cardDriver.id))} initialFace={cardFace} />
       </Modal>}
+
+      <CardSheet drivers={drivers} vehicles={vehicles} selectedIds={selectedDriverIds} />
     </div>
   );
 }
