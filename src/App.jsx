@@ -847,13 +847,25 @@ function CardFace({ driver, vehicle, side, scale = 1 }) {
     <div
       style={{
         width: 340, height: 214, borderRadius: 16, position: "relative", flexShrink: 0,
-        background: isRecto
-          ? `linear-gradient(135deg, ${C.green} 0%, ${C.green} 60%, ${C.orange} 130%)`
-          : `linear-gradient(135deg, ${C.greenDark}, ${C.green})`,
-        color: "#fff", padding: 18, boxShadow: scale === 1 ? "0 12px 28px rgba(11,110,79,0.28)" : "none",
+        background: isRecto ? "#fff" : `linear-gradient(135deg, ${C.green} 0%, ${C.green} 60%, ${C.orange} 130%)`,
+        border: isRecto ? `1px solid ${C.border}` : "none",
+        color: isRecto ? C.ink : "#fff", padding: 18, boxShadow: scale === 1 ? "0 12px 28px rgba(11,110,79,0.28)" : "none",
       }}
     >
       {isRecto ? (
+        // Recto (fond blanc) : QR de pointage carburant en station, généré par l'application.
+        <div className="flex flex-col h-full items-center justify-center gap-2">
+          <div style={{ background: "#fff", borderRadius: 8, padding: 6, border: `1px solid ${C.border}` }}>
+            <QRCodeSVG value={fuelQrData(driver.id, vehicle?.carteGrise)} size={130} bgColor="#ffffff" fgColor={C.ink} level="M" />
+          </div>
+          <div className="font-body text-center" style={{ fontSize: 9.5, color: C.slate }}>
+            Pointage carburant en station · Carte n° {driver.id.slice(0, 8)}
+            <br />En cas de perte, contactez la Mutuelle.
+          </div>
+        </div>
+      ) : (
+        // Verso : identité du chauffeur + QR de paiement Mobile Money (image
+        // importée depuis son wallet, pas générée par l'application).
         <div className="flex flex-col h-full justify-between">
           <div className="flex items-start justify-between">
             <div>
@@ -877,8 +889,6 @@ function CardFace({ driver, vehicle, side, scale = 1 }) {
               <div className="font-mono" style={{ fontWeight: 600, fontSize: 12 }}>{vehicle?.immatriculation || "—"}</div>
               <div style={{ opacity: 0.75, marginTop: 4 }}>{driver.contact1}{driver.contact2 ? " · " + driver.contact2 : ""}</div>
             </div>
-            {/* QR de paiement Mobile Money : image importée depuis le wallet du
-                chauffeur (pas générée par l'application). */}
             <div style={{ background: "#fff", borderRadius: 6, padding: 3, width: 54, height: 54, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
               {driver.qrPaiement ? (
                 <img src={driver.qrPaiement} alt="QR paiement" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
@@ -886,16 +896,6 @@ function CardFace({ driver, vehicle, side, scale = 1 }) {
                 <span className="font-body" style={{ fontSize: 6.5, color: C.slate, textAlign: "center", lineHeight: 1.15 }}>QR MobilePay<br />non importé</span>
               )}
             </div>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col h-full items-center justify-center gap-2">
-          <div style={{ background: "#fff", borderRadius: 8, padding: 6 }}>
-            <QRCodeSVG value={fuelQrData(driver.id, vehicle?.carteGrise)} size={130} bgColor="#ffffff" fgColor={C.ink} level="M" />
-          </div>
-          <div className="font-body text-center" style={{ fontSize: 9.5, opacity: 0.85 }}>
-            Pointage carburant en station · Carte n° {driver.id.slice(0, 8)}
-            <br />En cas de perte, contactez la Mutuelle.
           </div>
         </div>
       )}
@@ -1227,7 +1227,7 @@ function Dashboard({ auth, onLogout }) {
           const match = d.find((dd) => dd.id === carteId);
           if (match) {
             setCardDriver(match);
-            setCardFace(params.get("face") === "carburant" ? "verso" : "recto");
+            setCardFace(params.get("face") === "paiement" ? "verso" : "recto");
           }
         }
       } catch (err) {
@@ -1251,7 +1251,7 @@ function Dashboard({ auth, onLogout }) {
   const openCard = (d) => {
     setCardDriver(d);
     setCardFace("recto");
-    window.history.pushState({}, "", `?carte=${d.id}&face=paiement`);
+    window.history.pushState({}, "", `?carte=${d.id}&face=carburant`);
   };
   const closeCard = () => {
     setCardDriver(null);
