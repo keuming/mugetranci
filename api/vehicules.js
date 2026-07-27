@@ -1,6 +1,7 @@
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { vehicules, historiqueProprietaires, vehiculeChauffeurs } from "../db/schema.js";
+import { vehicules, historiqueProprietaires, vehiculeChauffeurs, affectations } from "../db/schema.js";
+import { requireAuth } from "../lib/auth.js";
 
 function toApi(vehicule, chauffeurIds = [], historique = []) {
   const {
@@ -34,13 +35,24 @@ function toDbVehicule(body) {
 }
 
 export default async function handler(req, res) {
+  const auth = requireAuth(req, res);
+  if (!auth) return;
+
   if (req.method === "GET") {
-    const [rows, junctions, historiques] = await Promise.all([
+    const [rows, junctions, historiques, allAffectations] = await Promise.all([
       db.select().from(vehicules),
       db.select().from(vehiculeChauffeurs).where(eq(vehiculeChauffeurs.actif, true)),
       db.select().from(historiqueProprietaires),
+      db.select().from(affectations).where(eq(affectations.actif, true)),
     ]);
-    const result = rows.map((v) => {
+
+    let visibleRows = rows;
+    if (auth.role === "gare") {
+      const affectedIds = new Set(allAffectations.filter((a) => a.gareId === auth.gareId).map((a) => a.vehiculeId));
+      visibleRows = rows.filter((v) => v.gareId === auth.gareId || affectedIds.has(v.id));
+    }
+
+    const result = visibleRows.map((v) => {
       const chauffeurIds = junctions.filter((j) => j.vehiculeId === v.id).map((j) => j.chauffeurId);
       const historique = historiques.filter((h) => h.vehiculeId === v.id);
       return toApi(v, chauffeurIds, historique);
@@ -56,7 +68,12 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "marque, modele, chassis et immatriculation sont requis" });
     }
 
-    const [vehicule] = await db.insert(vehicules).values(toDbVehicule(body)).returning();
+    const dbValues = toDbVehicule(body);
+    // Un compte gare ne peut créer un véhicule que pour sa propre gare (sécurité :
+    // on ignore toute valeur de gareId envoyée par le client).
+    if (auth.role === "gare") dbValues.gareId = auth.gareId;
+
+    const [vehicule] = await db.insert(vehicules).values(dbValues).returning();
 
     if (body.proprietaireId) {
       await db.insert(historiqueProprietaires).values({

@@ -3,16 +3,32 @@ import { db } from "../../db/index.js";
 import {
   vehicules, historiqueProprietaires, vehiculeChauffeurs, affectations, achatsCarburant,
 } from "../../db/schema.js";
+import { requireAuth } from "../../lib/auth.js";
 
 function toApi(row) {
   const { photoUrl, ...rest } = row;
   return { ...rest, photo: photoUrl };
 }
 
+async function assertOwnership(auth, id, res) {
+  if (auth.role === "admin") return true;
+  const [v] = await db.select().from(vehicules).where(eq(vehicules.id, id));
+  if (!v) { res.status(404).json({ error: "Véhicule introuvable" }); return false; }
+  if (v.gareId === auth.gareId) return true;
+  const [aff] = await db.select().from(affectations).where(eq(affectations.vehiculeId, id));
+  if (aff && aff.gareId === auth.gareId && aff.actif) return true;
+  res.status(403).json({ error: "Ce véhicule n'appartient pas à votre gare." });
+  return false;
+}
+
 export default async function handler(req, res) {
+  const auth = requireAuth(req, res);
+  if (!auth) return;
   const { id } = req.query;
 
   if (req.method === "PATCH") {
+    if (!(await assertOwnership(auth, id, res))) return;
+
     const body = req.body || {};
     const documents = body.documents || {};
     const patch = {};
@@ -47,11 +63,12 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "DELETE") {
+    if (!(await assertOwnership(auth, id, res))) return;
+
     const achats = await db.select().from(achatsCarburant).where(eq(achatsCarburant.vehiculeId, id));
     if (achats.length > 0) {
       return res.status(400).json({ error: `Impossible de supprimer ce véhicule : ${achats.length} achat(s) de carburant sont rattachés à son historique.` });
     }
-    // Ces tables ne sont que de l'historique/liaison propres au véhicule : suppression en cascade sûre.
     await db.delete(historiqueProprietaires).where(eq(historiqueProprietaires.vehiculeId, id));
     await db.delete(vehiculeChauffeurs).where(eq(vehiculeChauffeurs.vehiculeId, id));
     await db.delete(affectations).where(eq(affectations.vehiculeId, id));

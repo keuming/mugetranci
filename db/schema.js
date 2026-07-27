@@ -17,6 +17,7 @@ export const proprietaires = pgTable("proprietaires", {
   ville: varchar("ville", { length: 80 }),
   quartier: varchar("quartier", { length: 120 }),
   photoUrl: text("photo_url"),
+  gareId: uuid("gare_id"), // gare qui a créé ce propriétaire (null = créé par l'admin)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -37,6 +38,7 @@ export const chauffeurs = pgTable("chauffeurs", {
   // chauffeur (ex. application MobilePay), importée telle quelle — ce n'est
   // pas un QR généré par notre application.
   qrPaiementUrl: text("qr_paiement_url"),
+  gareId: uuid("gare_id"), // gare qui a créé ce chauffeur (null = créé par l'admin)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -59,6 +61,7 @@ export const vehicules = pgTable("vehicules", {
   carteStationnementDateFin: date("carte_stationnement_date_fin"),
 
   proprietaireId: uuid("proprietaire_id").references(() => proprietaires.id),
+  gareId: uuid("gare_id"), // gare qui a créé ce véhicule (null = créé par l'admin)
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

@@ -1,16 +1,29 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { proprietaires } from "../../db/schema.js";
+import { requireAuth } from "../../lib/auth.js";
 
 function toApi(row) {
   const { photoUrl, ...rest } = row;
   return { ...rest, photo: photoUrl };
 }
 
+async function assertOwnership(auth, id, res) {
+  if (auth.role === "admin") return true;
+  const [p] = await db.select().from(proprietaires).where(eq(proprietaires.id, id));
+  if (!p) { res.status(404).json({ error: "Propriétaire introuvable" }); return false; }
+  if (p.gareId !== auth.gareId) { res.status(403).json({ error: "Ce propriétaire n'appartient pas à votre gare." }); return false; }
+  return true;
+}
+
 export default async function handler(req, res) {
+  const auth = requireAuth(req, res);
+  if (!auth) return;
   const { id } = req.query;
 
   if (req.method === "PATCH") {
+    if (!(await assertOwnership(auth, id, res))) return;
+
     const body = req.body || {};
     const patch = {};
     if ("photo" in body) patch.photoUrl = body.photo;
@@ -34,6 +47,13 @@ export default async function handler(req, res) {
     return res.status(200).json(toApi(updated));
   }
 
-  res.setHeader("Allow", "PATCH");
+  if (req.method === "DELETE") {
+    if (!(await assertOwnership(auth, id, res))) return;
+    const [deleted] = await db.delete(proprietaires).where(eq(proprietaires.id, id)).returning();
+    if (!deleted) return res.status(404).json({ error: "Propriétaire introuvable" });
+    return res.status(200).json({ deleted: true });
+  }
+
+  res.setHeader("Allow", "PATCH, DELETE");
   return res.status(405).json({ error: "Méthode non autorisée" });
 }

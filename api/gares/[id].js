@@ -1,16 +1,21 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { gares, lignes } from "../../db/schema.js";
+import { requireAdmin } from "../../lib/auth.js";
 
 function toApi(row) {
+  const { pinCode, ...rest } = row;
   return {
-    ...row,
+    ...rest,
     latitude: row.latitude !== null ? Number(row.latitude) : null,
     longitude: row.longitude !== null ? Number(row.longitude) : null,
+    pinConfigure: !!pinCode,
   };
 }
 
 export default async function handler(req, res) {
+  const auth = requireAdmin(req, res); // gestion des gares réservée à l'administrateur
+  if (!auth) return;
   const { id } = req.query;
 
   if (req.method === "PATCH") {
@@ -26,9 +31,12 @@ export default async function handler(req, res) {
     }
 
     const patch = {};
-    ["nom", "commune", "localisation", "chefNom", "chefContact", "login", "pinCode"].forEach((k) => {
+    ["nom", "commune", "localisation", "chefNom", "chefContact", "login"].forEach((k) => {
       if (k in body) patch[k] = body[k] || null;
     });
+    // Le PIN n'est jamais renvoyé au client : on ne l'écrase que si une
+    // nouvelle valeur (4 chiffres) est explicitement envoyée.
+    if (body.pinCode) patch.pinCode = body.pinCode;
     if ("latitude" in body) patch.latitude = body.latitude !== "" && body.latitude !== null ? String(body.latitude) : null;
     if ("longitude" in body) patch.longitude = body.longitude !== "" && body.longitude !== null ? String(body.longitude) : null;
 

@@ -1,6 +1,7 @@
 import { eq, desc } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { achatsCarburant, chauffeurs, vehicules } from "../db/schema.js";
+import { requireAuth } from "../lib/auth.js";
 
 // Taux de commission de la mutuelle sur chaque achat de carburant.
 // Ajustable ici — pas encore de paramétrage en base pour ce taux.
@@ -23,13 +24,23 @@ function toApi(row, chauffeur, vehicule) {
 }
 
 export default async function handler(req, res) {
+  const auth = requireAuth(req, res);
+  if (!auth) return;
+
   if (req.method === "GET") {
     const [rows, allChauffeurs, allVehicules] = await Promise.all([
       db.select().from(achatsCarburant).orderBy(desc(achatsCarburant.createdAt)),
       db.select().from(chauffeurs),
       db.select().from(vehicules),
     ]);
-    const result = rows.map((r) => toApi(
+
+    let visibleRows = rows;
+    if (auth.role === "gare") {
+      const myChauffeurIds = new Set(allChauffeurs.filter((c) => c.gareId === auth.gareId).map((c) => c.id));
+      visibleRows = rows.filter((r) => myChauffeurIds.has(r.chauffeurId));
+    }
+
+    const result = visibleRows.map((r) => toApi(
       r,
       allChauffeurs.find((c) => c.id === r.chauffeurId),
       allVehicules.find((v) => v.id === r.vehiculeId)

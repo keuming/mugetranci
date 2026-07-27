@@ -1,11 +1,24 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { lignes, affectations } from "../../db/schema.js";
+import { requireAuth } from "../../lib/auth.js";
+
+async function assertOwnership(auth, id, res) {
+  if (auth.role === "admin") return true;
+  const [l] = await db.select().from(lignes).where(eq(lignes.id, id));
+  if (!l) { res.status(404).json({ error: "Ligne introuvable" }); return false; }
+  if (l.gareId !== auth.gareId) { res.status(403).json({ error: "Cette ligne n'appartient pas à votre gare." }); return false; }
+  return true;
+}
 
 export default async function handler(req, res) {
+  const auth = requireAuth(req, res);
+  if (!auth) return;
   const { id } = req.query;
 
   if (req.method === "PATCH") {
+    if (!(await assertOwnership(auth, id, res))) return;
+
     const body = req.body || {};
     const patch = {};
     if ("lieuDepart" in body) patch.lieuDepart = body.lieuDepart;
@@ -24,6 +37,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "DELETE") {
+    if (!(await assertOwnership(auth, id, res))) return;
     const activeAffectations = await db.select().from(affectations).where(eq(affectations.ligneId, id));
     const stillActive = activeAffectations.filter((a) => a.actif);
     if (stillActive.length > 0) {

@@ -1,21 +1,28 @@
 import { db } from "../db/index.js";
 import { gares } from "../db/schema.js";
+import { requireAuth, requireAdmin } from "../lib/auth.js";
 
-function toApi(row) {
+function toApi(row, auth) {
+  const { pinCode, ...rest } = row; // le PIN ne transite jamais côté client, admin inclus
   return {
-    ...row,
+    ...rest,
     latitude: row.latitude !== null ? Number(row.latitude) : null,
     longitude: row.longitude !== null ? Number(row.longitude) : null,
+    pinConfigure: !!pinCode,
   };
 }
 
 export default async function handler(req, res) {
   if (req.method === "GET") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
     const rows = await db.select().from(gares);
-    return res.status(200).json(rows.map(toApi));
+    return res.status(200).json(rows.map((r) => toApi(r, auth)));
   }
 
   if (req.method === "POST") {
+    const auth = requireAdmin(req, res);
+    if (!auth) return;
     const body = req.body || {};
     if (!body.nom || !body.commune) {
       return res.status(400).json({ error: "nom et commune sont requis" });
@@ -23,10 +30,10 @@ export default async function handler(req, res) {
     if (body.pinCode && !/^\d{4}$/.test(body.pinCode)) {
       return res.status(400).json({ error: "Le code PIN doit comporter exactement 4 chiffres" });
     }
-    if (body.latitude !== undefined && body.latitude !== "" && (Number(body.latitude) < -90 || Number(body.latitude) > 90)) {
+    if (body.latitude !== undefined && body.latitude !== "" && body.latitude !== null && (Number(body.latitude) < -90 || Number(body.latitude) > 90)) {
       return res.status(400).json({ error: "La latitude doit être comprise entre -90 et 90" });
     }
-    if (body.longitude !== undefined && body.longitude !== "" && (Number(body.longitude) < -180 || Number(body.longitude) > 180)) {
+    if (body.longitude !== undefined && body.longitude !== "" && body.longitude !== null && (Number(body.longitude) < -180 || Number(body.longitude) > 180)) {
       return res.status(400).json({ error: "La longitude doit être comprise entre -180 et 180" });
     }
 
@@ -42,7 +49,7 @@ export default async function handler(req, res) {
         login: body.login || null,
         pinCode: body.pinCode || null,
       }).returning();
-      return res.status(201).json(toApi(created));
+      return res.status(201).json(toApi(created, auth));
     } catch (err) {
       if (err.code === "23505") {
         return res.status(400).json({ error: "Ce numéro de téléphone (login) est déjà utilisé par une autre gare." });

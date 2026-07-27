@@ -3,7 +3,7 @@ import { QRCodeSVG } from "qrcode.react";
 import {
   Car, User, Users, Bell, Plus, X, Check, AlertTriangle, CreditCard,
   Camera, Printer, Search, Home, FileText, Phone, Mail, MapPin,
-  BadgeCheck, Calendar, ChevronRight, ChevronLeft, RotateCw, Trash2, Building2, QrCode, Fuel, Pencil
+  BadgeCheck, Calendar, ChevronRight, ChevronLeft, RotateCw, Trash2, Building2, QrCode, Fuel, Pencil, LogOut
 } from "lucide-react";
 
 /* ============================================================
@@ -334,7 +334,7 @@ function StepIndicator({ step }) {
   );
 }
 
-function VehicleForm({ owners, drivers, gares, lignes, onCancel, onSave, addOwner, addDriver, addGare, addLigne, affecterVehicule }) {
+function VehicleForm({ auth, owners, drivers, gares, lignes, onCancel, onSave, addOwner, addDriver, addGare, addLigne, affecterVehicule }) {
   const [step, setStep] = useState(0);
 
   const [marque, setMarque] = useState("");
@@ -359,13 +359,14 @@ function VehicleForm({ owners, drivers, gares, lignes, onCancel, onSave, addOwne
   const updateDriverDraft = (i, patch) => setDriverRows((r) => r.map((row, idx) => (idx === i ? { ...row, draft: { ...row.draft, ...patch } } : row)));
 
   // Affectation (étape 5, optionnelle)
+  const isGareAccount = auth?.role === "gare";
   const communes = [...new Set(gares.map((g) => g.commune))].sort();
   const [communeSel, setCommuneSel] = useState("");
-  const [gareId, setGareId] = useState("");
+  const [gareId, setGareId] = useState(isGareAccount ? auth.gareId : "");
   const [ligneId, setLigneId] = useState("");
   const [dateAffectation, setDateAffectation] = useState(new Date().toISOString().slice(0, 10));
   const garesDeLaCommune = gares.filter((g) => g.commune === communeSel);
-  const lignesDeLaGare = lignes.filter((l) => l.gareId === gareId);
+  const lignesDeLaGare = isGareAccount ? lignes : lignes.filter((l) => l.gareId === gareId);
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -559,9 +560,25 @@ function VehicleForm({ owners, drivers, gares, lignes, onCancel, onSave, addOwne
         {step === 4 && (
           <SectionCard accent={C.orangeDark} icon={<MapPin size={18} />} title="Affectation (gare & ligne)">
             <p className="font-body text-xs mb-4 px-3 py-2.5 rounded-lg" style={{ color: C.slate, background: C.cream }}>
-              💡 Étape optionnelle. Un véhicule peut être affecté plus tard, ou réaffecté à une autre commune / gare / ligne depuis la liste des véhicules.
+              💡 Étape optionnelle. Un véhicule peut être affecté plus tard, ou réaffecté depuis la liste des véhicules.
             </p>
-            {gares.length === 0 ? (
+            {isGareAccount ? (
+              lignes.length === 0 ? (
+                <p className="font-body text-sm" style={{ color: C.slate }}>Votre gare n'a encore aucune ligne enregistrée — créez-en une depuis la page "Gares", puis revenez affecter ce véhicule.</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Ligne (gare : votre compte)">
+                    <select style={inputStyle} className="font-body" value={ligneId} onChange={(e) => setLigneId(e.target.value)}>
+                      <option value="">— Sélectionner —</option>
+                      {lignes.map((l) => <option key={l.id} value={l.id}>{l.lieuDepart} → {l.lieuArrivee} ({l.cout.toLocaleString("fr-FR")} F)</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Date d'affectation">
+                    <DateInput value={dateAffectation} onChange={(e) => setDateAffectation(e.target.value)} />
+                  </Field>
+                </div>
+              )
+            ) : gares.length === 0 ? (
               <p className="font-body text-sm" style={{ color: C.slate }}>Aucune gare enregistrée pour le moment — créez-en une depuis la page "Gares", puis revenez affecter ce véhicule.</p>
             ) : (
               <div className="grid grid-cols-2 gap-4">
@@ -992,18 +1009,41 @@ function computeAlerts(vehicles, owners, drivers) {
   return rows.sort((a, b) => (a.days ?? 9999) - (b.days ?? 9999));
 }
 
+const TOKEN_KEY = "mugetranci_token";
+const AUTH_KEY = "mugetranci_auth";
+
+function getToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+function authHeaders() {
+  const t = getToken();
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
+function handleUnauthorized(status) {
+  if (status === 401) {
+    // Jeton expiré ou invalide : on force une reconnexion propre.
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(AUTH_KEY);
+    window.location.reload();
+  }
+}
+
 async function apiGet(path) {
-  const res = await fetch(path);
-  if (!res.ok) throw new Error(`${path} a répondu ${res.status}`);
+  const res = await fetch(path, { headers: { ...authHeaders() } });
+  if (!res.ok) {
+    handleUnauthorized(res.status);
+    throw new Error(`${path} a répondu ${res.status}`);
+  }
   return res.json();
 }
 async function apiPost(path, body) {
   const res = await fetch(path, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
+    handleUnauthorized(res.status);
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `${path} a répondu ${res.status}`);
   }
@@ -1012,25 +1052,125 @@ async function apiPost(path, body) {
 async function apiPatch(path, body) {
   const res = await fetch(path, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
+    handleUnauthorized(res.status);
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `${path} a répondu ${res.status}`);
   }
   return res.json();
 }
 async function apiDelete(path) {
-  const res = await fetch(path, { method: "DELETE" });
+  const res = await fetch(path, { method: "DELETE", headers: { ...authHeaders() } });
   if (!res.ok) {
+    handleUnauthorized(res.status);
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `${path} a répondu ${res.status}`);
   }
   return res.json();
 }
 
+/* ============================================================
+   CONNEXION — écran de login (admin MUGETRAN-CI ou compte gare)
+   ============================================================ */
+function LoginScreen({ onLogin }) {
+  const [login, setLogin] = useState("");
+  const [pin, setPin] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ login, pin }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Connexion impossible.");
+      onLogin(data.token, { role: data.role, gareId: data.gareId || null, nom: data.nom });
+    } catch (err) {
+      setError(err.message || "Connexion impossible.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="font-body flex items-center justify-center" style={{ minHeight: "100vh", background: C.cream }}>
+      <style>{FONTS}</style>
+      <form onSubmit={handleSubmit} style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 16, padding: 32, width: 380, maxWidth: "92vw" }}>
+        <div className="flex flex-col items-center mb-6">
+          <div style={{ width: 44, height: 44, borderRadius: 11, background: C.green, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+            <Car size={22} color="#fff" />
+          </div>
+          <div className="font-display" style={{ fontSize: 18, fontWeight: 700, color: C.ink }}>MUGETRAN-CI</div>
+          <div className="text-xs text-center mt-1" style={{ color: C.slate }}>Mutuelle Générale des Transporteurs de Côte d'Ivoire</div>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <Field label="Identifiant (administrateur ou téléphone de la gare)">
+            <TextInput value={login} onChange={(e) => setLogin(e.target.value)} placeholder="07 08 12 34 56" autoFocus />
+          </Field>
+          <Field label="Code PIN">
+            <TextInput
+              value={pin}
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              placeholder="••••"
+            />
+          </Field>
+        </div>
+
+        {error && <p className="font-body text-xs mt-3" style={{ color: C.red }}>{error}</p>}
+
+        <button
+          type="submit"
+          disabled={!login || !pin || busy}
+          className="font-body text-sm font-semibold w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg mt-5"
+          style={{ background: login && pin && !busy ? C.green : "#B9C4BE", color: "#fff", cursor: login && pin && !busy ? "pointer" : "not-allowed" }}
+        >
+          {busy ? "Connexion…" : "Se connecter"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 export default function App() {
+  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
+  const [auth, setAuth] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(AUTH_KEY) || "null"); } catch { return null; }
+  });
+
+  const handleLogin = (newToken, authInfo) => {
+    localStorage.setItem(TOKEN_KEY, newToken);
+    localStorage.setItem(AUTH_KEY, JSON.stringify(authInfo));
+    setToken(newToken);
+    setAuth(authInfo);
+  };
+  const handleLogout = () => {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(AUTH_KEY);
+    setToken(null);
+    setAuth(null);
+  };
+
+  if (!token || !auth) {
+    return <LoginScreen onLogin={handleLogin} />;
+  }
+
+  return <Dashboard auth={auth} onLogout={handleLogout} />;
+}
+
+function Dashboard({ auth, onLogout }) {
   const [owners, setOwners] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [vehicles, setVehicles] = useState([]);
@@ -1232,7 +1372,7 @@ export default function App() {
     { key: "vehicles", label: "Véhicules", icon: <Car size={17} /> },
     { key: "owners", label: "Propriétaires", icon: <User size={17} /> },
     { key: "drivers", label: "Chauffeurs", icon: <Users size={17} /> },
-    { key: "gares", label: "Gares", icon: <MapPin size={17} /> },
+    ...(auth.role === "admin" ? [{ key: "gares", label: "Gares", icon: <MapPin size={17} /> }] : []),
     { key: "carburant", label: "Carburant", icon: <Fuel size={17} /> },
     { key: "alerts", label: "Alertes documents", icon: <Bell size={17} />, count: critical.length },
   ];
@@ -1268,6 +1408,15 @@ export default function App() {
             ))}
           </nav>
           <div className="mt-auto p-4">
+            <div className="flex items-center justify-between px-3 py-2.5 rounded-lg mb-2" style={{ background: "rgba(255,255,255,0.08)" }}>
+              <div>
+                <div className="font-body" style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>{auth.nom}</div>
+                <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 10 }}>{auth.role === "admin" ? "Administrateur" : "Compte gare"}</div>
+              </div>
+              <button onClick={onLogout} title="Déconnexion" style={{ color: "rgba(255,255,255,0.7)" }}>
+                <LogOut size={15} />
+              </button>
+            </div>
             <TricolorRule />
             <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, marginTop: 8 }}>Abidjan · Côte d'Ivoire</div>
           </div>
@@ -1489,7 +1638,7 @@ export default function App() {
                         </div>
                         <div className="flex flex-col gap-1 text-xs mb-3" style={{ color: C.slate }}>
                           {g.chefNom && <div className="flex items-center gap-2"><User size={12} /> Chef de gare : {g.chefNom}{g.chefContact ? " · " + g.chefContact : ""}</div>}
-                          {g.login && <div className="flex items-center gap-2"><BadgeCheck size={12} /> Compte gare : {g.login} {g.pinCode ? "· PIN configuré" : ""}</div>}
+                          {g.login && <div className="flex items-center gap-2"><BadgeCheck size={12} /> Compte gare : {g.login} {g.pinConfigure ? "· PIN configuré" : ""}</div>}
                         </div>
 
                         <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
@@ -1608,7 +1757,7 @@ export default function App() {
 
       {/* MODALS */}
       {showForm && <Modal onClose={() => setShowForm(false)} title="Ajouter un véhicule" wide>
-        <VehicleForm owners={owners} drivers={drivers} gares={gares} lignes={lignes} onCancel={() => setShowForm(false)} onSave={addVehicle} addOwner={addOwner} addDriver={addDriver} addGare={addGare} addLigne={addLigne} affecterVehicule={affecterVehicule} />
+        <VehicleForm auth={auth} owners={owners} drivers={drivers} gares={gares} lignes={lignes} onCancel={() => setShowForm(false)} onSave={addVehicle} addOwner={addOwner} addDriver={addDriver} addGare={addGare} addLigne={addLigne} affecterVehicule={affecterVehicule} />
       </Modal>}
 
       {ficheVehicle && <Modal onClose={closeFiche} title="Fiche Véhicule Commercial" wide>
@@ -1647,6 +1796,7 @@ export default function App() {
 
       {reassignVehicle && <Modal onClose={() => setReassignVehicle(null)} title={`Affectation — ${reassignVehicle.immatriculation}`} wide>
         <ReassignForm
+          auth={auth}
           vehicle={reassignVehicle}
           gares={gares}
           lignes={lignes}
@@ -1764,7 +1914,7 @@ function GareForm({ initialGare, onCancel, onSave }) {
   const [chefNom, setChefNom] = useState(initialGare?.chefNom || "");
   const [chefContact, setChefContact] = useState(initialGare?.chefContact || "");
   const [login, setLogin] = useState(initialGare?.login || "");
-  const [pinCode, setPinCode] = useState(initialGare?.pinCode || "");
+  const [pinCode, setPinCode] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
@@ -1813,13 +1963,13 @@ function GareForm({ initialGare, onCancel, onSave }) {
         </p>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Login (numéro de téléphone)"><TextInput value={login} onChange={(e) => setLogin(e.target.value)} placeholder="07 08 12 34 56" /></Field>
-          <Field label="Code PIN (4 chiffres)">
+          <Field label="Code PIN (4 chiffres)" hint={isEdit ? "Laisser vide pour conserver le PIN actuel" : undefined}>
             <TextInput
               value={pinCode}
               maxLength={4}
               inputMode="numeric"
               onChange={(e) => setPinCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
-              placeholder="0000"
+              placeholder={isEdit ? "••••" : "0000"}
             />
           </Field>
         </div>
@@ -1958,17 +2108,18 @@ function VehicleEditForm({ vehicle, onCancel, onSave }) {
   );
 }
 
-function ReassignForm({ vehicle, gares, lignes, currentAffectation, onCancel, onReassign, onUnassign }) {
+function ReassignForm({ auth, vehicle, gares, lignes, currentAffectation, onCancel, onReassign, onUnassign }) {
+  const isGareAccount = auth?.role === "gare";
   const communes = [...new Set(gares.map((g) => g.commune))].sort();
   const [communeSel, setCommuneSel] = useState("");
-  const [gareId, setGareId] = useState("");
+  const [gareId, setGareId] = useState(isGareAccount ? auth.gareId : "");
   const [ligneId, setLigneId] = useState("");
   const [dateAffectation, setDateAffectation] = useState(new Date().toISOString().slice(0, 10));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
   const garesDeLaCommune = gares.filter((g) => g.commune === communeSel);
-  const lignesDeLaGare = lignes.filter((l) => l.gareId === gareId);
+  const lignesDeLaGare = isGareAccount ? lignes : lignes.filter((l) => l.gareId === gareId);
   const currentGare = currentAffectation ? gares.find((g) => g.id === currentAffectation.gareId) : null;
   const currentLigne = currentAffectation ? lignes.find((l) => l.id === currentAffectation.ligneId) : null;
 
@@ -2001,7 +2152,23 @@ function ReassignForm({ vehicle, gares, lignes, currentAffectation, onCancel, on
           : "Ce véhicule n'est affecté à aucune gare pour le moment."}
       </p>
 
-      {gares.length === 0 ? (
+      {isGareAccount ? (
+        lignes.length === 0 ? (
+          <p className="font-body text-sm" style={{ color: C.slate }}>Votre gare n'a encore aucune ligne enregistrée.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Ligne (votre gare)">
+              <select style={inputStyle} className="font-body" value={ligneId} onChange={(e) => setLigneId(e.target.value)}>
+                <option value="">— Sélectionner —</option>
+                {lignes.map((l) => <option key={l.id} value={l.id}>{l.lieuDepart} → {l.lieuArrivee} ({l.cout.toLocaleString("fr-FR")} F)</option>)}
+              </select>
+            </Field>
+            <Field label="Date d'affectation">
+              <DateInput value={dateAffectation} onChange={(e) => setDateAffectation(e.target.value)} />
+            </Field>
+          </div>
+        )
+      ) : gares.length === 0 ? (
         <p className="font-body text-sm" style={{ color: C.slate }}>Aucune gare enregistrée — créez-en une depuis la page "Gares".</p>
       ) : (
         <div className="grid grid-cols-2 gap-4">

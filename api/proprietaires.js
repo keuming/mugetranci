@@ -1,5 +1,7 @@
+import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { proprietaires } from "../db/schema.js";
+import { requireAuth } from "../lib/auth.js";
 
 function toApi(row) {
   const { photoUrl, ...rest } = row;
@@ -11,8 +13,13 @@ function toDb(body) {
 }
 
 export default async function handler(req, res) {
+  const auth = requireAuth(req, res);
+  if (!auth) return;
+
   if (req.method === "GET") {
-    const rows = await db.select().from(proprietaires);
+    const rows = auth.role === "gare"
+      ? await db.select().from(proprietaires).where(eq(proprietaires.gareId, auth.gareId))
+      : await db.select().from(proprietaires);
     return res.status(200).json(rows.map(toApi));
   }
 
@@ -21,7 +28,9 @@ export default async function handler(req, res) {
     if (!body.nom || !body.prenoms || !body.cni) {
       return res.status(400).json({ error: "nom, prenoms et cni sont requis" });
     }
-    const [created] = await db.insert(proprietaires).values(toDb(body)).returning();
+    const values = toDb(body);
+    if (auth.role === "gare") values.gareId = auth.gareId;
+    const [created] = await db.insert(proprietaires).values(values).returning();
     return res.status(201).json(toApi(created));
   }
 

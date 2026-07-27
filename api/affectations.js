@@ -1,10 +1,16 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { affectations } from "../db/schema.js";
+import { requireAuth } from "../lib/auth.js";
 
 export default async function handler(req, res) {
+  const auth = requireAuth(req, res);
+  if (!auth) return;
+
   if (req.method === "GET") {
-    const rows = await db.select().from(affectations);
+    const rows = auth.role === "gare"
+      ? await db.select().from(affectations).where(eq(affectations.gareId, auth.gareId))
+      : await db.select().from(affectations);
     return res.status(200).json(rows);
   }
 
@@ -13,27 +19,28 @@ export default async function handler(req, res) {
     if (!body.vehiculeId) {
       return res.status(400).json({ error: "vehiculeId est requis" });
     }
+    if (auth.role === "gare" && body.gareId && body.gareId !== auth.gareId) {
+      return res.status(403).json({ error: "Vous ne pouvez affecter un véhicule qu'à votre propre gare." });
+    }
 
     const today = new Date().toISOString().slice(0, 10);
 
-    // Clôture toute affectation active existante pour ce véhicule
-    // (désaffectation, préalable systématique à une réaffectation).
     await db.update(affectations)
       .set({ actif: false, dateFin: today })
       .where(and(eq(affectations.vehiculeId, body.vehiculeId), eq(affectations.actif, true)));
 
-    // Désaffectation pure : pas de nouvelle affectation à créer.
     if (body.desaffecter) {
       return res.status(200).json({ desaffecte: true });
     }
 
-    if (!body.gareId || !body.ligneId) {
+    const gareId = auth.role === "gare" ? auth.gareId : body.gareId;
+    if (!gareId || !body.ligneId) {
       return res.status(400).json({ error: "gareId et ligneId sont requis pour une (ré)affectation" });
     }
 
     const [created] = await db.insert(affectations).values({
       vehiculeId: body.vehiculeId,
-      gareId: body.gareId,
+      gareId,
       ligneId: body.ligneId,
       dateAffectation: body.dateAffectation || today,
     }).returning();
