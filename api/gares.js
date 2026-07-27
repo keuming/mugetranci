@@ -20,6 +20,9 @@ export default async function handler(req, res) {
     if (!body.nom || !body.commune) {
       return res.status(400).json({ error: "nom et commune sont requis" });
     }
+    if (body.pinCode && !/^\d{4}$/.test(body.pinCode)) {
+      return res.status(400).json({ error: "Le code PIN doit comporter exactement 4 chiffres" });
+    }
     const [created] = await db.insert(gares).values({
       nom: body.nom,
       commune: body.commune,
@@ -28,6 +31,8 @@ export default async function handler(req, res) {
       longitude: body.longitude !== undefined && body.longitude !== "" ? String(body.longitude) : null,
       chefNom: body.chefNom || null,
       chefContact: body.chefContact || null,
+      login: body.login || null,
+      pinCode: body.pinCode || null,
     }).returning();
     return res.status(201).json(toApi(created));
   }

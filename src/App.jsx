@@ -1436,19 +1436,17 @@ export default function App() {
                         </div>
                         <div className="flex flex-col gap-1 text-xs mb-3" style={{ color: C.slate }}>
                           {g.chefNom && <div className="flex items-center gap-2"><User size={12} /> Chef de gare : {g.chefNom}{g.chefContact ? " · " + g.chefContact : ""}</div>}
+                          {g.login && <div className="flex items-center gap-2"><BadgeCheck size={12} /> Compte gare : {g.login} {g.pinCode ? "· PIN configuré" : ""}</div>}
                         </div>
 
                         <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
                           <div className="flex items-center justify-between mb-2">
                             <span className="font-body text-xs font-semibold" style={{ color: C.ink }}>Lignes ({gareLignes.length})</span>
-                            <button onClick={() => setLigneFormGareId(g.id)} className="font-body text-xs font-semibold flex items-center gap-1 px-2 py-1 rounded-full" style={{ background: C.greenLight, color: C.greenDark }}>
-                              <Plus size={12} /> Ligne
-                            </button>
                           </div>
                           {gareLignes.length === 0 ? (
-                            <p className="font-body text-xs" style={{ color: C.slate }}>Aucune ligne pour cette gare.</p>
+                            <p className="font-body text-xs mb-2" style={{ color: C.slate }}>Aucune ligne pour cette gare.</p>
                           ) : (
-                            <div className="flex flex-col gap-1.5">
+                            <div className="flex flex-col gap-1.5 mb-2">
                               {gareLignes.map((l) => (
                                 <div key={l.id} className="flex items-center justify-between font-body text-xs" style={{ color: C.ink }}>
                                   <span>{l.lieuDepart} → {l.lieuArrivee}</span>
@@ -1457,6 +1455,9 @@ export default function App() {
                               ))}
                             </div>
                           )}
+                          <button onClick={() => setLigneFormGareId(g.id)} className="w-full font-body text-xs font-semibold flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg" style={{ background: C.greenLight, color: C.greenDark }}>
+                            <Plus size={14} /> Ajouter une ligne à cette gare
+                          </button>
                         </div>
                       </div>
                     );
@@ -1683,16 +1684,19 @@ function GareForm({ onCancel, onSave }) {
   const [longitude, setLongitude] = useState("");
   const [chefNom, setChefNom] = useState("");
   const [chefContact, setChefContact] = useState("");
+  const [login, setLogin] = useState("");
+  const [pinCode, setPinCode] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  const canSave = nom && commune && !saving;
+  const pinValid = !pinCode || /^\d{4}$/.test(pinCode);
+  const canSave = nom && commune && pinValid && !saving;
 
   const handleSave = async () => {
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, commune, localisation, latitude, longitude, chefNom, chefContact });
+      await onSave({ nom, commune, localisation, latitude, longitude, chefNom, chefContact, login, pinCode });
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -1718,6 +1722,25 @@ function GareForm({ onCancel, onSave }) {
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom du chef de gare"><TextInput value={chefNom} onChange={(e) => setChefNom(e.target.value)} /></Field>
         <Field label="Contact du chef de gare"><TextInput value={chefContact} onChange={(e) => setChefContact(e.target.value)} /></Field>
+      </div>
+
+      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
+        <p className="font-body text-xs mb-3" style={{ color: C.slate }}>
+          Compte de la gare (créé par l'administrateur MUGETRAN-CI) — identifiants préparatoires pour un futur accès dédié du personnel de la gare.
+        </p>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Login (numéro de téléphone)"><TextInput value={login} onChange={(e) => setLogin(e.target.value)} placeholder="07 08 12 34 56" /></Field>
+          <Field label="Code PIN (4 chiffres)">
+            <TextInput
+              value={pinCode}
+              maxLength={4}
+              inputMode="numeric"
+              onChange={(e) => setPinCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              placeholder="0000"
+            />
+          </Field>
+        </div>
+        {!pinValid && <p className="font-body text-xs mt-1.5" style={{ color: C.red }}>Le code PIN doit comporter exactement 4 chiffres.</p>}
       </div>
 
       <div className="flex items-center justify-end gap-3 pt-2">

@@ -111,6 +111,12 @@ export const gares = pgTable("gares", {
   longitude: numeric("longitude", { precision: 10, scale: 6 }),
   chefNom: varchar("chef_nom", { length: 160 }),
   chefContact: varchar("chef_contact", { length: 30 }),
+  // Compte de la gare, créé par l'administrateur MUGETRAN-CI. Sert de base
+  // pour un futur portail de connexion dédié au personnel de la gare
+  // (gestion de ses propres lignes et véhicules). Ce n'est pas encore un
+  // système d'authentification opérationnel — juste les identifiants.
+  login: varchar("login", { length: 20 }).unique(), // numéro de téléphone
+  pinCode: varchar("pin_code", { length: 4 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
