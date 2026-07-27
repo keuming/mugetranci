@@ -1690,7 +1690,9 @@ function GareForm({ onCancel, onSave }) {
   const [error, setError] = useState(null);
 
   const pinValid = !pinCode || /^\d{4}$/.test(pinCode);
-  const canSave = nom && commune && pinValid && !saving;
+  const latValid = !latitude || (Number(latitude) >= -90 && Number(latitude) <= 90);
+  const lngValid = !longitude || (Number(longitude) >= -180 && Number(longitude) <= 180);
+  const canSave = nom && commune && pinValid && latValid && lngValid && !saving;
 
   const handleSave = async () => {
     setSaving(true);
@@ -1714,7 +1716,9 @@ function GareForm({ onCancel, onSave }) {
         <Field label="Latitude" hint="Coordonnées GPS — via Google Maps"><TextInput type="number" step="0.000001" value={latitude} onChange={(e) => setLatitude(e.target.value)} placeholder="5.345317" /></Field>
         <Field label="Longitude"><TextInput type="number" step="0.000001" value={longitude} onChange={(e) => setLongitude(e.target.value)} placeholder="-4.076083" /></Field>
       </div>
-      {latitude && longitude && (
+      {!latValid && <p className="font-body text-xs" style={{ color: C.red }}>La latitude doit être comprise entre -90 et 90 (ex. 5.345317 pour Abidjan).</p>}
+      {!lngValid && <p className="font-body text-xs" style={{ color: C.red }}>La longitude doit être comprise entre -180 et 180 (ex. -4.076083 pour Abidjan).</p>}
+      {latitude && longitude && latValid && lngValid && (
         <a href={`https://www.google.com/maps?q=${latitude},${longitude}`} target="_blank" rel="noreferrer" className="font-body text-xs font-semibold flex items-center gap-1.5" style={{ color: C.green }}>
           <MapPin size={13} /> Vérifier cet emplacement sur Google Maps
         </a>
