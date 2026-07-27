@@ -450,7 +450,7 @@ function FicheVehicule({ vehicle, owners, drivers, onClose }) {
               <Building2 size={20} color="#fff" />
             </div>
             <div>
-              <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>Mutuelle Nationale des Transporteurs de Côte d'Ivoire</div>
+              <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>Mutuelle des Transporteurs de Côte d'Ivoire — MUGETRAN-CI</div>
               <div className="font-body" style={{ fontSize: 11, color: C.slate }}>Fiche Véhicule Commercial — Réf. {vehicle.id}</div>
             </div>
           </div>
@@ -579,8 +579,8 @@ function MembershipCard({ driver, vehicle }) {
           <div className="flex flex-col h-full justify-between">
             <div className="flex items-start justify-between">
               <div>
-                <div className="font-display" style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.3 }}>MUTUELLE NATIONALE</div>
-                <div className="font-body" style={{ fontSize: 9.5, opacity: 0.85 }}>DES TRANSPORTEURS DE CÔTE D'IVOIRE</div>
+                <div className="font-display" style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.3 }}>MUGETRAN-CI</div>
+                <div className="font-body" style={{ fontSize: 9.5, opacity: 0.85 }}>MUTUELLE DES TRANSPORTEURS DE CÔTE D'IVOIRE</div>
               </div>
               <BadgeCheck size={22} />
             </div>
@@ -694,7 +694,7 @@ export default function App() {
                 <Car size={17} color="#fff" />
               </div>
               <div>
-                <div className="font-display" style={{ color: "#fff", fontSize: 15, fontWeight: 700, lineHeight: 1.1 }}>MNT-CI</div>
+                <div className="font-display" style={{ color: "#fff", fontSize: 15, fontWeight: 700, lineHeight: 1.1 }}>MUGETRAN-CI</div>
                 <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 9.5 }}>Mutuelle des transporteurs</div>
               </div>
             </div>
