@@ -232,7 +232,41 @@ function TricolorRule() {
 /* ============================================================
    ADD / EDIT VEHICLE FORM
    ============================================================ */
+const STEPS = [
+  { key: "vehicule", label: "Véhicule", icon: <Car size={15} /> },
+  { key: "documents", label: "Documents", icon: <FileText size={15} /> },
+  { key: "proprietaire", label: "Propriétaire", icon: <User size={15} /> },
+  { key: "chauffeurs", label: "Chauffeur(s)", icon: <Users size={15} /> },
+];
+
+function StepIndicator({ step }) {
+  return (
+    <div className="flex items-center mb-6">
+      {STEPS.map((s, i) => (
+        <React.Fragment key={s.key}>
+          <div className="flex items-center gap-2">
+            <div
+              style={{
+                width: 30, height: 30, borderRadius: 999, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                background: i < step ? C.green : i === step ? C.orange : "#fff",
+                color: i <= step ? "#fff" : C.slate,
+                border: i === step ? `2px solid ${C.orange}` : `1px solid ${C.border}`,
+              }}
+            >
+              {i < step ? <Check size={14} /> : s.icon}
+            </div>
+            <span className="font-body text-xs font-semibold hidden sm:inline" style={{ color: i === step ? C.ink : C.slate }}>{s.label}</span>
+          </div>
+          {i < STEPS.length - 1 && <div style={{ flex: 1, height: 1, background: i < step ? C.green : C.border, margin: "0 10px" }} />}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
 function VehicleForm({ owners, drivers, onCancel, onSave, addOwner, addDriver }) {
+  const [step, setStep] = useState(0);
+
   const [marque, setMarque] = useState("");
   const [modele, setModele] = useState("");
   const [chassis, setChassis] = useState("");
@@ -255,7 +289,14 @@ function VehicleForm({ owners, drivers, onCancel, onSave, addOwner, addDriver })
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
-  const canSave = marque && modele && immatriculation && chassis && !saving;
+
+  const stepValid = [
+    !!(marque && modele && chassis && immatriculation),
+    true, // documents are optional at creation time
+    ownerMode === "existing" ? !!ownerId : !!(newOwner.nom && newOwner.prenoms && newOwner.cni),
+    driverRows.every((row) => row.mode === "existing" ? true : !!(row.draft.nom && row.draft.prenoms && row.draft.cni && row.draft.permisNumero && row.draft.permisDateFin)),
+  ];
+  const canSave = stepValid.every(Boolean) && !saving;
 
   const handleSave = async () => {
     setSaving(true);
@@ -289,123 +330,162 @@ function VehicleForm({ owners, drivers, onCancel, onSave, addOwner, addDriver })
     }
   };
 
+  const isLast = step === STEPS.length - 1;
+  const goNext = () => stepValid[step] && setStep((s) => Math.min(s + 1, STEPS.length - 1));
+  const goBack = () => setStep((s) => Math.max(s - 1, 0));
+
   return (
-    <div className="flex flex-col gap-5" style={{ maxHeight: "78vh", overflowY: "auto", paddingRight: 4 }}>
-      <SectionCard accent={C.green} icon={<Car size={18} />} title="Véhicule">
-        <PhotoUpload value={photo} onChange={setPhoto} label="Photo du véhicule" shape="square" />
-        <div className="grid grid-cols-2 gap-4 mt-4">
-          <Field label="Marque"><TextInput value={marque} onChange={(e) => setMarque(e.target.value)} placeholder="Toyota" /></Field>
-          <Field label="Modèle"><TextInput value={modele} onChange={(e) => setModele(e.target.value)} placeholder="Hiace 18 places" /></Field>
-          <Field label="Numéro de châssis"><TextInput value={chassis} onChange={(e) => setChassis(e.target.value)} placeholder="JT731HB0900123456" /></Field>
-          <Field label="Numéro carte grise"><TextInput value={carteGrise} onChange={(e) => setCarteGrise(e.target.value)} placeholder="CG-2024-000000" /></Field>
-          <Field label="Numéro d'immatriculation"><TextInput value={immatriculation} onChange={(e) => setImmatriculation(e.target.value)} placeholder="CI 1234 AB 01" /></Field>
-          <Field label="1ère mise en circulation"><DateInput value={dateMiseCirculation} onChange={(e) => setDateMiseCirculation(e.target.value)} /></Field>
-        </div>
-      </SectionCard>
+    <div className="flex flex-col" style={{ height: "76vh" }}>
+      <StepIndicator step={step} />
 
-      <SectionCard accent={C.amber} icon={<FileText size={18} />} title="Documents administratifs — dates de fin de validité">
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Visite technique"><DateInput value={docs.visiteTechnique} onChange={(e) => setDocs({ ...docs, visiteTechnique: e.target.value })} /></Field>
-          <Field label="Assurance auto"><DateInput value={docs.assuranceAuto} onChange={(e) => setDocs({ ...docs, assuranceAuto: e.target.value })} /></Field>
-          <Field label="Vignette"><DateInput value={docs.vignette} onChange={(e) => setDocs({ ...docs, vignette: e.target.value })} /></Field>
-          <Field label="Carte de stationnement"><DateInput value={docs.carteStationnement} onChange={(e) => setDocs({ ...docs, carteStationnement: e.target.value })} /></Field>
-        </div>
-        <p className="font-body text-[11px] mt-3" style={{ color: C.slate }}>
-          Le permis de conduire est suivi au niveau de la fiche de chaque chauffeur ci-dessous et apparaît automatiquement dans les alertes de ce véhicule.
-        </p>
-      </SectionCard>
-
-      <SectionCard accent={C.orange} icon={<User size={18} />} title="Propriétaire">
-        <div className="flex gap-2 mb-4">
-          <button type="button" onClick={() => setOwnerMode("existing")} className="font-body text-xs font-semibold px-3 py-1.5 rounded-full" style={{ background: ownerMode === "existing" ? C.orangeLight : "transparent", color: ownerMode === "existing" ? C.orangeDark : C.slate, border: `1px solid ${ownerMode === "existing" ? C.orange : C.border}` }}>Propriétaire existant</button>
-          <button type="button" onClick={() => setOwnerMode("new")} className="font-body text-xs font-semibold px-3 py-1.5 rounded-full" style={{ background: ownerMode === "new" ? C.orangeLight : "transparent", color: ownerMode === "new" ? C.orangeDark : C.slate, border: `1px solid ${ownerMode === "new" ? C.orange : C.border}` }}>+ Nouveau propriétaire</button>
-        </div>
-
-        {ownerMode === "existing" ? (
-          <Field label="Sélectionner un propriétaire">
-            <select style={inputStyle} className="font-body" value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
-              {owners.map((o) => <option key={o.id} value={o.id}>{o.prenoms} {o.nom} — {o.quartier}</option>)}
-            </select>
-          </Field>
-        ) : (
-          <div className="flex flex-col gap-4">
-            <PhotoUpload value={newOwner.photo} onChange={(v) => setNewOwner({ ...newOwner, photo: v })} label="Photo du propriétaire" />
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Nom"><TextInput value={newOwner.nom} onChange={(e) => setNewOwner({ ...newOwner, nom: e.target.value })} /></Field>
-              <Field label="Prénoms"><TextInput value={newOwner.prenoms} onChange={(e) => setNewOwner({ ...newOwner, prenoms: e.target.value })} /></Field>
-              <Field label="Numéro CNI"><TextInput value={newOwner.cni} onChange={(e) => setNewOwner({ ...newOwner, cni: e.target.value })} /></Field>
-              <Field label="Adresse email"><TextInput value={newOwner.email} onChange={(e) => setNewOwner({ ...newOwner, email: e.target.value })} /></Field>
-              <Field label="Contact 1"><TextInput value={newOwner.contact1} onChange={(e) => setNewOwner({ ...newOwner, contact1: e.target.value })} /></Field>
-              <Field label="Contact 2"><TextInput value={newOwner.contact2} onChange={(e) => setNewOwner({ ...newOwner, contact2: e.target.value })} /></Field>
-              <Field label="Contact 3"><TextInput value={newOwner.contact3} onChange={(e) => setNewOwner({ ...newOwner, contact3: e.target.value })} /></Field>
-              <Field label="Ville de résidence"><TextInput value={newOwner.ville} onChange={(e) => setNewOwner({ ...newOwner, ville: e.target.value })} /></Field>
-              <Field label="Quartier"><TextInput value={newOwner.quartier} onChange={(e) => setNewOwner({ ...newOwner, quartier: e.target.value })} /></Field>
+      <div className="flex-1 overflow-y-auto pr-1">
+        {step === 0 && (
+          <SectionCard accent={C.green} icon={<Car size={18} />} title="Véhicule">
+            <PhotoUpload value={photo} onChange={setPhoto} label="Photo du véhicule" shape="square" />
+            <div className="grid grid-cols-2 gap-4 mt-5">
+              <Field label="Marque"><TextInput value={marque} onChange={(e) => setMarque(e.target.value)} placeholder="Toyota" /></Field>
+              <Field label="Modèle"><TextInput value={modele} onChange={(e) => setModele(e.target.value)} placeholder="Hiace 18 places" /></Field>
+              <Field label="Numéro de châssis"><TextInput value={chassis} onChange={(e) => setChassis(e.target.value)} placeholder="JT731HB0900123456" /></Field>
+              <Field label="Numéro carte grise"><TextInput value={carteGrise} onChange={(e) => setCarteGrise(e.target.value)} placeholder="CG-2024-000000" /></Field>
+              <Field label="Numéro d'immatriculation"><TextInput value={immatriculation} onChange={(e) => setImmatriculation(e.target.value)} placeholder="CI 1234 AB 01" /></Field>
+              <Field label="1ère mise en circulation"><DateInput value={dateMiseCirculation} onChange={(e) => setDateMiseCirculation(e.target.value)} /></Field>
             </div>
-          </div>
+          </SectionCard>
         )}
-      </SectionCard>
 
-      <SectionCard
-        accent={C.greenDark}
-        icon={<Users size={18} />}
-        title="Chauffeur(s)"
-        right={
-          <button type="button" onClick={addDriverRow} className="font-body flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full" style={{ background: C.greenLight, color: C.greenDark }}>
-            <Plus size={14} /> Ajouter un chauffeur
-          </button>
-        }
-      >
-        <div className="flex flex-col gap-5">
-          {driverRows.map((row, i) => (
-            <div key={i} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 16 }}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => updateDriverRow(i, { mode: "existing" })} className="font-body text-xs font-semibold px-3 py-1.5 rounded-full" style={{ background: row.mode === "existing" ? C.greenLight : "transparent", color: row.mode === "existing" ? C.greenDark : C.slate, border: `1px solid ${row.mode === "existing" ? C.green : C.border}` }}>Chauffeur existant</button>
-                  <button type="button" onClick={() => updateDriverRow(i, { mode: "new" })} className="font-body text-xs font-semibold px-3 py-1.5 rounded-full" style={{ background: row.mode === "new" ? C.greenLight : "transparent", color: row.mode === "new" ? C.greenDark : C.slate, border: `1px solid ${row.mode === "new" ? C.green : C.border}` }}>+ Nouveau chauffeur</button>
-                </div>
-                {driverRows.length > 1 && (
-                  <button type="button" onClick={() => removeDriverRow(i)} style={{ color: C.red }} title="Retirer"><Trash2 size={16} /></button>
-                )}
-              </div>
+        {step === 1 && (
+          <SectionCard accent={C.amber} icon={<FileText size={18} />} title="Documents administratifs — dates de fin de validité">
+            <div className="grid grid-cols-2 gap-5">
+              <Field label="Visite technique"><DateInput value={docs.visiteTechnique} onChange={(e) => setDocs({ ...docs, visiteTechnique: e.target.value })} /></Field>
+              <Field label="Assurance auto"><DateInput value={docs.assuranceAuto} onChange={(e) => setDocs({ ...docs, assuranceAuto: e.target.value })} /></Field>
+              <Field label="Vignette"><DateInput value={docs.vignette} onChange={(e) => setDocs({ ...docs, vignette: e.target.value })} /></Field>
+              <Field label="Carte de stationnement"><DateInput value={docs.carteStationnement} onChange={(e) => setDocs({ ...docs, carteStationnement: e.target.value })} /></Field>
+            </div>
+            <p className="font-body text-xs mt-4 px-3 py-2.5 rounded-lg" style={{ color: C.slate, background: C.cream }}>
+              💡 Le permis de conduire est suivi au niveau de la fiche de chaque chauffeur (étape suivante) et apparaît automatiquement dans les alertes de ce véhicule.
+            </p>
+          </SectionCard>
+        )}
 
-              {row.mode === "existing" ? (
-                <Field label="Sélectionner un chauffeur">
-                  <select style={inputStyle} className="font-body" value={row.id} onChange={(e) => updateDriverRow(i, { id: e.target.value })}>
-                    {drivers.map((d) => <option key={d.id} value={d.id}>{d.prenoms} {d.nom} — permis {d.permisNumero}</option>)}
+        {step === 2 && (
+          <SectionCard accent={C.orange} icon={<User size={18} />} title="Propriétaire">
+            <div className="flex gap-2 mb-5">
+              <button type="button" onClick={() => setOwnerMode("existing")} className="font-body text-xs font-semibold px-3.5 py-2 rounded-full" style={{ background: ownerMode === "existing" ? C.orangeLight : "transparent", color: ownerMode === "existing" ? C.orangeDark : C.slate, border: `1px solid ${ownerMode === "existing" ? C.orange : C.border}` }}>Propriétaire existant</button>
+              <button type="button" onClick={() => setOwnerMode("new")} className="font-body text-xs font-semibold px-3.5 py-2 rounded-full" style={{ background: ownerMode === "new" ? C.orangeLight : "transparent", color: ownerMode === "new" ? C.orangeDark : C.slate, border: `1px solid ${ownerMode === "new" ? C.orange : C.border}` }}>+ Nouveau propriétaire</button>
+            </div>
+
+            {ownerMode === "existing" ? (
+              owners.length ? (
+                <Field label="Sélectionner un propriétaire">
+                  <select style={inputStyle} className="font-body" value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
+                    {owners.map((o) => <option key={o.id} value={o.id}>{o.prenoms} {o.nom} — {o.quartier}</option>)}
                   </select>
                 </Field>
               ) : (
-                <div className="flex flex-col gap-4">
-                  <PhotoUpload value={row.draft.photo} onChange={(v) => updateDriverDraft(i, { photo: v })} label="Photo du chauffeur" />
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field label="Nom"><TextInput value={row.draft.nom} onChange={(e) => updateDriverDraft(i, { nom: e.target.value })} /></Field>
-                    <Field label="Prénoms"><TextInput value={row.draft.prenoms} onChange={(e) => updateDriverDraft(i, { prenoms: e.target.value })} /></Field>
-                    <Field label="Numéro CNI"><TextInput value={row.draft.cni} onChange={(e) => updateDriverDraft(i, { cni: e.target.value })} /></Field>
-                    <Field label="Numéro permis de conduire"><TextInput value={row.draft.permisNumero} onChange={(e) => updateDriverDraft(i, { permisNumero: e.target.value })} /></Field>
-                    <Field label="Fin de validité du permis"><DateInput value={row.draft.permisDateFin} onChange={(e) => updateDriverDraft(i, { permisDateFin: e.target.value })} /></Field>
-                    <Field label="Adresse email"><TextInput value={row.draft.email} onChange={(e) => updateDriverDraft(i, { email: e.target.value })} /></Field>
-                    <Field label="Contact 1"><TextInput value={row.draft.contact1} onChange={(e) => updateDriverDraft(i, { contact1: e.target.value })} /></Field>
-                    <Field label="Contact 2"><TextInput value={row.draft.contact2} onChange={(e) => updateDriverDraft(i, { contact2: e.target.value })} /></Field>
-                    <Field label="Contact 3"><TextInput value={row.draft.contact3} onChange={(e) => updateDriverDraft(i, { contact3: e.target.value })} /></Field>
-                  </div>
+                <p className="font-body text-sm" style={{ color: C.slate }}>Aucun propriétaire enregistré pour le moment — utilisez "+ Nouveau propriétaire".</p>
+              )
+            ) : (
+              <div className="flex flex-col gap-5">
+                <PhotoUpload value={newOwner.photo} onChange={(v) => setNewOwner({ ...newOwner, photo: v })} label="Photo du propriétaire" />
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Nom"><TextInput value={newOwner.nom} onChange={(e) => setNewOwner({ ...newOwner, nom: e.target.value })} /></Field>
+                  <Field label="Prénoms"><TextInput value={newOwner.prenoms} onChange={(e) => setNewOwner({ ...newOwner, prenoms: e.target.value })} /></Field>
+                  <Field label="Numéro CNI"><TextInput value={newOwner.cni} onChange={(e) => setNewOwner({ ...newOwner, cni: e.target.value })} /></Field>
+                  <Field label="Adresse email"><TextInput value={newOwner.email} onChange={(e) => setNewOwner({ ...newOwner, email: e.target.value })} /></Field>
+                  <Field label="Contact 1"><TextInput value={newOwner.contact1} onChange={(e) => setNewOwner({ ...newOwner, contact1: e.target.value })} /></Field>
+                  <Field label="Contact 2"><TextInput value={newOwner.contact2} onChange={(e) => setNewOwner({ ...newOwner, contact2: e.target.value })} /></Field>
+                  <Field label="Contact 3"><TextInput value={newOwner.contact3} onChange={(e) => setNewOwner({ ...newOwner, contact3: e.target.value })} /></Field>
+                  <Field label="Ville de résidence"><TextInput value={newOwner.ville} onChange={(e) => setNewOwner({ ...newOwner, ville: e.target.value })} /></Field>
+                  <Field label="Quartier"><TextInput value={newOwner.quartier} onChange={(e) => setNewOwner({ ...newOwner, quartier: e.target.value })} /></Field>
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </SectionCard>
+              </div>
+            )}
+          </SectionCard>
+        )}
 
-      <div className="flex items-center justify-end gap-3 pb-1">
-        {saveError && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{saveError}</span>}
-        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
-        <button
-          onClick={handleSave}
-          disabled={!canSave}
-          className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2"
-          style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}
-        >
-          <Check size={16} /> {saving ? "Enregistrement…" : "Enregistrer le véhicule"}
+        {step === 3 && (
+          <SectionCard
+            accent={C.greenDark}
+            icon={<Users size={18} />}
+            title="Chauffeur(s)"
+            right={
+              <button type="button" onClick={addDriverRow} className="font-body flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full" style={{ background: C.greenLight, color: C.greenDark }}>
+                <Plus size={14} /> Ajouter un chauffeur
+              </button>
+            }
+          >
+            <div className="flex flex-col gap-5">
+              {driverRows.map((row, i) => (
+                <div key={i} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 16 }}>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => updateDriverRow(i, { mode: "existing" })} className="font-body text-xs font-semibold px-3 py-1.5 rounded-full" style={{ background: row.mode === "existing" ? C.greenLight : "transparent", color: row.mode === "existing" ? C.greenDark : C.slate, border: `1px solid ${row.mode === "existing" ? C.green : C.border}` }}>Chauffeur existant</button>
+                      <button type="button" onClick={() => updateDriverRow(i, { mode: "new" })} className="font-body text-xs font-semibold px-3 py-1.5 rounded-full" style={{ background: row.mode === "new" ? C.greenLight : "transparent", color: row.mode === "new" ? C.greenDark : C.slate, border: `1px solid ${row.mode === "new" ? C.green : C.border}` }}>+ Nouveau chauffeur</button>
+                    </div>
+                    {driverRows.length > 1 && (
+                      <button type="button" onClick={() => removeDriverRow(i)} style={{ color: C.red }} title="Retirer"><Trash2 size={16} /></button>
+                    )}
+                  </div>
+
+                  {row.mode === "existing" ? (
+                    drivers.length ? (
+                      <Field label="Sélectionner un chauffeur">
+                        <select style={inputStyle} className="font-body" value={row.id} onChange={(e) => updateDriverRow(i, { id: e.target.value })}>
+                          {drivers.map((d) => <option key={d.id} value={d.id}>{d.prenoms} {d.nom} — permis {d.permisNumero}</option>)}
+                        </select>
+                      </Field>
+                    ) : (
+                      <p className="font-body text-sm" style={{ color: C.slate }}>Aucun chauffeur enregistré — utilisez "+ Nouveau chauffeur".</p>
+                    )
+                  ) : (
+                    <div className="flex flex-col gap-4">
+                      <PhotoUpload value={row.draft.photo} onChange={(v) => updateDriverDraft(i, { photo: v })} label="Photo du chauffeur" />
+                      <div className="grid grid-cols-2 gap-4">
+                        <Field label="Nom"><TextInput value={row.draft.nom} onChange={(e) => updateDriverDraft(i, { nom: e.target.value })} /></Field>
+                        <Field label="Prénoms"><TextInput value={row.draft.prenoms} onChange={(e) => updateDriverDraft(i, { prenoms: e.target.value })} /></Field>
+                        <Field label="Numéro CNI"><TextInput value={row.draft.cni} onChange={(e) => updateDriverDraft(i, { cni: e.target.value })} /></Field>
+                        <Field label="Numéro permis de conduire"><TextInput value={row.draft.permisNumero} onChange={(e) => updateDriverDraft(i, { permisNumero: e.target.value })} /></Field>
+                        <Field label="Fin de validité du permis"><DateInput value={row.draft.permisDateFin} onChange={(e) => updateDriverDraft(i, { permisDateFin: e.target.value })} /></Field>
+                        <Field label="Adresse email"><TextInput value={row.draft.email} onChange={(e) => updateDriverDraft(i, { email: e.target.value })} /></Field>
+                        <Field label="Contact 1"><TextInput value={row.draft.contact1} onChange={(e) => updateDriverDraft(i, { contact1: e.target.value })} /></Field>
+                        <Field label="Contact 2"><TextInput value={row.draft.contact2} onChange={(e) => updateDriverDraft(i, { contact2: e.target.value })} /></Field>
+                        <Field label="Contact 3"><TextInput value={row.draft.contact3} onChange={(e) => updateDriverDraft(i, { contact3: e.target.value })} /></Field>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between gap-3 pt-4 mt-2" style={{ borderTop: `1px solid ${C.border}` }}>
+        <button onClick={step === 0 ? onCancel : goBack} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg flex items-center gap-1.5" style={{ color: C.slate }}>
+          {step === 0 ? "Annuler" : (<><ChevronLeft size={15} /> Précédent</>)}
         </button>
+        <div className="flex items-center gap-3">
+          {saveError && <span className="font-body text-xs" style={{ color: C.red }}>{saveError}</span>}
+          {!isLast ? (
+            <button
+              onClick={goNext}
+              disabled={!stepValid[step]}
+              className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-1.5"
+              style={{ background: stepValid[step] ? C.green : "#B9C4BE", color: "#fff", cursor: stepValid[step] ? "pointer" : "not-allowed" }}
+            >
+              Suivant <ChevronRight size={15} />
+            </button>
+          ) : (
+            <button
+              onClick={handleSave}
+              disabled={!canSave}
+              className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2"
+              style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}
+            >
+              <Check size={16} /> {saving ? "Enregistrement…" : "Enregistrer le véhicule"}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
