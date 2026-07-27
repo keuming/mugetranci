@@ -789,7 +789,7 @@ function FicheVehicule({ vehicle, owners, drivers, onClose }) {
           <div className="flex items-start justify-between gap-6">
             <div className="flex flex-col items-center">
               <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 6, padding: 5 }}>
-                <QRCodeSVG value={ficheUrl(vehicle.id)} size={72} bgColor="#ffffff" fgColor={C.ink} level="M" />
+                <QRCodeSVG value={ficheUrl(vehicle.id)} size={100} bgColor="#ffffff" fgColor={C.ink} level="M" />
               </div>
               <div className="font-body text-center" style={{ fontSize: 8.5, color: C.slate, marginTop: 4 }}>
                 Scanner pour ouvrir cette fiche en ligne
@@ -891,7 +891,7 @@ function CardFace({ driver, vehicle, side, scale = 1 }) {
       ) : (
         <div className="flex flex-col h-full items-center justify-center gap-2">
           <div style={{ background: "#fff", borderRadius: 8, padding: 6 }}>
-            <QRCodeSVG value={fuelQrData(driver.id, vehicle?.carteGrise)} size={92} bgColor="#ffffff" fgColor={C.ink} level="M" />
+            <QRCodeSVG value={fuelQrData(driver.id, vehicle?.carteGrise)} size={130} bgColor="#ffffff" fgColor={C.ink} level="M" />
           </div>
           <div className="font-body text-center" style={{ fontSize: 9.5, opacity: 0.85 }}>
             Pointage carburant en station · Carte n° {driver.id.slice(0, 8)}
