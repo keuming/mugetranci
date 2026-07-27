@@ -179,6 +179,53 @@ function PhotoUpload({ value, onChange, label, shape = "circle" }) {
   );
 }
 
+/* Avatar circulaire cliquable : clic → sélection d'image → upload immédiat
+   via onUpload(dataUrl). Utilisé pour ajouter/changer la photo d'une
+   personne déjà créée (ex. chauffeur) directement depuis sa fiche/liste. */
+function AvatarUpload({ photo, nom, prenoms, size = 48, onUpload }) {
+  const ref = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const onFile = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      setUploading(true);
+      try {
+        await onUpload(ev.target.result);
+      } catch (err) {
+        alert(err.message || "Échec de l'envoi de la photo. Vérifiez la connexion à la base.");
+      } finally {
+        setUploading(false);
+      }
+    };
+    reader.readAsDataURL(f);
+  };
+  return (
+    <div
+      onClick={(e) => { e.stopPropagation(); ref.current?.click(); }}
+      title="Cliquer pour ajouter/changer la photo"
+      style={{
+        width: size, height: size, borderRadius: 999, overflow: "hidden", background: C.cream,
+        border: `1px solid ${C.border}`, flexShrink: 0, position: "relative", cursor: "pointer",
+      }}
+    >
+      {photo ? (
+        <img src={photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center font-semibold text-sm" style={{ color: C.slate }}>{initials(nom, prenoms)}</div>
+      )}
+      <div
+        className="flex items-center justify-center"
+        style={{ position: "absolute", inset: 0, background: "rgba(20,24,20,0.45)", opacity: uploading ? 1 : 0, transition: "opacity .15s" }}
+      >
+        <Camera size={16} color="#fff" />
+      </div>
+      <input ref={ref} type="file" accept="image/*" onChange={onFile} style={{ display: "none" }} />
+    </div>
+  );
+}
+
 function SectionCard({ accent, title, icon, children, right }) {
   return (
     <div style={{ background: C.paper, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
@@ -827,6 +874,18 @@ async function apiPost(path, body) {
   }
   return res.json();
 }
+async function apiPatch(path, body) {
+  const res = await fetch(path, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `${path} a répondu ${res.status}`);
+  }
+  return res.json();
+}
 
 export default function App() {
   const [owners, setOwners] = useState([]);
@@ -922,6 +981,10 @@ export default function App() {
     const created = await apiPost("/api/chauffeurs", d);
     setDrivers((s) => [...s, created]);
     return created;
+  };
+  const updateDriverPhoto = async (driverId, photoDataUrl) => {
+    const updated = await apiPatch(`/api/chauffeurs/${driverId}`, { photo: photoDataUrl });
+    setDrivers((s) => s.map((d) => (d.id === driverId ? updated : d)));
   };
   const addVehicle = async (v) => {
     const created = await apiPost("/api/vehicules", v);
@@ -1120,9 +1183,7 @@ export default function App() {
                       <input type="checkbox" checked={isSelected} onChange={() => toggleDriverSelection(d.id)} style={{ width: 15, height: 15, accentColor: C.orange }} />
                     </label>
                     <div className="flex items-center gap-3 mb-3">
-                      <div style={{ width: 48, height: 48, borderRadius: 999, overflow: "hidden", background: C.cream, border: `1px solid ${C.border}`, flexShrink: 0 }}>
-                        {d.photo ? <img src={d.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-semibold text-sm" style={{ color: C.slate }}>{initials(d.nom, d.prenoms)}</div>}
-                      </div>
+                      <AvatarUpload photo={d.photo} nom={d.nom} prenoms={d.prenoms} size={48} onUpload={(dataUrl) => updateDriverPhoto(d.id, dataUrl)} />
                       <div>
                         <div className="font-semibold text-sm">{d.prenoms} {d.nom}</div>
                         <div className="text-xs" style={{ color: C.slate }}>{veh ? veh.immatriculation : "Non affecté"}</div>
