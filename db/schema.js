@@ -97,3 +97,46 @@ export const achatsCarburant = pgTable("achats_carburant", {
   station: varchar("station", { length: 160 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+/* ---------- Gares routières ----------
+   Une gare appartient à une commune (simple champ texte — la liste des
+   communes proposées dans les menus déroulants est déduite des gares
+   déjà créées, pas une table de référence figée). */
+export const gares = pgTable("gares", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  nom: varchar("nom", { length: 160 }).notNull(),
+  commune: varchar("commune", { length: 120 }).notNull(),
+  localisation: varchar("localisation", { length: 255 }), // adresse / description libre
+  latitude: numeric("latitude", { precision: 10, scale: 6 }),
+  longitude: numeric("longitude", { precision: 10, scale: 6 }),
+  chefNom: varchar("chef_nom", { length: 160 }),
+  chefContact: varchar("chef_contact", { length: 30 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+/* ---------- Lignes (trajets) rattachées à une gare ---------- */
+export const lignes = pgTable("lignes", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  gareId: uuid("gare_id").references(() => gares.id).notNull(),
+  lieuDepart: varchar("lieu_depart", { length: 160 }).notNull(),
+  lieuArrivee: varchar("lieu_arrivee", { length: 160 }).notNull(),
+  cout: integer("cout").notNull(), // FCFA
+  chefNom: varchar("chef_nom", { length: 160 }),
+  chefContact: varchar("chef_contact", { length: 30 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+/* ---------- Affectation d'un véhicule à une gare / ligne ----------
+   Historisée comme pour les propriétaires : une nouvelle affectation
+   clôture automatiquement la précédente (désaffectation + réaffectation
+   possible vers une autre commune / gare / ligne). */
+export const affectations = pgTable("affectations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  vehiculeId: uuid("vehicule_id").references(() => vehicules.id).notNull(),
+  gareId: uuid("gare_id").references(() => gares.id).notNull(),
+  ligneId: uuid("ligne_id").references(() => lignes.id).notNull(),
+  dateAffectation: date("date_affectation").notNull(),
+  dateFin: date("date_fin"), // null = affectation active
+  actif: boolean("actif").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});

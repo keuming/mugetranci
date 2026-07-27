@@ -306,6 +306,7 @@ const STEPS = [
   { key: "documents", label: "Documents", icon: <FileText size={15} /> },
   { key: "proprietaire", label: "Propriétaire", icon: <User size={15} /> },
   { key: "chauffeurs", label: "Chauffeur(s)", icon: <Users size={15} /> },
+  { key: "affectation", label: "Affectation", icon: <MapPin size={15} /> },
 ];
 
 function StepIndicator({ step }) {
@@ -333,7 +334,7 @@ function StepIndicator({ step }) {
   );
 }
 
-function VehicleForm({ owners, drivers, onCancel, onSave, addOwner, addDriver }) {
+function VehicleForm({ owners, drivers, gares, lignes, onCancel, onSave, addOwner, addDriver, addGare, addLigne, affecterVehicule }) {
   const [step, setStep] = useState(0);
 
   const [marque, setMarque] = useState("");
@@ -357,6 +358,15 @@ function VehicleForm({ owners, drivers, onCancel, onSave, addOwner, addDriver })
   const updateDriverRow = (i, patch) => setDriverRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
   const updateDriverDraft = (i, patch) => setDriverRows((r) => r.map((row, idx) => (idx === i ? { ...row, draft: { ...row.draft, ...patch } } : row)));
 
+  // Affectation (étape 5, optionnelle)
+  const communes = [...new Set(gares.map((g) => g.commune))].sort();
+  const [communeSel, setCommuneSel] = useState("");
+  const [gareId, setGareId] = useState("");
+  const [ligneId, setLigneId] = useState("");
+  const [dateAffectation, setDateAffectation] = useState(new Date().toISOString().slice(0, 10));
+  const garesDeLaCommune = gares.filter((g) => g.commune === communeSel);
+  const lignesDeLaGare = lignes.filter((l) => l.gareId === gareId);
+
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
 
@@ -365,6 +375,7 @@ function VehicleForm({ owners, drivers, onCancel, onSave, addOwner, addDriver })
     true, // documents are optional at creation time
     ownerMode === "existing" ? !!ownerId : !!(newOwner.nom && newOwner.prenoms && newOwner.cni),
     driverRows.every((row) => row.mode === "existing" ? true : !!(row.draft.nom && row.draft.prenoms && row.draft.cni && row.draft.permisNumero && row.draft.permisDateFin)),
+    true, // affectation is optional
   ];
   const canSave = stepValid.every(Boolean) && !saving;
 
@@ -388,12 +399,16 @@ function VehicleForm({ owners, drivers, onCancel, onSave, addOwner, addDriver })
         }
       }
 
-      await onSave({
+      const createdVehicle = await onSave({
         marque, modele, chassis, carteGrise, nomCarteGrise, immatriculation, dateMiseCirculation, photo,
         documents: docs,
         proprietaireId: finalOwnerId || null,
         chauffeurIds: finalDriverIds,
       }); // POST /api/vehicules
+
+      if (gareId && ligneId && createdVehicle?.id) {
+        await affecterVehicule({ vehiculeId: createdVehicle.id, gareId, ligneId, dateAffectation });
+      }
     } catch (err) {
       setSaveError(err.message || "Erreur lors de l'enregistrement. Vérifiez la connexion à la base.");
       setSaving(false);
@@ -538,6 +553,41 @@ function VehicleForm({ owners, drivers, onCancel, onSave, addOwner, addDriver })
                 </div>
               ))}
             </div>
+          </SectionCard>
+        )}
+
+        {step === 4 && (
+          <SectionCard accent={C.orangeDark} icon={<MapPin size={18} />} title="Affectation (gare & ligne)">
+            <p className="font-body text-xs mb-4 px-3 py-2.5 rounded-lg" style={{ color: C.slate, background: C.cream }}>
+              💡 Étape optionnelle. Un véhicule peut être affecté plus tard, ou réaffecté à une autre commune / gare / ligne depuis la liste des véhicules.
+            </p>
+            {gares.length === 0 ? (
+              <p className="font-body text-sm" style={{ color: C.slate }}>Aucune gare enregistrée pour le moment — créez-en une depuis la page "Gares", puis revenez affecter ce véhicule.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Commune">
+                  <select style={inputStyle} className="font-body" value={communeSel} onChange={(e) => { setCommuneSel(e.target.value); setGareId(""); setLigneId(""); }}>
+                    <option value="">— Sélectionner —</option>
+                    {communes.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </Field>
+                <Field label="Gare">
+                  <select style={inputStyle} className="font-body" value={gareId} onChange={(e) => { setGareId(e.target.value); setLigneId(""); }} disabled={!communeSel}>
+                    <option value="">— Sélectionner —</option>
+                    {garesDeLaCommune.map((g) => <option key={g.id} value={g.id}>{g.nom}</option>)}
+                  </select>
+                </Field>
+                <Field label="Ligne">
+                  <select style={inputStyle} className="font-body" value={ligneId} onChange={(e) => setLigneId(e.target.value)} disabled={!gareId}>
+                    <option value="">— Sélectionner —</option>
+                    {lignesDeLaGare.map((l) => <option key={l.id} value={l.id}>{l.lieuDepart} → {l.lieuArrivee} ({l.cout.toLocaleString("fr-FR")} F)</option>)}
+                  </select>
+                </Field>
+                <Field label="Date d'affectation">
+                  <DateInput value={dateAffectation} onChange={(e) => setDateAffectation(e.target.value)} />
+                </Field>
+              </div>
+            )}
           </SectionCard>
         )}
       </div>
@@ -986,23 +1036,35 @@ export default function App() {
   const [selectedDriverIds, setSelectedDriverIds] = useState([]);
   const [achats, setAchats] = useState([]);
   const [showFuelForm, setShowFuelForm] = useState(false);
+  const [gares, setGares] = useState([]);
+  const [lignes, setLignes] = useState([]);
+  const [affectations, setAffectations] = useState([]);
+  const [showGareForm, setShowGareForm] = useState(false);
+  const [ligneFormGareId, setLigneFormGareId] = useState(null);
+  const [reassignVehicle, setReassignVehicle] = useState(null);
   const [search, setSearch] = useState("");
 
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [o, d, v, ac] = await Promise.all([
+        const [o, d, v, ac, ga, li, af] = await Promise.all([
           apiGet("/api/proprietaires"),
           apiGet("/api/chauffeurs"),
           apiGet("/api/vehicules"),
           apiGet("/api/carburant"),
+          apiGet("/api/gares"),
+          apiGet("/api/lignes"),
+          apiGet("/api/affectations"),
         ]);
         if (cancelled) return;
         setOwners(o);
         setDrivers(d);
         setVehicles(v);
         setAchats(ac);
+        setGares(ga);
+        setLignes(li);
+        setAffectations(af);
 
         const params = new URLSearchParams(window.location.search);
 
@@ -1094,6 +1156,25 @@ export default function App() {
     setAchats((s) => [created, ...s]);
     return created;
   };
+  const addGare = async (payload) => {
+    const created = await apiPost("/api/gares", payload);
+    setGares((s) => [...s, created]);
+    return created;
+  };
+  const addLigne = async (payload) => {
+    const created = await apiPost("/api/lignes", payload);
+    setLignes((s) => [...s, created]);
+    return created;
+  };
+  const affecterVehicule = async (payload) => {
+    const created = await apiPost("/api/affectations", payload);
+    setAffectations((s) => [...s.map((a) => (a.vehiculeId === payload.vehiculeId ? { ...a, actif: false } : a)), created]);
+    return created;
+  };
+  const desaffecterVehicule = async (vehiculeId) => {
+    await apiPost("/api/affectations", { vehiculeId, desaffecter: true });
+    setAffectations((s) => s.map((a) => (a.vehiculeId === vehiculeId ? { ...a, actif: false } : a)));
+  };
   const addVehicle = async (v) => {
     const created = await apiPost("/api/vehicules", v);
     setVehicles((s) => [...s, created]);
@@ -1111,6 +1192,7 @@ export default function App() {
     { key: "vehicles", label: "Véhicules", icon: <Car size={17} /> },
     { key: "owners", label: "Propriétaires", icon: <User size={17} /> },
     { key: "drivers", label: "Chauffeurs", icon: <Users size={17} /> },
+    { key: "gares", label: "Gares", icon: <MapPin size={17} /> },
     { key: "carburant", label: "Carburant", icon: <Fuel size={17} /> },
     { key: "alerts", label: "Alertes documents", icon: <Bell size={17} />, count: critical.length },
   ];
@@ -1157,7 +1239,7 @@ export default function App() {
           <div className="flex items-center justify-between mb-7">
             <div>
               <h1 className="font-display" style={{ fontSize: 24, fontWeight: 700 }}>
-                {{ dashboard: "Tableau de bord", vehicles: "Véhicules", owners: "Propriétaires", drivers: "Chauffeurs", carburant: "Carburant", alerts: "Alertes documents" }[page]}
+                {{ dashboard: "Tableau de bord", vehicles: "Véhicules", owners: "Propriétaires", drivers: "Chauffeurs", gares: "Gares", carburant: "Carburant", alerts: "Alertes documents" }[page]}
               </h1>
               <p className="text-sm" style={{ color: C.slate }}>Registre unifié véhicules · propriétaires · chauffeurs</p>
             </div>
@@ -1218,14 +1300,14 @@ export default function App() {
               </SectionCard>
 
               <SectionCard accent={C.green} icon={<Car size={18} />} title="Véhicules récemment ajoutés">
-                <VehicleTable vehicles={vehicles.slice(-5).reverse()} owners={owners} onFiche={openFiche} onPhoto={updateVehiclePhoto} />
+                <VehicleTable vehicles={vehicles.slice(-5).reverse()} owners={owners} onFiche={openFiche} onPhoto={updateVehiclePhoto} gares={gares} lignes={lignes} affectations={affectations} onReassign={setReassignVehicle} />
               </SectionCard>
             </div>
           )}
 
           {page === "vehicles" && (
             <SectionCard accent={C.green} icon={<Car size={18} />} title={`Tous les véhicules (${filteredVehicles.length})`}>
-              <VehicleTable vehicles={filteredVehicles} owners={owners} onFiche={openFiche} onPhoto={updateVehiclePhoto} />
+              <VehicleTable vehicles={filteredVehicles} owners={owners} onFiche={openFiche} onPhoto={updateVehiclePhoto} gares={gares} lignes={lignes} affectations={affectations} onReassign={setReassignVehicle} />
             </SectionCard>
           )}
 
@@ -1322,6 +1404,68 @@ export default function App() {
             </div>
           )}
 
+          {page === "gares" && (
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <p className="font-body text-sm" style={{ color: C.slate }}>{gares.length} gare{gares.length > 1 ? "s" : ""} enregistrée{gares.length > 1 ? "s" : ""}</p>
+                <button onClick={() => setShowGareForm(true)} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: C.orange, color: "#fff" }}>
+                  <Plus size={16} /> Ajouter une gare
+                </button>
+              </div>
+
+              {gares.length === 0 ? (
+                <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 24 }} className="font-body text-sm text-center" >
+                  <span style={{ color: C.slate }}>Aucune gare enregistrée. Ajoutez la première gare pour commencer à y rattacher des lignes et affecter des véhicules.</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  {gares.map((g) => {
+                    const gareLignes = lignes.filter((l) => l.gareId === g.id);
+                    return (
+                      <div key={g.id} style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 18 }}>
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <div className="font-semibold text-sm">{g.nom}</div>
+                            <div className="text-xs" style={{ color: C.slate }}>{g.commune}{g.localisation ? " · " + g.localisation : ""}</div>
+                          </div>
+                          {g.latitude && g.longitude && (
+                            <a href={`https://www.google.com/maps?q=${g.latitude},${g.longitude}`} target="_blank" rel="noreferrer" className="font-body text-xs font-semibold flex items-center gap-1" style={{ color: C.green }}>
+                              <MapPin size={13} /> Carte
+                            </a>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-1 text-xs mb-3" style={{ color: C.slate }}>
+                          {g.chefNom && <div className="flex items-center gap-2"><User size={12} /> Chef de gare : {g.chefNom}{g.chefContact ? " · " + g.chefContact : ""}</div>}
+                        </div>
+
+                        <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-body text-xs font-semibold" style={{ color: C.ink }}>Lignes ({gareLignes.length})</span>
+                            <button onClick={() => setLigneFormGareId(g.id)} className="font-body text-xs font-semibold flex items-center gap-1 px-2 py-1 rounded-full" style={{ background: C.greenLight, color: C.greenDark }}>
+                              <Plus size={12} /> Ligne
+                            </button>
+                          </div>
+                          {gareLignes.length === 0 ? (
+                            <p className="font-body text-xs" style={{ color: C.slate }}>Aucune ligne pour cette gare.</p>
+                          ) : (
+                            <div className="flex flex-col gap-1.5">
+                              {gareLignes.map((l) => (
+                                <div key={l.id} className="flex items-center justify-between font-body text-xs" style={{ color: C.ink }}>
+                                  <span>{l.lieuDepart} → {l.lieuArrivee}</span>
+                                  <span className="font-mono font-semibold">{l.cout.toLocaleString("fr-FR")} F</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {page === "carburant" && (
             <div className="flex flex-col gap-6">
               <div className="flex gap-4">
@@ -1397,7 +1541,7 @@ export default function App() {
 
       {/* MODALS */}
       {showForm && <Modal onClose={() => setShowForm(false)} title="Ajouter un véhicule" wide>
-        <VehicleForm owners={owners} drivers={drivers} onCancel={() => setShowForm(false)} onSave={addVehicle} addOwner={addOwner} addDriver={addDriver} />
+        <VehicleForm owners={owners} drivers={drivers} gares={gares} lignes={lignes} onCancel={() => setShowForm(false)} onSave={addVehicle} addOwner={addOwner} addDriver={addDriver} addGare={addGare} addLigne={addLigne} affecterVehicule={affecterVehicule} />
       </Modal>}
 
       {ficheVehicle && <Modal onClose={closeFiche} title="Fiche Véhicule Commercial" wide>
@@ -1412,6 +1556,26 @@ export default function App() {
 
       {showFuelForm && <Modal onClose={() => setShowFuelForm(false)} title="Enregistrer un achat de carburant" wide>
         <FuelPurchaseForm drivers={drivers} vehicles={vehicles} onCancel={() => setShowFuelForm(false)} onSave={async (payload) => { await addAchat(payload); setShowFuelForm(false); }} />
+      </Modal>}
+
+      {showGareForm && <Modal onClose={() => setShowGareForm(false)} title="Ajouter une gare" wide>
+        <GareForm onCancel={() => setShowGareForm(false)} onSave={async (payload) => { await addGare(payload); setShowGareForm(false); }} />
+      </Modal>}
+
+      {ligneFormGareId && <Modal onClose={() => setLigneFormGareId(null)} title="Ajouter une ligne" wide>
+        <LigneForm gare={gares.find((g) => g.id === ligneFormGareId)} onCancel={() => setLigneFormGareId(null)} onSave={async (payload) => { await addLigne(payload); setLigneFormGareId(null); }} />
+      </Modal>}
+
+      {reassignVehicle && <Modal onClose={() => setReassignVehicle(null)} title={`Affectation — ${reassignVehicle.immatriculation}`} wide>
+        <ReassignForm
+          vehicle={reassignVehicle}
+          gares={gares}
+          lignes={lignes}
+          currentAffectation={affectations.find((a) => a.vehiculeId === reassignVehicle.id && a.actif)}
+          onCancel={() => setReassignVehicle(null)}
+          onReassign={async (payload) => { await affecterVehicule(payload); setReassignVehicle(null); }}
+          onUnassign={async (vehiculeId) => { await desaffecterVehicule(vehiculeId); setReassignVehicle(null); }}
+        />
       </Modal>}
     </div>
   );
@@ -1508,7 +1672,216 @@ function FuelPurchaseForm({ drivers, vehicles, onCancel, onSave }) {
   );
 }
 
-function VehicleTable({ vehicles, owners, onFiche, onPhoto }) {
+/* ============================================================
+   GARE — formulaire d'ajout
+   ============================================================ */
+function GareForm({ onCancel, onSave }) {
+  const [nom, setNom] = useState("");
+  const [commune, setCommune] = useState("");
+  const [localisation, setLocalisation] = useState("");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
+  const [chefNom, setChefNom] = useState("");
+  const [chefContact, setChefContact] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const canSave = nom && commune && !saving;
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave({ nom, commune, localisation, latitude, longitude, chefNom, chefContact });
+    } catch (err) {
+      setError(err.message || "Erreur lors de l'enregistrement.");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Nom de la gare"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Gare de Yopougon Sicogi" /></Field>
+        <Field label="Commune"><TextInput value={commune} onChange={(e) => setCommune(e.target.value)} placeholder="Yopougon" /></Field>
+      </div>
+      <Field label="Localisation (adresse / repère)"><TextInput value={localisation} onChange={(e) => setLocalisation(e.target.value)} placeholder="Carrefour Sicogi, près du marché" /></Field>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Latitude" hint="Coordonnées GPS — via Google Maps"><TextInput type="number" step="0.000001" value={latitude} onChange={(e) => setLatitude(e.target.value)} placeholder="5.345317" /></Field>
+        <Field label="Longitude"><TextInput type="number" step="0.000001" value={longitude} onChange={(e) => setLongitude(e.target.value)} placeholder="-4.076083" /></Field>
+      </div>
+      {latitude && longitude && (
+        <a href={`https://www.google.com/maps?q=${latitude},${longitude}`} target="_blank" rel="noreferrer" className="font-body text-xs font-semibold flex items-center gap-1.5" style={{ color: C.green }}>
+          <MapPin size={13} /> Vérifier cet emplacement sur Google Maps
+        </a>
+      )}
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Nom du chef de gare"><TextInput value={chefNom} onChange={(e) => setChefNom(e.target.value)} /></Field>
+        <Field label="Contact du chef de gare"><TextInput value={chefContact} onChange={(e) => setChefContact(e.target.value)} /></Field>
+      </div>
+
+      <div className="flex items-center justify-end gap-3 pt-2">
+        {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
+        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
+        <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.orange : "#D8B48A", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
+          <Check size={16} /> {saving ? "Enregistrement…" : "Enregistrer la gare"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   LIGNE — formulaire d'ajout, rattaché à une gare
+   ============================================================ */
+function LigneForm({ gare, onCancel, onSave }) {
+  const [lieuDepart, setLieuDepart] = useState("");
+  const [lieuArrivee, setLieuArrivee] = useState("");
+  const [cout, setCout] = useState("");
+  const [chefNom, setChefNom] = useState("");
+  const [chefContact, setChefContact] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const canSave = lieuDepart && lieuArrivee && Number(cout) > 0 && !saving;
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave({ gareId: gare.id, lieuDepart, lieuArrivee, cout, chefNom, chefContact });
+    } catch (err) {
+      setError(err.message || "Erreur lors de l'enregistrement.");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="font-body text-xs px-3 py-2.5 rounded-lg" style={{ background: C.cream, color: C.slate }}>
+        Ligne rattachée à <strong>{gare.nom}</strong> ({gare.commune})
+      </p>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Lieu de départ"><TextInput value={lieuDepart} onChange={(e) => setLieuDepart(e.target.value)} placeholder="Yopougon" /></Field>
+        <Field label="Lieu d'arrivée"><TextInput value={lieuArrivee} onChange={(e) => setLieuArrivee(e.target.value)} placeholder="Man" /></Field>
+      </div>
+      <Field label="Coût du trajet (FCFA)"><TextInput type="number" min="0" value={cout} onChange={(e) => setCout(e.target.value)} placeholder="5000" /></Field>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Nom du chef de ligne"><TextInput value={chefNom} onChange={(e) => setChefNom(e.target.value)} /></Field>
+        <Field label="Contact du chef de ligne"><TextInput value={chefContact} onChange={(e) => setChefContact(e.target.value)} /></Field>
+      </div>
+
+      <div className="flex items-center justify-end gap-3 pt-2">
+        {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
+        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
+        <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
+          <Check size={16} /> {saving ? "Enregistrement…" : "Enregistrer la ligne"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   RÉAFFECTATION d'un véhicule existant à une autre commune/gare/ligne
+   ============================================================ */
+function ReassignForm({ vehicle, gares, lignes, currentAffectation, onCancel, onReassign, onUnassign }) {
+  const communes = [...new Set(gares.map((g) => g.commune))].sort();
+  const [communeSel, setCommuneSel] = useState("");
+  const [gareId, setGareId] = useState("");
+  const [ligneId, setLigneId] = useState("");
+  const [dateAffectation, setDateAffectation] = useState(new Date().toISOString().slice(0, 10));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const garesDeLaCommune = gares.filter((g) => g.commune === communeSel);
+  const lignesDeLaGare = lignes.filter((l) => l.gareId === gareId);
+  const currentGare = currentAffectation ? gares.find((g) => g.id === currentAffectation.gareId) : null;
+  const currentLigne = currentAffectation ? lignes.find((l) => l.id === currentAffectation.ligneId) : null;
+
+  const handleReassign = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await onReassign({ vehiculeId: vehicle.id, gareId, ligneId, dateAffectation });
+    } catch (err) {
+      setError(err.message || "Erreur lors de l'affectation.");
+      setBusy(false);
+    }
+  };
+  const handleUnassign = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await onUnassign(vehicle.id);
+    } catch (err) {
+      setError(err.message || "Erreur lors de la désaffectation.");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="font-body text-xs px-3 py-2.5 rounded-lg" style={{ background: C.cream, color: C.slate }}>
+        {currentAffectation
+          ? <>Actuellement affecté à <strong>{currentGare?.nom}</strong> ({currentGare?.commune}) — ligne {currentLigne?.lieuDepart} → {currentLigne?.lieuArrivee}.</>
+          : "Ce véhicule n'est affecté à aucune gare pour le moment."}
+      </p>
+
+      {gares.length === 0 ? (
+        <p className="font-body text-sm" style={{ color: C.slate }}>Aucune gare enregistrée — créez-en une depuis la page "Gares".</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Commune">
+            <select style={inputStyle} className="font-body" value={communeSel} onChange={(e) => { setCommuneSel(e.target.value); setGareId(""); setLigneId(""); }}>
+              <option value="">— Sélectionner —</option>
+              {communes.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </Field>
+          <Field label="Gare">
+            <select style={inputStyle} className="font-body" value={gareId} onChange={(e) => { setGareId(e.target.value); setLigneId(""); }} disabled={!communeSel}>
+              <option value="">— Sélectionner —</option>
+              {garesDeLaCommune.map((g) => <option key={g.id} value={g.id}>{g.nom}</option>)}
+            </select>
+          </Field>
+          <Field label="Ligne">
+            <select style={inputStyle} className="font-body" value={ligneId} onChange={(e) => setLigneId(e.target.value)} disabled={!gareId}>
+              <option value="">— Sélectionner —</option>
+              {lignesDeLaGare.map((l) => <option key={l.id} value={l.id}>{l.lieuDepart} → {l.lieuArrivee} ({l.cout.toLocaleString("fr-FR")} F)</option>)}
+            </select>
+          </Field>
+          <Field label="Date d'affectation">
+            <DateInput value={dateAffectation} onChange={(e) => setDateAffectation(e.target.value)} />
+          </Field>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-3 pt-2">
+        <div>
+          {currentAffectation && (
+            <button onClick={handleUnassign} disabled={busy} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.red }}>
+              Désaffecter
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          {error && <span className="font-body text-xs" style={{ color: C.red }}>{error}</span>}
+          <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Fermer</button>
+          <button
+            onClick={handleReassign}
+            disabled={!gareId || !ligneId || busy}
+            className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2"
+            style={{ background: gareId && ligneId ? C.orange : "#D8B48A", color: "#fff", cursor: gareId && ligneId ? "pointer" : "not-allowed" }}
+          >
+            <Check size={16} /> {busy ? "…" : "Affecter"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VehicleTable({ vehicles, owners, onFiche, onPhoto, gares, lignes, affectations, onReassign }) {
   return (
     <table className="w-full font-body text-sm" style={{ borderCollapse: "collapse" }}>
       <thead>
@@ -1516,8 +1889,9 @@ function VehicleTable({ vehicles, owners, onFiche, onPhoto }) {
           <th className="text-left pb-2 font-medium">Véhicule</th>
           <th className="text-left pb-2 font-medium">Immatriculation</th>
           <th className="text-left pb-2 font-medium">Propriétaire</th>
+          <th className="text-left pb-2 font-medium">Gare / Ligne</th>
           <th className="text-left pb-2 font-medium">Documents</th>
-          <th className="text-right pb-2 font-medium">Fiche</th>
+          <th className="text-right pb-2 font-medium">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -1526,6 +1900,9 @@ function VehicleTable({ vehicles, owners, onFiche, onPhoto }) {
           const statuses = Object.values(v.documents).map(statusOf);
           const worst = statuses.some((s) => s.key === "expire") ? "expire" : statuses.some((s) => s.key === "alerte") ? "alerte" : "valide";
           const worstStatus = worst === "expire" ? { label: "Document expiré", color: C.red, bg: C.redLight } : worst === "alerte" ? { label: "Échéance proche", color: C.amber, bg: C.amberLight } : { label: "À jour", color: C.green, bg: C.greenLight };
+          const affectation = affectations.find((a) => a.vehiculeId === v.id && a.actif);
+          const gare = affectation ? gares.find((g) => g.id === affectation.gareId) : null;
+          const ligne = affectation ? lignes.find((l) => l.id === affectation.ligneId) : null;
           return (
             <tr key={v.id} style={{ borderTop: `1px solid ${C.border}` }}>
               <td className="py-3">
@@ -1539,9 +1916,20 @@ function VehicleTable({ vehicles, owners, onFiche, onPhoto }) {
               </td>
               <td className="font-mono">{v.immatriculation}</td>
               <td>{owner ? `${owner.prenoms} ${owner.nom}` : "—"}</td>
+              <td>
+                {gare ? (
+                  <div>
+                    <div className="text-xs font-medium">{gare.nom}</div>
+                    <div className="text-xs" style={{ color: C.slate }}>{ligne ? `${ligne.lieuDepart} → ${ligne.lieuArrivee}` : ""}</div>
+                  </div>
+                ) : <span className="text-xs" style={{ color: C.slate }}>Non affecté</span>}
+              </td>
               <td><Badge status={worstStatus} /></td>
               <td className="text-right">
-                <button onClick={() => onFiche(v)} className="font-body text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ border: `1px solid ${C.border}`, color: C.ink }}>Voir la fiche</button>
+                <div className="flex items-center justify-end gap-2">
+                  <button onClick={() => onReassign(v)} className="font-body text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ border: `1px solid ${C.border}`, color: C.ink }}>Affectation</button>
+                  <button onClick={() => onFiche(v)} className="font-body text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ border: `1px solid ${C.border}`, color: C.ink }}>Fiche</button>
+                </div>
               </td>
             </tr>
           );
