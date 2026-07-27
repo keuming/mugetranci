@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "MUGETRAN-CI — Mutuelle Nationale des Transporteurs de Côte d'Ivoire : registre véhicules / propriétaires / chauffeurs",
+  "description": "MUGETRAN-CI — Mutuelle Générale des Transporteurs de Côte d'Ivoire : registre véhicules / propriétaires / chauffeurs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

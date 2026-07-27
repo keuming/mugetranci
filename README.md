@@ -1,4 +1,4 @@
-# MUGETRAN-CI — Mutuelle Nationale des Transporteurs de Côte d'Ivoire
+# MUGETRAN-CI — Mutuelle Générale des Transporteurs de Côte d'Ivoire
 
 Application web (dashboard) de gestion du registre unifié **véhicule / propriétaire / chauffeur**
 pour une mutuelle de transporteurs en Côte d'Ivoire.
