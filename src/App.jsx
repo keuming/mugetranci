@@ -33,15 +33,18 @@ const FONTS = `
 .font-body { font-family: 'IBM Plex Sans', sans-serif; }
 .font-mono { font-family: 'IBM Plex Mono', monospace; }
 
+.print-card-duo { display: none; }
+
 @media print {
   body * { visibility: hidden; }
-  #fiche-print-area, #fiche-print-area * { visibility: visible; }
+  .print-area, .print-area * { visibility: visible; }
   .fiche-modal-scroll, .modal-box { overflow: visible !important; max-height: none !important; }
-  #fiche-print-area {
+  .print-area {
     position: absolute; top: 0; left: 0; width: 100%;
     margin: 0; padding: 0; box-shadow: none; border: none;
     max-height: none !important; overflow: visible !important;
   }
+  .print-card-duo { display: flex !important; }
   .no-print { display: none !important; }
   @page { margin: 14mm; }
 }
@@ -79,55 +82,8 @@ function ficheUrl(vehicleId) {
   return `${window.location.origin}${window.location.pathname}?vehicule=${vehicleId}`;
 }
 
-/* Deterministic pseudo-QR pattern (visual mockup only — swap for a real
-   QR encoder like the `qrcode` package once wired to a backend). */
-function seededRand(seed) {
-  let h = 1779033703 ^ seed.length;
-  for (let i = 0; i < seed.length; i++) {
-    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
-    h = (h << 13) | (h >>> 19);
-  }
-  return function () {
-    h = Math.imul(h ^ (h >>> 16), 2246822507);
-    h = Math.imul(h ^ (h >>> 13), 3266489909);
-    h ^= h >>> 16;
-    return (h >>> 0) / 4294967296;
-  };
-}
-function QRMock({ data, size = 96, fg = C.ink }) {
-  const grid = 21;
-  const rand = seededRand(data || "MTCI");
-  const cell = size / grid;
-  const isFinder = (x, y) => {
-    const inBlock = (bx, by) => x >= bx && x < bx + 7 && y >= by && y < by + 7;
-    return inBlock(0, 0) || inBlock(grid - 7, 0) || inBlock(0, grid - 7);
-  };
-  const finderCell = (x, y, bx, by) => {
-    const lx = x - bx, ly = y - by;
-    const border = lx === 0 || lx === 6 || ly === 0 || ly === 6;
-    const core = lx >= 2 && lx <= 4 && ly >= 2 && ly <= 4;
-    return border || core;
-  };
-  const rects = [];
-  for (let y = 0; y < grid; y++) {
-    for (let x = 0; x < grid; x++) {
-      let on;
-      if (isFinder(x, y)) {
-        const bx = x >= grid - 7 ? grid - 7 : 0;
-        const by = y >= grid - 7 ? grid - 7 : 0;
-        on = finderCell(x, y, bx, by);
-      } else {
-        on = rand() > 0.56;
-      }
-      if (on) rects.push(<rect key={x + "-" + y} x={x * cell} y={y * cell} width={cell} height={cell} fill={fg} />);
-    }
-  }
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ background: "#fff", borderRadius: 6 }}>
-      {rects}
-    </svg>
-  );
-}
+/* Les QR codes de la fiche véhicule et de la carte de membre sont désormais
+   générés avec la librairie `qrcode.react` (voir cardUrl/ficheUrl ci-dessus). */
 
 /* Les données de démonstration sont désormais insérées directement en base
    via `npm run db:seed` (voir db/seed.js) plutôt que codées en dur ici. */
@@ -517,7 +473,7 @@ function FicheVehicule({ vehicle, owners, drivers, onClose }) {
 
   return (
     <div className="fiche-modal-scroll flex flex-col gap-4">
-      <div id="fiche-print-area" style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
+      <div className="print-area" style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
         <div style={{ background: `linear-gradient(120deg, ${C.green} 0%, ${C.greenDark} 75%)`, padding: "20px 28px", position: "relative" }}>
           <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 8, background: C.orange }} />
           <div className="flex items-center justify-between">
@@ -683,65 +639,89 @@ function FicheVehicule({ vehicle, owners, drivers, onClose }) {
 /* ============================================================
    CARTE DE MEMBRE (chauffeur)
    ============================================================ */
-function MembershipCard({ driver, vehicle }) {
-  const [flipped, setFlipped] = useState(false);
+function cardUrl(driverId, face) {
+  return `${window.location.origin}${window.location.pathname}?carte=${driverId}&face=${face}`;
+}
+
+function CardFace({ driver, vehicle, side }) {
+  const isRecto = side === "recto";
+  return (
+    <div
+      style={{
+        width: 340, height: 214, borderRadius: 16, position: "relative", flexShrink: 0,
+        background: isRecto
+          ? `linear-gradient(135deg, ${C.green} 0%, ${C.green} 60%, ${C.orange} 130%)`
+          : `linear-gradient(135deg, ${C.greenDark}, ${C.green})`,
+        color: "#fff", padding: 18, boxShadow: "0 12px 28px rgba(11,110,79,0.28)",
+      }}
+    >
+      {isRecto ? (
+        <div className="flex flex-col h-full justify-between">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="font-display" style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.3 }}>MUGETRAN-CI</div>
+              <div className="font-body" style={{ fontSize: 9.5, opacity: 0.85 }}>MUTUELLE GÉNÉRALE DES TRANSPORTEURS DE CI</div>
+            </div>
+            <BadgeCheck size={22} />
+          </div>
+          <div className="flex items-center gap-3">
+            <div style={{ width: 52, height: 52, borderRadius: 999, overflow: "hidden", background: "rgba(255,255,255,0.2)", border: "2px solid rgba(255,255,255,0.6)", flexShrink: 0 }}>
+              {driver.photo ? <img src={driver.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-bold text-sm">{initials(driver.nom, driver.prenoms)}</div>}
+            </div>
+            <div className="font-body">
+              <div style={{ fontSize: 14, fontWeight: 700 }}>{driver.prenoms} {driver.nom}</div>
+              <div style={{ fontSize: 10.5, opacity: 0.9 }}>Chauffeur agréé</div>
+            </div>
+          </div>
+          <div className="flex items-end justify-between">
+            <div className="font-body" style={{ fontSize: 10 }}>
+              <div style={{ opacity: 0.75 }}>Véhicule</div>
+              <div className="font-mono" style={{ fontWeight: 600, fontSize: 12 }}>{vehicle?.immatriculation || "—"}</div>
+              <div style={{ opacity: 0.75, marginTop: 4 }}>{driver.contact1}{driver.contact2 ? " · " + driver.contact2 : ""}</div>
+            </div>
+            <div style={{ background: "#fff", borderRadius: 6, padding: 3 }}>
+              <QRCodeSVG value={cardUrl(driver.id, "paiement")} size={54} bgColor="#ffffff" fgColor={C.ink} level="M" />
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col h-full items-center justify-center gap-2">
+          <div style={{ background: "#fff", borderRadius: 8, padding: 6 }}>
+            <QRCodeSVG value={cardUrl(driver.id, "carburant")} size={92} bgColor="#ffffff" fgColor={C.ink} level="M" />
+          </div>
+          <div className="font-body text-center" style={{ fontSize: 9.5, opacity: 0.85 }}>
+            Pointage carburant en station · Carte n° {driver.id.slice(0, 8)}
+            <br />En cas de perte, contactez la Mutuelle.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MembershipCard({ driver, vehicle, initialFace = "recto" }) {
+  const [flipped, setFlipped] = useState(initialFace === "verso");
   if (!driver) return null;
   return (
     <div className="flex flex-col items-center gap-3">
-      <div
-        style={{
-          width: 340, height: 214, borderRadius: 16, position: "relative",
-          background: flipped
-            ? `linear-gradient(135deg, ${C.greenDark}, ${C.green})`
-            : `linear-gradient(135deg, ${C.green} 0%, ${C.green} 60%, ${C.orange} 130%)`,
-          color: "#fff", padding: 18, boxShadow: "0 12px 28px rgba(11,110,79,0.28)",
-          transition: "background .3s",
-        }}
-      >
-        {!flipped ? (
-          <div className="flex flex-col h-full justify-between">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="font-display" style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.3 }}>MUGETRAN-CI</div>
-                <div className="font-body" style={{ fontSize: 9.5, opacity: 0.85 }}>MUTUELLE GÉNÉRALE DES TRANSPORTEURS DE CI</div>
-              </div>
-              <BadgeCheck size={22} />
-            </div>
-            <div className="flex items-center gap-3">
-              <div style={{ width: 52, height: 52, borderRadius: 999, overflow: "hidden", background: "rgba(255,255,255,0.2)", border: "2px solid rgba(255,255,255,0.6)", flexShrink: 0 }}>
-                {driver.photo ? <img src={driver.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-bold text-sm">{initials(driver.nom, driver.prenoms)}</div>}
-              </div>
-              <div className="font-body">
-                <div style={{ fontSize: 14, fontWeight: 700 }}>{driver.prenoms} {driver.nom}</div>
-                <div style={{ fontSize: 10.5, opacity: 0.9 }}>Chauffeur agréé</div>
-              </div>
-            </div>
-            <div className="flex items-end justify-between">
-              <div className="font-body" style={{ fontSize: 10 }}>
-                <div style={{ opacity: 0.75 }}>Véhicule</div>
-                <div className="font-mono" style={{ fontWeight: 600, fontSize: 12 }}>{vehicle?.immatriculation || "—"}</div>
-                <div style={{ opacity: 0.75, marginTop: 4 }}>{driver.contact1}{driver.contact2 ? " · " + driver.contact2 : ""}</div>
-              </div>
-              <div style={{ background: "#fff", borderRadius: 6, padding: 3 }}>
-                <QRMock data={"PAY:" + driver.id} size={54} />
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col h-full items-center justify-center gap-2">
-            <div style={{ background: "#fff", borderRadius: 8, padding: 6 }}>
-              <QRMock data={"FUEL:" + driver.id} size={92} />
-            </div>
-            <div className="font-body text-center" style={{ fontSize: 9.5, opacity: 0.85 }}>
-              Pointage carburant en station · Carte n° {driver.id}
-              <br />En cas de perte, contactez la Mutuelle.
-            </div>
-          </div>
-        )}
+      <div className="no-print">
+        <CardFace driver={driver} vehicle={vehicle} side={flipped ? "verso" : "recto"} />
       </div>
-      <button onClick={() => setFlipped((f) => !f)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ border: `1px solid ${C.border}`, color: C.ink }}>
-        <RotateCw size={13} /> {flipped ? "Voir le recto" : "Voir le verso"}
-      </button>
+
+      {/* Rendu recto + verso côte à côte, uniquement visible à l'impression */}
+      <div className="print-area print-card-duo flex items-center gap-6">
+        <CardFace driver={driver} vehicle={vehicle} side="recto" />
+        <CardFace driver={driver} vehicle={vehicle} side="verso" />
+      </div>
+
+      <div className="no-print flex items-center gap-2">
+        <button onClick={() => setFlipped((f) => !f)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ border: `1px solid ${C.border}`, color: C.ink }}>
+          <RotateCw size={13} /> {flipped ? "Voir le recto" : "Voir le verso"}
+        </button>
+        <button onClick={() => window.print()} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ border: `1px solid ${C.border}`, color: C.ink }}>
+          <Printer size={13} /> Imprimer (recto + verso)
+        </button>
+      </div>
     </div>
   );
 }
@@ -804,6 +784,7 @@ export default function App() {
   const [showForm, setShowForm] = useState(false);
   const [ficheVehicle, setFicheVehicle] = useState(null);
   const [cardDriver, setCardDriver] = useState(null);
+  const [cardFace, setCardFace] = useState("recto");
   const [search, setSearch] = useState("");
 
   React.useEffect(() => {
@@ -820,12 +801,25 @@ export default function App() {
         setDrivers(d);
         setVehicles(v);
 
+        const params = new URLSearchParams(window.location.search);
+
         // Ouvre automatiquement la fiche si l'URL contient ?vehicule=ID
         // (c'est ce lien que le QR code de la fiche encode).
-        const targetId = new URLSearchParams(window.location.search).get("vehicule");
-        if (targetId) {
-          const match = v.find((vv) => vv.id === targetId);
+        const vehiculeId = params.get("vehicule");
+        if (vehiculeId) {
+          const match = v.find((vv) => vv.id === vehiculeId);
           if (match) setFicheVehicle(match);
+        }
+
+        // Ouvre automatiquement la carte de membre si l'URL contient
+        // ?carte=ID&face=paiement|carburant (les 2 QR codes de la carte).
+        const carteId = params.get("carte");
+        if (carteId) {
+          const match = d.find((dd) => dd.id === carteId);
+          if (match) {
+            setCardDriver(match);
+            setCardFace(params.get("face") === "carburant" ? "verso" : "recto");
+          }
         }
       } catch (err) {
         if (!cancelled) setLoadError(err.message || "Impossible de charger les données depuis la base.");
@@ -842,6 +836,16 @@ export default function App() {
   };
   const closeFiche = () => {
     setFicheVehicle(null);
+    window.history.pushState({}, "", window.location.pathname);
+  };
+
+  const openCard = (d) => {
+    setCardDriver(d);
+    setCardFace("recto");
+    window.history.pushState({}, "", `?carte=${d.id}&face=paiement`);
+  };
+  const closeCard = () => {
+    setCardDriver(null);
     window.history.pushState({}, "", window.location.pathname);
   };
 
@@ -1044,7 +1048,7 @@ export default function App() {
                     </div>
                     <div className="flex items-center justify-between">
                       <Badge status={s} />
-                      <button onClick={() => setCardDriver(d)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: C.greenLight, color: C.greenDark }}>
+                      <button onClick={() => openCard(d)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: C.greenLight, color: C.greenDark }}>
                         <CreditCard size={13} /> Carte membre
                       </button>
                     </div>
@@ -1086,8 +1090,8 @@ export default function App() {
         <FicheVehicule vehicle={ficheVehicle} owners={owners} drivers={drivers} onClose={closeFiche} />
       </Modal>}
 
-      {cardDriver && <Modal onClose={() => setCardDriver(null)} title="Carte de membre">
-        <MembershipCard driver={cardDriver} vehicle={vehicles.find((v) => v.chauffeurIds.includes(cardDriver.id))} />
+      {cardDriver && <Modal onClose={closeCard} title="Carte de membre">
+        <MembershipCard driver={cardDriver} vehicle={vehicles.find((v) => v.chauffeurIds.includes(cardDriver.id))} initialFace={cardFace} />
       </Modal>}
     </div>
   );
