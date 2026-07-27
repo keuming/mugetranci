@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.1",
+    "dotenv": "^16.4.5",
     "drizzle-orm": "^0.36.4",
     "lucide-react": "^0.383.0",
     "react": "^18.3.1",
@@ -23,7 +24,6 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.19",
-    "dotenv": "^16.4.5",
     "drizzle-kit": "^0.28.1",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.4",
