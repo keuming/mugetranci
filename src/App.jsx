@@ -31,6 +31,19 @@ const FONTS = `
 .font-display { font-family: 'Fraunces', serif; }
 .font-body { font-family: 'IBM Plex Sans', sans-serif; }
 .font-mono { font-family: 'IBM Plex Mono', monospace; }
+
+@media print {
+  body * { visibility: hidden; }
+  #fiche-print-area, #fiche-print-area * { visibility: visible; }
+  .fiche-modal-scroll { overflow: visible !important; max-height: none !important; }
+  #fiche-print-area {
+    position: absolute; top: 0; left: 0; width: 100%;
+    margin: 0; padding: 0; box-shadow: none; border: none;
+    max-height: none !important; overflow: visible !important;
+  }
+  .no-print { display: none !important; }
+  @page { margin: 14mm; }
+}
 `;
 
 const TODAY = new Date("2026-07-27");
@@ -499,8 +512,8 @@ function FicheVehicule({ vehicle, owners, drivers, onClose }) {
   const vDrivers = vehicle.chauffeurIds.map((id) => drivers.find((d) => d.id === id)).filter(Boolean);
 
   return (
-    <div className="flex flex-col gap-4" style={{ maxHeight: "82vh", overflowY: "auto" }}>
-      <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 28 }}>
+    <div className="fiche-modal-scroll flex flex-col gap-4" style={{ maxHeight: "82vh", overflowY: "auto" }}>
+      <div id="fiche-print-area" style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 28 }}>
         <TricolorRule />
         <div className="flex items-center justify-between mt-5 mb-6">
           <div className="flex items-center gap-3">
@@ -512,7 +525,7 @@ function FicheVehicule({ vehicle, owners, drivers, onClose }) {
               <div className="font-body" style={{ fontSize: 11, color: C.slate }}>Fiche Véhicule Commercial — Réf. {vehicle.id}</div>
             </div>
           </div>
-          <button onClick={() => window.print()} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-2 rounded-lg" style={{ border: `1px solid ${C.border}`, color: C.ink }}>
+          <button onClick={() => window.print()} className="no-print font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-2 rounded-lg" style={{ border: `1px solid ${C.border}`, color: C.ink }}>
             <Printer size={14} /> Imprimer
           </button>
         </div>
