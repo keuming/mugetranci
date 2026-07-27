@@ -513,22 +513,27 @@ function FicheVehicule({ vehicle, owners, drivers, onClose }) {
 
   return (
     <div className="fiche-modal-scroll flex flex-col gap-4" style={{ maxHeight: "82vh", overflowY: "auto" }}>
-      <div id="fiche-print-area" style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 28 }}>
-        <TricolorRule />
-        <div className="flex items-center justify-between mt-5 mb-6">
-          <div className="flex items-center gap-3">
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: C.green, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Building2 size={20} color="#fff" />
+      <div id="fiche-print-area" style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
+        <div style={{ background: `linear-gradient(120deg, ${C.green} 0%, ${C.greenDark} 75%)`, padding: "20px 28px", position: "relative" }}>
+          <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 8, background: C.orange }} />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Building2 size={20} color="#fff" />
+              </div>
+              <div>
+                <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Mutuelle des Transporteurs de Côte d'Ivoire — MUGETRAN-CI</div>
+                <div className="font-body" style={{ fontSize: 11, color: "rgba(255,255,255,0.75)" }}>Fiche Véhicule Commercial — Réf. {vehicle.id}</div>
+              </div>
             </div>
-            <div>
-              <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>Mutuelle des Transporteurs de Côte d'Ivoire — MUGETRAN-CI</div>
-              <div className="font-body" style={{ fontSize: 11, color: C.slate }}>Fiche Véhicule Commercial — Réf. {vehicle.id}</div>
-            </div>
+            <button onClick={() => window.print()} className="no-print font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-2 rounded-lg" style={{ border: `1px solid rgba(255,255,255,0.4)`, color: "#fff", background: "rgba(255,255,255,0.1)" }}>
+              <Printer size={14} /> Imprimer
+            </button>
           </div>
-          <button onClick={() => window.print()} className="no-print font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-2 rounded-lg" style={{ border: `1px solid ${C.border}`, color: C.ink }}>
-            <Printer size={14} /> Imprimer
-          </button>
         </div>
+        <TricolorRule />
+
+        <div style={{ padding: 28 }}>
 
         {/* Véhicule */}
         <div className="mb-6">
@@ -622,8 +627,51 @@ function FicheVehicule({ vehicle, owners, drivers, onClose }) {
             })}
           </div>
         </div>
+
+        {/* Signature & authentification */}
+        <div className="mt-8 pt-6" style={{ borderTop: `1.5px dashed ${C.border}` }}>
+          <div className="flex items-end justify-between gap-8">
+            <div className="font-body" style={{ fontSize: 12, color: C.slate }}>
+              Fait à Abidjan, le {fmt(new Date().toISOString().slice(0, 10))}
+              <div className="mt-3 flex items-center gap-2">
+                <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 5, padding: 3 }}>
+                  <QRMock data={"FICHE:" + vehicle.id} size={44} />
+                </div>
+                <div style={{ fontSize: 10, lineHeight: 1.3 }}>
+                  Document vérifiable<br />Réf. {vehicle.id.slice(0, 8)}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center" style={{ minWidth: 220 }}>
+              <div
+                style={{
+                  width: 72, height: 72, borderRadius: 999, border: `1.5px dashed ${C.slate}`,
+                  display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10,
+                  color: C.slate, fontSize: 9, textAlign: "center", lineHeight: 1.25,
+                }}
+                className="font-body"
+              >
+                CACHET<br />MUGETRAN-CI
+              </div>
+              <div style={{ width: 220, borderBottom: `1px solid ${C.ink}`, height: 34 }} />
+              <div className="font-body text-center mt-2" style={{ fontSize: 11.5, color: C.ink }}>
+                <div style={{ fontWeight: 700 }}>Le Président de la Mutuelle</div>
+                <div style={{ color: C.slate }}>MUGETRAN-CI</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        </div>
+
+        <div style={{ height: 4, display: "flex" }}>
+          <div style={{ flex: 1, background: C.green }} />
+          <div style={{ flex: 1, background: "#fff", border: `1px solid ${C.border}` }} />
+          <div style={{ flex: 1, background: C.orange }} />
+        </div>
       </div>
-      <button onClick={onClose} className="font-body text-sm font-semibold self-end px-4 py-2" style={{ color: C.slate }}>Fermer</button>
+      <button onClick={onClose} className="no-print font-body text-sm font-semibold self-end px-4 py-2" style={{ color: C.slate }}>Fermer</button>
     </div>
   );
 }
