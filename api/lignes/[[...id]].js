@@ -3,21 +3,51 @@ import { db } from "../../db/index.js";
 import { lignes, affectations } from "../../db/schema.js";
 import { requireAuth } from "../../lib/auth.js";
 
-async function assertOwnership(auth, id, res) {
-  if (auth.role === "admin") return true;
-  const [l] = await db.select().from(lignes).where(eq(lignes.id, id));
-  if (!l) { res.status(404).json({ error: "Ligne introuvable" }); return false; }
-  if (l.gareId !== auth.gareId) { res.status(403).json({ error: "Cette ligne n'appartient pas à votre gare." }); return false; }
-  return true;
-}
-
 export default async function handler(req, res) {
+  const idParam = req.query.id;
+  const id = Array.isArray(idParam) ? idParam[0] : idParam;
   const auth = requireAuth(req, res);
   if (!auth) return;
-  const { id } = req.query;
+
+  if (!id) {
+    if (req.method === "GET") {
+      const rows = auth.role === "gare"
+        ? await db.select().from(lignes).where(eq(lignes.gareId, auth.gareId))
+        : await db.select().from(lignes);
+      return res.status(200).json(rows);
+    }
+
+    if (req.method === "POST") {
+      const body = req.body || {};
+      const gareId = auth.role === "gare" ? auth.gareId : body.gareId;
+      if (!gareId || !body.lieuDepart || !body.lieuArrivee || !body.cout) {
+        return res.status(400).json({ error: "gareId, lieuDepart, lieuArrivee et cout sont requis" });
+      }
+      const [created] = await db.insert(lignes).values({
+        gareId,
+        lieuDepart: body.lieuDepart,
+        lieuArrivee: body.lieuArrivee,
+        cout: Math.round(Number(body.cout)),
+        chefNom: body.chefNom || null,
+        chefContact: body.chefContact || null,
+      }).returning();
+      return res.status(201).json(created);
+    }
+
+    res.setHeader("Allow", "GET, POST");
+    return res.status(405).json({ error: "Méthode non autorisée" });
+  }
+
+  async function assertOwnership() {
+    if (auth.role === "admin") return true;
+    const [l] = await db.select().from(lignes).where(eq(lignes.id, id));
+    if (!l) { res.status(404).json({ error: "Ligne introuvable" }); return false; }
+    if (l.gareId !== auth.gareId) { res.status(403).json({ error: "Cette ligne n'appartient pas à votre gare." }); return false; }
+    return true;
+  }
 
   if (req.method === "PATCH") {
-    if (!(await assertOwnership(auth, id, res))) return;
+    if (!(await assertOwnership())) return;
 
     const body = req.body || {};
     const patch = {};
@@ -37,7 +67,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "DELETE") {
-    if (!(await assertOwnership(auth, id, res))) return;
+    if (!(await assertOwnership())) return;
     const activeAffectations = await db.select().from(affectations).where(eq(affectations.ligneId, id));
     const stillActive = activeAffectations.filter((a) => a.actif);
     if (stillActive.length > 0) {
