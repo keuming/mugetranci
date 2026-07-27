@@ -35,7 +35,7 @@ const FONTS = `
 @media print {
   body * { visibility: hidden; }
   #fiche-print-area, #fiche-print-area * { visibility: visible; }
-  .fiche-modal-scroll { overflow: visible !important; max-height: none !important; }
+  .fiche-modal-scroll, .modal-box { overflow: visible !important; max-height: none !important; }
   #fiche-print-area {
     position: absolute; top: 0; left: 0; width: 100%;
     margin: 0; padding: 0; box-shadow: none; border: none;
@@ -512,7 +512,7 @@ function FicheVehicule({ vehicle, owners, drivers, onClose }) {
   const vDrivers = vehicle.chauffeurIds.map((id) => drivers.find((d) => d.id === id)).filter(Boolean);
 
   return (
-    <div className="fiche-modal-scroll flex flex-col gap-4" style={{ maxHeight: "82vh", overflowY: "auto" }}>
+    <div className="fiche-modal-scroll flex flex-col gap-4">
       <div id="fiche-print-area" style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
         <div style={{ background: `linear-gradient(120deg, ${C.green} 0%, ${C.greenDark} 75%)`, padding: "20px 28px", position: "relative" }}>
           <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 8, background: C.orange }} />
@@ -1119,9 +1119,9 @@ function VehicleTable({ vehicles, owners, onFiche }) {
 
 function Modal({ children, onClose, title, wide }) {
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(20,24,20,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 24 }}>
-      <div style={{ background: C.cream, borderRadius: 16, width: wide ? 720 : 380, maxWidth: "94vw", padding: 20 }}>
-        <div className="flex items-center justify-between mb-4">
+    <div style={{ position: "fixed", inset: 0, background: "rgba(20,24,20,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 24, overflowY: "auto" }}>
+      <div className="modal-box" style={{ background: C.cream, borderRadius: 16, width: wide ? 720 : 380, maxWidth: "94vw", maxHeight: "90vh", padding: 20, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+        <div className="flex items-center justify-between mb-4" style={{ flexShrink: 0 }}>
           <h2 className="font-display" style={{ fontSize: 18, fontWeight: 700, color: C.ink }}>{title}</h2>
           <button onClick={onClose} style={{ color: C.slate }}><X size={20} /></button>
         </div>
