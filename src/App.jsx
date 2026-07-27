@@ -634,16 +634,16 @@ function FicheVehicule({ vehicle, owners, drivers, onClose }) {
 
         {/* Signature & authentification */}
         <div className="mt-8 pt-6" style={{ borderTop: `1.5px dashed ${C.border}` }}>
-          <div className="flex items-end justify-between gap-8">
-            <div className="font-body" style={{ fontSize: 12, color: C.slate }}>
-              Fait à Abidjan, le {fmt(new Date().toISOString().slice(0, 10))}
-              <div className="mt-3 flex items-center gap-2">
-                <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 5, padding: 3 }}>
-                  <QRCodeSVG value={ficheUrl(vehicle.id)} size={44} bgColor="#ffffff" fgColor={C.ink} level="M" />
-                </div>
-                <div style={{ fontSize: 10, lineHeight: 1.3 }}>
-                  Scanner pour ouvrir<br />cette fiche en ligne
-                </div>
+          <div className="flex items-start justify-between gap-8">
+            <div className="flex flex-col items-center">
+              <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 8, padding: 8 }}>
+                <QRCodeSVG value={ficheUrl(vehicle.id)} size={110} bgColor="#ffffff" fgColor={C.ink} level="M" />
+              </div>
+              <div className="font-body text-center mt-2" style={{ fontSize: 11, color: C.slate }}>
+                Scanner pour ouvrir cette fiche en ligne
+              </div>
+              <div className="font-body text-center" style={{ fontSize: 10.5, color: C.slate }}>
+                Fait à Abidjan, le {fmt(new Date().toISOString().slice(0, 10))}
               </div>
             </div>
 
