@@ -3,7 +3,7 @@ import { QRCodeSVG } from "qrcode.react";
 import {
   Car, User, Users, Bell, Plus, X, Check, AlertTriangle, CreditCard,
   Camera, Printer, Search, Home, FileText, Phone, Mail, MapPin,
-  BadgeCheck, Calendar, ChevronRight, ChevronLeft, RotateCw, Trash2, Building2, QrCode, Fuel
+  BadgeCheck, Calendar, ChevronRight, ChevronLeft, RotateCw, Trash2, Building2, QrCode, Fuel, Pencil
 } from "lucide-react";
 
 /* ============================================================
@@ -1021,6 +1021,14 @@ async function apiPatch(path, body) {
   }
   return res.json();
 }
+async function apiDelete(path) {
+  const res = await fetch(path, { method: "DELETE" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `${path} a répondu ${res.status}`);
+  }
+  return res.json();
+}
 
 export default function App() {
   const [owners, setOwners] = useState([]);
@@ -1041,7 +1049,10 @@ export default function App() {
   const [affectations, setAffectations] = useState([]);
   const [showGareForm, setShowGareForm] = useState(false);
   const [ligneFormGareId, setLigneFormGareId] = useState(null);
+  const [editGare, setEditGare] = useState(null);
+  const [editLigne, setEditLigne] = useState(null);
   const [reassignVehicle, setReassignVehicle] = useState(null);
+  const [editVehicle, setEditVehicle] = useState(null);
   const [search, setSearch] = useState("");
 
   React.useEffect(() => {
@@ -1151,6 +1162,17 @@ export default function App() {
     // on ne fusionne que la photo pour ne pas perdre le reste de l'objet local.
     setVehicles((s) => s.map((v) => (v.id === vehiculeId ? { ...v, photo: updated.photo } : v)));
   };
+  const updateVehicle = async (vehiculeId, payload) => {
+    const updated = await apiPatch(`/api/vehicules/${vehiculeId}`, payload);
+    setVehicles((s) => s.map((v) => (v.id === vehiculeId
+      ? { ...v, ...updated, documents: { ...v.documents, ...(payload.documents || {}) } }
+      : v)));
+    return updated;
+  };
+  const deleteVehicle = async (vehiculeId) => {
+    await apiDelete(`/api/vehicules/${vehiculeId}`);
+    setVehicles((s) => s.filter((v) => v.id !== vehiculeId));
+  };
   const addAchat = async (payload) => {
     const created = await apiPost("/api/carburant", payload);
     setAchats((s) => [created, ...s]);
@@ -1161,10 +1183,28 @@ export default function App() {
     setGares((s) => [...s, created]);
     return created;
   };
+  const updateGare = async (gareId, payload) => {
+    const updated = await apiPatch(`/api/gares/${gareId}`, payload);
+    setGares((s) => s.map((g) => (g.id === gareId ? updated : g)));
+    return updated;
+  };
+  const deleteGare = async (gareId) => {
+    await apiDelete(`/api/gares/${gareId}`);
+    setGares((s) => s.filter((g) => g.id !== gareId));
+  };
   const addLigne = async (payload) => {
     const created = await apiPost("/api/lignes", payload);
     setLignes((s) => [...s, created]);
     return created;
+  };
+  const updateLigne = async (ligneId, payload) => {
+    const updated = await apiPatch(`/api/lignes/${ligneId}`, payload);
+    setLignes((s) => s.map((l) => (l.id === ligneId ? updated : l)));
+    return updated;
+  };
+  const deleteLigne = async (ligneId) => {
+    await apiDelete(`/api/lignes/${ligneId}`);
+    setLignes((s) => s.filter((l) => l.id !== ligneId));
   };
   const affecterVehicule = async (payload) => {
     const created = await apiPost("/api/affectations", payload);
@@ -1300,14 +1340,14 @@ export default function App() {
               </SectionCard>
 
               <SectionCard accent={C.green} icon={<Car size={18} />} title="Véhicules récemment ajoutés">
-                <VehicleTable vehicles={vehicles.slice(-5).reverse()} owners={owners} onFiche={openFiche} onPhoto={updateVehiclePhoto} gares={gares} lignes={lignes} affectations={affectations} onReassign={setReassignVehicle} />
+                <VehicleTable vehicles={vehicles.slice(-5).reverse()} owners={owners} onFiche={openFiche} onPhoto={updateVehiclePhoto} gares={gares} lignes={lignes} affectations={affectations} onReassign={setReassignVehicle} onEdit={setEditVehicle} onDelete={deleteVehicle} />
               </SectionCard>
             </div>
           )}
 
           {page === "vehicles" && (
             <SectionCard accent={C.green} icon={<Car size={18} />} title={`Tous les véhicules (${filteredVehicles.length})`}>
-              <VehicleTable vehicles={filteredVehicles} owners={owners} onFiche={openFiche} onPhoto={updateVehiclePhoto} gares={gares} lignes={lignes} affectations={affectations} onReassign={setReassignVehicle} />
+              <VehicleTable vehicles={filteredVehicles} owners={owners} onFiche={openFiche} onPhoto={updateVehiclePhoto} gares={gares} lignes={lignes} affectations={affectations} onReassign={setReassignVehicle} onEdit={setEditVehicle} onDelete={deleteVehicle} />
             </SectionCard>
           )}
 
@@ -1428,11 +1468,24 @@ export default function App() {
                             <div className="font-semibold text-sm">{g.nom}</div>
                             <div className="text-xs" style={{ color: C.slate }}>{g.commune}{g.localisation ? " · " + g.localisation : ""}</div>
                           </div>
-                          {g.latitude && g.longitude && (
-                            <a href={`https://www.google.com/maps?q=${g.latitude},${g.longitude}`} target="_blank" rel="noreferrer" className="font-body text-xs font-semibold flex items-center gap-1" style={{ color: C.green }}>
-                              <MapPin size={13} /> Carte
-                            </a>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {g.latitude && g.longitude && (
+                              <a href={`https://www.google.com/maps?q=${g.latitude},${g.longitude}`} target="_blank" rel="noreferrer" className="font-body text-xs font-semibold flex items-center gap-1" style={{ color: C.green }}>
+                                <MapPin size={13} /> Carte
+                              </a>
+                            )}
+                            <button onClick={() => setEditGare(g)} title="Modifier la gare" style={{ color: C.slate }}><Pencil size={14} /></button>
+                            <button
+                              onClick={async () => {
+                                if (!window.confirm(`Supprimer la gare "${g.nom}" ? Cette action est définitive.`)) return;
+                                try { await deleteGare(g.id); } catch (err) { alert(err.message || "Suppression impossible."); }
+                              }}
+                              title="Supprimer la gare"
+                              style={{ color: C.red }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         </div>
                         <div className="flex flex-col gap-1 text-xs mb-3" style={{ color: C.slate }}>
                           {g.chefNom && <div className="flex items-center gap-2"><User size={12} /> Chef de gare : {g.chefNom}{g.chefContact ? " · " + g.chefContact : ""}</div>}
@@ -1450,7 +1503,20 @@ export default function App() {
                               {gareLignes.map((l) => (
                                 <div key={l.id} className="flex items-center justify-between font-body text-xs" style={{ color: C.ink }}>
                                   <span>{l.lieuDepart} → {l.lieuArrivee}</span>
-                                  <span className="font-mono font-semibold">{l.cout.toLocaleString("fr-FR")} F</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono font-semibold">{l.cout.toLocaleString("fr-FR")} F</span>
+                                    <button onClick={() => setEditLigne(l)} title="Modifier la ligne" style={{ color: C.slate }}><Pencil size={12} /></button>
+                                    <button
+                                      onClick={async () => {
+                                        if (!window.confirm(`Supprimer la ligne "${l.lieuDepart} → ${l.lieuArrivee}" ?`)) return;
+                                        try { await deleteLigne(l.id); } catch (err) { alert(err.message || "Suppression impossible."); }
+                                      }}
+                                      title="Supprimer la ligne"
+                                      style={{ color: C.red }}
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -1563,8 +1629,20 @@ export default function App() {
         <GareForm onCancel={() => setShowGareForm(false)} onSave={async (payload) => { await addGare(payload); setShowGareForm(false); }} />
       </Modal>}
 
+      {editGare && <Modal onClose={() => setEditGare(null)} title={`Modifier — ${editGare.nom}`} wide>
+        <GareForm initialGare={editGare} onCancel={() => setEditGare(null)} onSave={async (payload) => { await updateGare(editGare.id, payload); setEditGare(null); }} />
+      </Modal>}
+
       {ligneFormGareId && <Modal onClose={() => setLigneFormGareId(null)} title="Ajouter une ligne" wide>
         <LigneForm gare={gares.find((g) => g.id === ligneFormGareId)} onCancel={() => setLigneFormGareId(null)} onSave={async (payload) => { await addLigne(payload); setLigneFormGareId(null); }} />
+      </Modal>}
+
+      {editLigne && <Modal onClose={() => setEditLigne(null)} title="Modifier la ligne" wide>
+        <LigneForm gare={gares.find((g) => g.id === editLigne.gareId)} initialLigne={editLigne} onCancel={() => setEditLigne(null)} onSave={async (payload) => { await updateLigne(editLigne.id, payload); setEditLigne(null); }} />
+      </Modal>}
+
+      {editVehicle && <Modal onClose={() => setEditVehicle(null)} title={`Modifier — ${editVehicle.immatriculation}`} wide>
+        <VehicleEditForm vehicle={editVehicle} onCancel={() => setEditVehicle(null)} onSave={async (payload) => { await updateVehicle(editVehicle.id, payload); setEditVehicle(null); }} />
       </Modal>}
 
       {reassignVehicle && <Modal onClose={() => setReassignVehicle(null)} title={`Affectation — ${reassignVehicle.immatriculation}`} wide>
@@ -1676,16 +1754,17 @@ function FuelPurchaseForm({ drivers, vehicles, onCancel, onSave }) {
 /* ============================================================
    GARE — formulaire d'ajout
    ============================================================ */
-function GareForm({ onCancel, onSave }) {
-  const [nom, setNom] = useState("");
-  const [commune, setCommune] = useState("");
-  const [localisation, setLocalisation] = useState("");
-  const [latitude, setLatitude] = useState("");
-  const [longitude, setLongitude] = useState("");
-  const [chefNom, setChefNom] = useState("");
-  const [chefContact, setChefContact] = useState("");
-  const [login, setLogin] = useState("");
-  const [pinCode, setPinCode] = useState("");
+function GareForm({ initialGare, onCancel, onSave }) {
+  const isEdit = !!initialGare;
+  const [nom, setNom] = useState(initialGare?.nom || "");
+  const [commune, setCommune] = useState(initialGare?.commune || "");
+  const [localisation, setLocalisation] = useState(initialGare?.localisation || "");
+  const [latitude, setLatitude] = useState(initialGare?.latitude ?? "");
+  const [longitude, setLongitude] = useState(initialGare?.longitude ?? "");
+  const [chefNom, setChefNom] = useState(initialGare?.chefNom || "");
+  const [chefContact, setChefContact] = useState(initialGare?.chefContact || "");
+  const [login, setLogin] = useState(initialGare?.login || "");
+  const [pinCode, setPinCode] = useState(initialGare?.pinCode || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
@@ -1751,7 +1830,7 @@ function GareForm({ onCancel, onSave }) {
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
         <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
         <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.orange : "#D8B48A", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
-          <Check size={16} /> {saving ? "Enregistrement…" : "Enregistrer la gare"}
+          <Check size={16} /> {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Enregistrer la gare"}
         </button>
       </div>
     </div>
@@ -1761,12 +1840,13 @@ function GareForm({ onCancel, onSave }) {
 /* ============================================================
    LIGNE — formulaire d'ajout, rattaché à une gare
    ============================================================ */
-function LigneForm({ gare, onCancel, onSave }) {
-  const [lieuDepart, setLieuDepart] = useState("");
-  const [lieuArrivee, setLieuArrivee] = useState("");
-  const [cout, setCout] = useState("");
-  const [chefNom, setChefNom] = useState("");
-  const [chefContact, setChefContact] = useState("");
+function LigneForm({ gare, initialLigne, onCancel, onSave }) {
+  const isEdit = !!initialLigne;
+  const [lieuDepart, setLieuDepart] = useState(initialLigne?.lieuDepart || "");
+  const [lieuArrivee, setLieuArrivee] = useState(initialLigne?.lieuArrivee || "");
+  const [cout, setCout] = useState(initialLigne?.cout ?? "");
+  const [chefNom, setChefNom] = useState(initialLigne?.chefNom || "");
+  const [chefContact, setChefContact] = useState(initialLigne?.chefContact || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
@@ -1802,7 +1882,7 @@ function LigneForm({ gare, onCancel, onSave }) {
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
         <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
         <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
-          <Check size={16} /> {saving ? "Enregistrement…" : "Enregistrer la ligne"}
+          <Check size={16} /> {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Enregistrer la ligne"}
         </button>
       </div>
     </div>
@@ -1812,6 +1892,72 @@ function LigneForm({ gare, onCancel, onSave }) {
 /* ============================================================
    RÉAFFECTATION d'un véhicule existant à une autre commune/gare/ligne
    ============================================================ */
+/* ============================================================
+   ÉDITION d'un véhicule existant
+   ============================================================ */
+function VehicleEditForm({ vehicle, onCancel, onSave }) {
+  const [marque, setMarque] = useState(vehicle.marque || "");
+  const [modele, setModele] = useState(vehicle.modele || "");
+  const [chassis, setChassis] = useState(vehicle.chassis || "");
+  const [carteGrise, setCarteGrise] = useState(vehicle.carteGrise || "");
+  const [nomCarteGrise, setNomCarteGrise] = useState(vehicle.nomCarteGrise || "");
+  const [immatriculation, setImmatriculation] = useState(vehicle.immatriculation || "");
+  const [dateMiseCirculation, setDateMiseCirculation] = useState(vehicle.dateMiseCirculation || "");
+  const [docs, setDocs] = useState({
+    visiteTechnique: vehicle.documents?.visiteTechnique || "",
+    assuranceAuto: vehicle.documents?.assuranceAuto || "",
+    vignette: vehicle.documents?.vignette || "",
+    carteStationnement: vehicle.documents?.carteStationnement || "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const canSave = marque && modele && chassis && immatriculation && !saving;
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave({ marque, modele, chassis, carteGrise, nomCarteGrise, immatriculation, dateMiseCirculation, documents: docs });
+    } catch (err) {
+      setError(err.message || "Erreur lors de la mise à jour.");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Marque"><TextInput value={marque} onChange={(e) => setMarque(e.target.value)} /></Field>
+        <Field label="Modèle"><TextInput value={modele} onChange={(e) => setModele(e.target.value)} /></Field>
+        <Field label="Numéro de châssis"><TextInput value={chassis} onChange={(e) => setChassis(e.target.value)} /></Field>
+        <Field label="Numéro d'immatriculation"><TextInput value={immatriculation} onChange={(e) => setImmatriculation(e.target.value)} /></Field>
+        <Field label="Numéro carte grise"><TextInput value={carteGrise} onChange={(e) => setCarteGrise(e.target.value)} /></Field>
+        <Field label="Nom sur la carte grise"><TextInput value={nomCarteGrise} onChange={(e) => setNomCarteGrise(e.target.value)} /></Field>
+        <Field label="1ère mise en circulation"><DateInput value={dateMiseCirculation} onChange={(e) => setDateMiseCirculation(e.target.value)} /></Field>
+      </div>
+
+      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
+        <p className="font-body text-xs font-semibold mb-3" style={{ color: C.ink }}>Documents administratifs</p>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Visite technique"><DateInput value={docs.visiteTechnique} onChange={(e) => setDocs({ ...docs, visiteTechnique: e.target.value })} /></Field>
+          <Field label="Assurance auto"><DateInput value={docs.assuranceAuto} onChange={(e) => setDocs({ ...docs, assuranceAuto: e.target.value })} /></Field>
+          <Field label="Vignette"><DateInput value={docs.vignette} onChange={(e) => setDocs({ ...docs, vignette: e.target.value })} /></Field>
+          <Field label="Carte de stationnement"><DateInput value={docs.carteStationnement} onChange={(e) => setDocs({ ...docs, carteStationnement: e.target.value })} /></Field>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-3 pt-2">
+        {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
+        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
+        <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
+          <Check size={16} /> {saving ? "Enregistrement…" : "Enregistrer les modifications"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ReassignForm({ vehicle, gares, lignes, currentAffectation, onCancel, onReassign, onUnassign }) {
   const communes = [...new Set(gares.map((g) => g.commune))].sort();
   const [communeSel, setCommuneSel] = useState("");
@@ -1908,7 +2054,7 @@ function ReassignForm({ vehicle, gares, lignes, currentAffectation, onCancel, on
   );
 }
 
-function VehicleTable({ vehicles, owners, onFiche, onPhoto, gares, lignes, affectations, onReassign }) {
+function VehicleTable({ vehicles, owners, onFiche, onPhoto, gares, lignes, affectations, onReassign, onEdit, onDelete }) {
   return (
     <table className="w-full font-body text-sm" style={{ borderCollapse: "collapse" }}>
       <thead>
@@ -1956,6 +2102,17 @@ function VehicleTable({ vehicles, owners, onFiche, onPhoto, gares, lignes, affec
                 <div className="flex items-center justify-end gap-2">
                   <button onClick={() => onReassign(v)} className="font-body text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ border: `1px solid ${C.border}`, color: C.ink }}>Affectation</button>
                   <button onClick={() => onFiche(v)} className="font-body text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ border: `1px solid ${C.border}`, color: C.ink }}>Fiche</button>
+                  <button onClick={() => onEdit(v)} title="Modifier" style={{ color: C.slate }}><Pencil size={15} /></button>
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm(`Supprimer le véhicule ${v.immatriculation} ? Cette action est définitive.`)) return;
+                      try { await onDelete(v.id); } catch (err) { alert(err.message || "Suppression impossible."); }
+                    }}
+                    title="Supprimer"
+                    style={{ color: C.red }}
+                  >
+                    <Trash2 size={15} />
+                  </button>
                 </div>
               </td>
             </tr>
