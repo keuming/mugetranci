@@ -335,8 +335,10 @@ function StepIndicator({ step }) {
   );
 }
 
-function VehicleForm({ auth, owners, drivers, commissionsMixtes, lignes, onCancel, onSave, addOwner, addDriver, affecterVehicule }) {
+function VehicleForm({ auth, owners, drivers, syndicats, commissionsMixtes, lignes, onCancel, onSave, addOwner, addDriver, affecterVehicule }) {
   const [step, setStep] = useState(0);
+  const isAdmin = auth?.role === "admin";
+  const [syndicatIdSel, setSyndicatIdSel] = useState(isAdmin ? "" : (auth?.syndicatId || ""));
 
   const [marque, setMarque] = useState("");
   const [modele, setModele] = useState("");
@@ -375,7 +377,7 @@ function VehicleForm({ auth, owners, drivers, commissionsMixtes, lignes, onCance
   const [saveError, setSaveError] = useState(null);
 
   const stepValid = [
-    !!(marque && modele && chassis && immatriculation),
+    !!(marque && modele && chassis && immatriculation) && (!isAdmin || !!syndicatIdSel),
     true, // documents are optional at creation time
     ownerMode === "existing" ? !!ownerId : !!(newOwner.nom && newOwner.prenoms && newOwner.cni),
     driverRows.every((row) => row.mode === "existing" ? true : !!(row.draft.nom && row.draft.prenoms && row.draft.cni && row.draft.permisNumero && row.draft.permisDateFin)),
@@ -389,7 +391,8 @@ function VehicleForm({ auth, owners, drivers, commissionsMixtes, lignes, onCance
     try {
       let finalOwnerId = ownerId;
       if (ownerMode === "new") {
-        const created = await addOwner(newOwner); // POST /api/proprietaires — id réel renvoyé par Neon
+        const payload = isAdmin && syndicatIdSel ? { ...newOwner, syndicatId: syndicatIdSel } : newOwner;
+        const created = await addOwner(payload); // POST /api/proprietaires — id réel renvoyé par Neon
         finalOwnerId = created.id;
       }
 
@@ -398,7 +401,8 @@ function VehicleForm({ auth, owners, drivers, commissionsMixtes, lignes, onCance
         if (row.mode === "existing") {
           if (row.id) finalDriverIds.push(row.id);
         } else {
-          const created = await addDriver(row.draft); // POST /api/chauffeurs
+          const draftPayload = isAdmin && syndicatIdSel ? { ...row.draft, syndicatId: syndicatIdSel } : row.draft;
+          const created = await addDriver(draftPayload); // POST /api/chauffeurs
           finalDriverIds.push(created.id);
         }
       }
@@ -408,6 +412,7 @@ function VehicleForm({ auth, owners, drivers, commissionsMixtes, lignes, onCance
         documents: docs,
         proprietaireId: finalOwnerId || null,
         chauffeurIds: finalDriverIds,
+        ...(isAdmin && syndicatIdSel ? { syndicatId: syndicatIdSel } : {}),
       }); // POST /api/vehicules
 
       if (commissionId && ligneId && createdVehicle?.id) {
@@ -430,6 +435,17 @@ function VehicleForm({ auth, owners, drivers, commissionsMixtes, lignes, onCance
       <div className="flex-1 overflow-y-auto pr-1">
         {step === 0 && (
           <SectionCard accent={C.green} icon={<Car size={18} />} title="Véhicule">
+            {isAdmin && (
+              <div className="mb-5 px-3 py-3 rounded-lg" style={{ background: C.orangeLight }}>
+                <Field label="Syndicat gestionnaire" hint="Obligatoire : détermine à quel syndicat ce véhicule, son transporteur et ses chauffeurs seront rattachés">
+                  <select style={inputStyle} className="font-body" value={syndicatIdSel} onChange={(e) => setSyndicatIdSel(e.target.value)}>
+                    <option value="">— Sélectionner un syndicat —</option>
+                    {syndicats.map((s) => <option key={s.id} value={s.id}>{s.nom}</option>)}
+                  </select>
+                </Field>
+                {syndicats.length === 0 && <p className="font-body text-xs mt-1.5" style={{ color: C.red }}>Aucun syndicat enregistré — créez-en un depuis la page "Commissions Mixtes" avant d'ajouter un véhicule.</p>}
+              </div>
+            )}
             <PhotoUpload value={photo} onChange={setPhoto} label="Photo du véhicule" shape="square" />
             <div className="grid grid-cols-2 gap-4 mt-5">
               <Field label="Marque"><TextInput value={marque} onChange={(e) => setMarque(e.target.value)} placeholder="Toyota" /></Field>
@@ -2139,7 +2155,7 @@ function Dashboard({ auth, onLogout }) {
 
       {/* MODALS */}
       {showForm && <Modal onClose={() => setShowForm(false)} title="Ajouter un véhicule" wide>
-        <VehicleForm auth={auth} owners={owners} drivers={drivers} commissionsMixtes={commissionsMixtes} lignes={lignes} onCancel={() => setShowForm(false)} onSave={addVehicle} addOwner={addOwner} addDriver={addDriver} affecterVehicule={affecterVehicule} />
+        <VehicleForm auth={auth} owners={owners} drivers={drivers} syndicats={syndicats} commissionsMixtes={commissionsMixtes} lignes={lignes} onCancel={() => setShowForm(false)} onSave={addVehicle} addOwner={addOwner} addDriver={addDriver} affecterVehicule={affecterVehicule} />
       </Modal>}
 
       {ficheVehicle && <Modal onClose={closeFiche} title="Fiche d'Identification du Transporteur" wide>
