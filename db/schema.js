@@ -143,6 +143,7 @@ export const affectations = pgTable("affectations", {
   vehiculeId: uuid("vehicule_id").references(() => vehicules.id).notNull(),
   commissionMixteId: uuid("commission_mixte_id").references(() => commissionsMixtes.id).notNull(),
   ligneId: uuid("ligne_id").references(() => lignes.id).notNull(),
+  gareRoutiere: varchar("gare_routiere", { length: 160 }), // gare routière (lieu physique) où le véhicule opère
   dateAffectation: date("date_affectation").notNull(),
   dateFin: date("date_fin"),
   actif: boolean("actif").default(true).notNull(),

@@ -366,6 +366,7 @@ function VehicleForm({ auth, owners, drivers, commissionsMixtes, lignes, onCance
   const [communeSel, setCommuneSel] = useState("");
   const [commissionId, setCommissionId] = useState(isSyndicatAccount ? auth.commissionMixteId : "");
   const [ligneId, setLigneId] = useState("");
+  const [gareRoutiere, setGareRoutiere] = useState("");
   const [dateAffectation, setDateAffectation] = useState(new Date().toISOString().slice(0, 10));
   const commissionsDeLaCommune = commissionsMixtes.filter((c) => c.commune === communeSel);
   const lignesDeLaCommission = lignes.filter((l) => l.commissionMixteId === commissionId);
@@ -410,7 +411,7 @@ function VehicleForm({ auth, owners, drivers, commissionsMixtes, lignes, onCance
       }); // POST /api/vehicules
 
       if (commissionId && ligneId && createdVehicle?.id) {
-        await affecterVehicule({ vehiculeId: createdVehicle.id, commissionMixteId: commissionId, ligneId, dateAffectation });
+        await affecterVehicule({ vehiculeId: createdVehicle.id, commissionMixteId: commissionId, ligneId, gareRoutiere, dateAffectation });
       }
     } catch (err) {
       setSaveError(err.message || "Erreur lors de l'enregistrement. Vérifiez la connexion à la base.");
@@ -566,7 +567,7 @@ function VehicleForm({ auth, owners, drivers, commissionsMixtes, lignes, onCance
         )}
 
         {step === 4 && (
-          <SectionCard accent={C.orangeDark} icon={<MapPin size={18} />} title="Affectation (commission mixte & ligne)">
+          <SectionCard accent={C.orangeDark} icon={<MapPin size={18} />} title="Affectation (commission mixte, gare & ligne)">
             <p className="font-body text-xs mb-4 px-3 py-2.5 rounded-lg" style={{ color: C.slate, background: C.cream }}>
               💡 Étape optionnelle. Un véhicule peut être affecté plus tard, ou réaffecté depuis la liste des véhicules.
             </p>
@@ -581,6 +582,7 @@ function VehicleForm({ auth, owners, drivers, commissionsMixtes, lignes, onCance
                       {lignesDeLaCommission.map((l) => <option key={l.id} value={l.id}>{l.lieuDepart} → {l.lieuArrivee} ({l.cout.toLocaleString("fr-FR")} F)</option>)}
                     </select>
                   </Field>
+                  <Field label="Gare routière (lieu d'opération)"><TextInput value={gareRoutiere} onChange={(e) => setGareRoutiere(e.target.value)} placeholder="Gare de Yopougon Sicogi" /></Field>
                   <Field label="Date d'affectation">
                     <DateInput value={dateAffectation} onChange={(e) => setDateAffectation(e.target.value)} />
                   </Field>
@@ -608,6 +610,7 @@ function VehicleForm({ auth, owners, drivers, commissionsMixtes, lignes, onCance
                     {lignesDeLaCommission.map((l) => <option key={l.id} value={l.id}>{l.lieuDepart} → {l.lieuArrivee} ({l.cout.toLocaleString("fr-FR")} F)</option>)}
                   </select>
                 </Field>
+                <Field label="Gare routière (lieu d'opération)"><TextInput value={gareRoutiere} onChange={(e) => setGareRoutiere(e.target.value)} placeholder="Gare de Yopougon Sicogi" /></Field>
                 <Field label="Date d'affectation">
                   <DateInput value={dateAffectation} onChange={(e) => setDateAffectation(e.target.value)} />
                 </Field>
@@ -1009,9 +1012,16 @@ const SYNDICAT_SUSPECT_THRESHOLD = 3; // en dessous de ce nombre de membres, un 
    Recherche véhicule → fiche transporteur, + vue d'ensemble
    commissions mixtes / syndicats / effectifs.
    ============================================================ */
-function HautConseilPanel({ vehicles, owners, commissionsMixtes, syndicats, critical, onOpenFiche }) {
+const NON_COMPLIANT_GROUPINGS = [
+  { key: "commission", label: "Par commission mixte" },
+  { key: "syndicat", label: "Par syndicat" },
+  { key: "gare", label: "Par gare routière" },
+];
+
+function HautConseilPanel({ vehicles, owners, commissionsMixtes, syndicats, affectations, critical, onOpenFiche }) {
   const [query, setQuery] = useState("");
   const [notFound, setNotFound] = useState(false);
+  const [groupBy, setGroupBy] = useState("commission");
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -1040,6 +1050,35 @@ function HautConseilPanel({ vehicles, owners, commissionsMixtes, syndicats, crit
   });
   nonCompliant.sort((a, b) => Math.min(...a.issues.map((i) => i.days ?? 9999)) - Math.min(...b.issues.map((i) => i.days ?? 9999)));
 
+  // Indicateur distinct : échéances qui approchent dans les 15 prochains
+  // jours (et pas encore expirées) — alerte précoce avant le seuil ≤ 30 j.
+  const approaching15Count = new Set(
+    critical.filter((a) => a.days !== null && a.days >= 0 && a.days <= 15).map((a) => a.vehicle.id)
+  ).size;
+
+  function groupKeyAndLabel(vehicle) {
+    const affectation = affectations.find((a) => a.vehiculeId === vehicle.id && a.actif);
+    if (groupBy === "commission") {
+      const c = affectation ? commissionsMixtes.find((x) => x.id === affectation.commissionMixteId) : null;
+      return { key: c?.id || "none", label: c?.nom || "Non affecté à une commission" };
+    }
+    if (groupBy === "syndicat") {
+      const s = syndicats.find((x) => x.id === vehicle.syndicatId);
+      return { key: s?.id || "none", label: s?.nom || "Non rattaché à un syndicat" };
+    }
+    const gare = affectation?.gareRoutiere;
+    return { key: gare || "none", label: gare || "Gare routière non renseignée" };
+  }
+
+  const groups = [];
+  nonCompliant.forEach((entry) => {
+    const { key, label } = groupKeyAndLabel(entry.vehicle);
+    let group = groups.find((g) => g.key === key);
+    if (!group) { group = { key, label, entries: [] }; groups.push(group); }
+    group.entries.push(entry);
+  });
+  groups.sort((a, b) => b.entries.length - a.entries.length);
+
   return (
     <div className="flex flex-col gap-4">
       <div style={{ background: `linear-gradient(120deg, ${C.greenDark}, ${C.green})`, borderRadius: 14, padding: 20 }}>
@@ -1065,34 +1104,64 @@ function HautConseilPanel({ vehicles, owners, commissionsMixtes, syndicats, crit
         {notFound && <p className="font-body text-xs mt-2" style={{ color: "#FDEBD8" }}>Aucun véhicule trouvé pour "{query}".</p>}
       </div>
 
-      <SectionCard accent={C.red} icon={<AlertTriangle size={18} />} title={`Véhicules non en règle (${nonCompliant.length})`}>
+      <div className="flex gap-4">
+        <StatCard icon={<AlertTriangle size={17} />} label="Véhicules non en règle" value={nonCompliant.length} accent={C.red} />
+        <StatCard icon={<Bell size={17} />} label="Échéances à 15 jours" value={approaching15Count} accent={C.amber} />
+      </div>
+
+      <SectionCard
+        accent={C.red}
+        icon={<AlertTriangle size={18} />}
+        title={`Véhicules non en règle (${nonCompliant.length})`}
+        right={
+          <div className="flex gap-1.5">
+            {NON_COMPLIANT_GROUPINGS.map((g) => (
+              <button
+                key={g.key}
+                onClick={() => setGroupBy(g.key)}
+                className="font-body text-xs font-semibold px-2.5 py-1 rounded-full"
+                style={{ background: groupBy === g.key ? C.redLight : "transparent", color: groupBy === g.key ? C.red : C.slate, border: `1px solid ${groupBy === g.key ? C.red : C.border}` }}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+        }
+      >
         {nonCompliant.length === 0 ? (
           <div className="text-sm" style={{ color: C.slate }}>Aucun véhicule signalé pour le moment. 👍</div>
         ) : (
-          <div className="flex flex-col gap-2">
-            {nonCompliant.slice(0, 8).map(({ vehicle, issues }, i) => {
-              const worst = issues.some((x) => x.days !== null && x.days < 0) ? "expire" : "alerte";
-              const badgeStatus = worst === "expire"
-                ? { label: `${issues.length} document(s) — dont expiré(s)`, color: C.red, bg: C.redLight }
-                : { label: `${issues.length} document(s) proche(s) d'échéance`, color: C.amber, bg: C.amberLight };
-              return (
-                <button
-                  key={vehicle.id}
-                  onClick={() => onOpenFiche(vehicle)}
-                  className="flex items-center justify-between py-2 text-left w-full"
-                  style={{ borderBottom: i < Math.min(nonCompliant.length, 8) - 1 ? `1px solid ${C.border}` : "none" }}
-                >
-                  <div className="flex items-center gap-3">
-                    <Car size={15} color={C.slate} />
-                    <div>
-                      <div className="text-sm font-medium" style={{ color: C.ink }}>{vehicle.immatriculation} <span style={{ color: C.slate, fontWeight: 400 }}>· {vehicle.marque} {vehicle.modele}</span></div>
-                      <div className="text-xs" style={{ color: C.slate }}>{issues.map((x) => x.label).join(", ")}</div>
-                    </div>
-                  </div>
-                  <Badge status={badgeStatus} />
-                </button>
-              );
-            })}
+          <div className="flex flex-col gap-4">
+            {groups.map((group) => (
+              <div key={group.key}>
+                <div className="font-body text-xs font-semibold mb-2" style={{ color: C.ink }}>{group.label} — {group.entries.length} véhicule{group.entries.length > 1 ? "s" : ""}</div>
+                <div className="flex flex-col gap-2">
+                  {group.entries.map(({ vehicle, issues }, i) => {
+                    const worst = issues.some((x) => x.days !== null && x.days < 0) ? "expire" : "alerte";
+                    const badgeStatus = worst === "expire"
+                      ? { label: `${issues.length} document(s) — dont expiré(s)`, color: C.red, bg: C.redLight }
+                      : { label: `${issues.length} document(s) proche(s) d'échéance`, color: C.amber, bg: C.amberLight };
+                    return (
+                      <button
+                        key={vehicle.id}
+                        onClick={() => onOpenFiche(vehicle)}
+                        className="flex items-center justify-between py-2 text-left w-full"
+                        style={{ borderBottom: i < group.entries.length - 1 ? `1px solid ${C.border}` : "none" }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Car size={15} color={C.slate} />
+                          <div>
+                            <div className="text-sm font-medium" style={{ color: C.ink }}>{vehicle.immatriculation} <span style={{ color: C.slate, fontWeight: 400 }}>· {vehicle.marque} {vehicle.modele}</span></div>
+                            <div className="text-xs" style={{ color: C.slate }}>{issues.map((x) => x.label).join(", ")}</div>
+                          </div>
+                        </div>
+                        <Badge status={badgeStatus} />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </SectionCard>
@@ -1650,6 +1719,7 @@ function Dashboard({ auth, onLogout }) {
                   owners={owners}
                   commissionsMixtes={commissionsMixtes}
                   syndicats={syndicats}
+                  affectations={affectations}
                   critical={critical}
                   onOpenFiche={openFiche}
                 />
@@ -2509,6 +2579,7 @@ function ReassignForm({ auth, vehicle, commissionsMixtes, lignes, currentAffecta
   const [communeSel, setCommuneSel] = useState("");
   const [commissionId, setCommissionId] = useState(isSyndicatAccount ? auth.commissionMixteId : "");
   const [ligneId, setLigneId] = useState("");
+  const [gareRoutiere, setGareRoutiere] = useState(currentAffectation?.gareRoutiere || "");
   const [dateAffectation, setDateAffectation] = useState(new Date().toISOString().slice(0, 10));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -2522,7 +2593,7 @@ function ReassignForm({ auth, vehicle, commissionsMixtes, lignes, currentAffecta
     setBusy(true);
     setError(null);
     try {
-      await onReassign({ vehiculeId: vehicle.id, commissionMixteId: commissionId, ligneId, dateAffectation });
+      await onReassign({ vehiculeId: vehicle.id, commissionMixteId: commissionId, ligneId, gareRoutiere, dateAffectation });
     } catch (err) {
       setError(err.message || "Erreur lors de l'affectation.");
       setBusy(false);
@@ -2558,6 +2629,7 @@ function ReassignForm({ auth, vehicle, commissionsMixtes, lignes, currentAffecta
                 {lignesDeLaCommission.map((l) => <option key={l.id} value={l.id}>{l.lieuDepart} → {l.lieuArrivee} ({l.cout.toLocaleString("fr-FR")} F)</option>)}
               </select>
             </Field>
+            <Field label="Gare routière (lieu d'opération)"><TextInput value={gareRoutiere} onChange={(e) => setGareRoutiere(e.target.value)} placeholder="Gare de Yopougon Sicogi" /></Field>
             <Field label="Date d'affectation">
               <DateInput value={dateAffectation} onChange={(e) => setDateAffectation(e.target.value)} />
             </Field>
@@ -2585,6 +2657,7 @@ function ReassignForm({ auth, vehicle, commissionsMixtes, lignes, currentAffecta
               {lignesDeLaCommission.map((l) => <option key={l.id} value={l.id}>{l.lieuDepart} → {l.lieuArrivee} ({l.cout.toLocaleString("fr-FR")} F)</option>)}
             </select>
           </Field>
+          <Field label="Gare routière (lieu d'opération)"><TextInput value={gareRoutiere} onChange={(e) => setGareRoutiere(e.target.value)} placeholder="Gare de Yopougon Sicogi" /></Field>
           <Field label="Date d'affectation">
             <DateInput value={dateAffectation} onChange={(e) => setDateAffectation(e.target.value)} />
           </Field>

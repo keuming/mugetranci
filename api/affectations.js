@@ -41,6 +41,7 @@ export default async function handler(req, res) {
       vehiculeId: body.vehiculeId,
       commissionMixteId: body.commissionMixteId,
       ligneId: body.ligneId,
+      gareRoutiere: body.gareRoutiere || null,
       dateAffectation: body.dateAffectation || today,
     }).returning();
 
