@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { syndicats, proprietaires } from "../db/schema.js";
-import { requireAuth, requireAdmin } from "../lib/auth.js";
+import { requireAuth } from "../lib/auth.js";
 
 function toApi(row) {
   const { pinCode, ...rest } = row;
@@ -26,19 +26,31 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const auth = requireAdmin(req, res); // seul l'admin général crée un syndicat
+      // Créé par l'admin général (pour n'importe quelle commission) ou par
+      // une commission mixte elle-même (uniquement pour sa propre commission).
+      const auth = requireAuth(req, res);
       if (!auth) return;
+      if (auth.role !== "admin" && auth.role !== "commission_mixte") {
+        return res.status(403).json({ error: "Réservé à l'administrateur général ou à une commission mixte." });
+      }
+
       const body = req.body || {};
-      if (!body.nom || !body.commissionMixteId) {
+      const commissionMixteId = auth.role === "commission_mixte" ? auth.commissionMixteId : body.commissionMixteId;
+      if (!body.nom || !commissionMixteId) {
         return res.status(400).json({ error: "nom et commissionMixteId sont requis" });
+      }
+      if (auth.role === "commission_mixte" && body.commissionMixteId && body.commissionMixteId !== auth.commissionMixteId) {
+        return res.status(403).json({ error: "Vous ne pouvez créer un syndicat que pour votre propre commission mixte." });
       }
       if (body.pinCode && !/^\d{4}$/.test(body.pinCode)) {
         return res.status(400).json({ error: "Le code PIN doit comporter exactement 4 chiffres" });
       }
       try {
         const [created] = await db.insert(syndicats).values({
-          commissionMixteId: body.commissionMixteId,
+          commissionMixteId,
           nom: body.nom,
+          sigle: body.sigle || null,
+          logoUrl: body.logoUrl || null,
           presidentNom: body.presidentNom || null,
           presidentContact: body.presidentContact || null,
           login: body.login || null,
@@ -58,16 +70,30 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Méthode non autorisée" });
   }
 
-  const auth = requireAdmin(req, res); // modification/suppression réservées à l'admin général
+  const auth = requireAuth(req, res);
   if (!auth) return;
 
+  async function assertOwnership() {
+    if (auth.role === "admin") return true;
+    if (auth.role !== "commission_mixte") {
+      res.status(403).json({ error: "Modification réservée à l'admin général ou à la commission mixte." });
+      return false;
+    }
+    const [s] = await db.select().from(syndicats).where(eq(syndicats.id, id));
+    if (!s) { res.status(404).json({ error: "Syndicat introuvable" }); return false; }
+    if (s.commissionMixteId !== auth.commissionMixteId) { res.status(403).json({ error: "Ce syndicat n'appartient pas à votre commission mixte." }); return false; }
+    return true;
+  }
+
   if (req.method === "PATCH") {
+    if (!(await assertOwnership())) return;
+
     const body = req.body || {};
     if (body.pinCode && !/^\d{4}$/.test(body.pinCode)) {
       return res.status(400).json({ error: "Le code PIN doit comporter exactement 4 chiffres" });
     }
     const patch = {};
-    ["nom", "presidentNom", "presidentContact", "login"].forEach((k) => {
+    ["nom", "sigle", "logoUrl", "presidentNom", "presidentContact", "login"].forEach((k) => {
       if (k in body) patch[k] = body[k] || null;
     });
     if (body.pinCode) patch.pinCode = body.pinCode;
@@ -90,6 +116,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "DELETE") {
+    if (!(await assertOwnership())) return;
     const members = await db.select().from(proprietaires).where(eq(proprietaires.syndicatId, id));
     if (members.length > 0) {
       return res.status(400).json({ error: `Impossible de supprimer : ${members.length} membre(s) sont rattachés à ce syndicat.` });

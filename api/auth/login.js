@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { commissionsMixtes, syndicats } from "../../db/schema.js";
+import { commissionsMixtes, syndicats, garesRoutieres } from "../../db/schema.js";
 import { signToken } from "../../lib/auth.js";
 
 const ADMIN_LOGIN = process.env.ADMIN_LOGIN || "admin";
@@ -25,13 +25,19 @@ export default async function handler(req, res) {
   const [commission] = await db.select().from(commissionsMixtes).where(eq(commissionsMixtes.login, login));
   if (commission && commission.pinCode && commission.pinCode === pin) {
     const token = signToken({ role: "commission_mixte", commissionMixteId: commission.id, nom: commission.nom });
-    return res.status(200).json({ token, role: "commission_mixte", commissionMixteId: commission.id, nom: commission.nom });
+    return res.status(200).json({ token, role: "commission_mixte", commissionMixteId: commission.id, nom: commission.nom, sigle: commission.sigle, logoUrl: commission.logoUrl });
   }
 
   const [syndicat] = await db.select().from(syndicats).where(eq(syndicats.login, login));
   if (syndicat && syndicat.pinCode && syndicat.pinCode === pin) {
     const token = signToken({ role: "syndicat", syndicatId: syndicat.id, commissionMixteId: syndicat.commissionMixteId, nom: syndicat.nom });
-    return res.status(200).json({ token, role: "syndicat", syndicatId: syndicat.id, commissionMixteId: syndicat.commissionMixteId, nom: syndicat.nom });
+    return res.status(200).json({ token, role: "syndicat", syndicatId: syndicat.id, commissionMixteId: syndicat.commissionMixteId, nom: syndicat.nom, sigle: syndicat.sigle, logoUrl: syndicat.logoUrl });
+  }
+
+  const [gare] = await db.select().from(garesRoutieres).where(eq(garesRoutieres.login, login));
+  if (gare && gare.pinCode && gare.pinCode === pin) {
+    const token = signToken({ role: "gare", gareRoutiereId: gare.id, syndicatId: gare.syndicatId, nom: gare.nom });
+    return res.status(200).json({ token, role: "gare", gareRoutiereId: gare.id, syndicatId: gare.syndicatId, nom: gare.nom, sigle: gare.sigle, logoUrl: gare.logoUrl });
   }
 
   return res.status(401).json({ error: "Identifiant ou code PIN incorrect." });

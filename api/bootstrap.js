@@ -2,7 +2,7 @@ import { eq, desc } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
   proprietaires, chauffeurs, vehicules, historiqueProprietaires, vehiculeChauffeurs,
-  achatsCarburant, commissionsMixtes, syndicats, lignes, affectations,
+  achatsCarburant, commissionsMixtes, syndicats, garesRoutieres, lignes, affectations,
 } from "../db/schema.js";
 import { requireAuth } from "../lib/auth.js";
 
@@ -45,6 +45,10 @@ function toApiSyndicat(row) {
   const { pinCode, ...rest } = row;
   return { ...rest, pinConfigure: !!pinCode };
 }
+function toApiGareRoutiere(row) {
+  const { pinCode, ...rest } = row;
+  return { ...rest, pinConfigure: !!pinCode };
+}
 function toApiAchat(row, chauffeur, vehicule) {
   return {
     id: row.id,
@@ -72,7 +76,7 @@ export default async function handler(req, res) {
 
   const [
     allOwners, allDrivers, allVehicules, junctions, historiques,
-    allAchats, allCommissions, allSyndicats, allLignes, allAffectations,
+    allAchats, allCommissions, allSyndicats, allGares, allLignes, allAffectations,
   ] = await Promise.all([
     db.select().from(proprietaires),
     db.select().from(chauffeurs),
@@ -82,12 +86,14 @@ export default async function handler(req, res) {
     db.select().from(achatsCarburant).orderBy(desc(achatsCarburant.createdAt)),
     db.select().from(commissionsMixtes),
     db.select().from(syndicats),
+    db.select().from(garesRoutieres),
     db.select().from(lignes),
     db.select().from(affectations),
   ]);
 
   const isSyndicat = auth.role === "syndicat";
   const isCommission = auth.role === "commission_mixte";
+  const isGare = auth.role === "gare";
 
   const mySyndicatIds = isCommission
     ? new Set(allSyndicats.filter((s) => s.commissionMixteId === auth.commissionMixteId).map((s) => s.id))
@@ -103,28 +109,42 @@ export default async function handler(req, res) {
     ? allOwners.filter((o) => o.syndicatId === auth.syndicatId)
     : isCommission
       ? allOwners.filter((o) => mySyndicatIds.has(o.syndicatId))
-      : allOwners;
+      : isGare
+        ? []
+        : allOwners;
 
   const visibleDrivers = isSyndicat
     ? allDrivers.filter((d) => d.syndicatId === auth.syndicatId)
     : isCommission
       ? allDrivers.filter((d) => mySyndicatIds.has(d.syndicatId))
-      : allDrivers;
+      : isGare
+        ? []
+        : allDrivers;
 
   const visibleAffectations = isCommission
     ? allAffectations.filter((a) => a.commissionMixteId === auth.commissionMixteId)
-    : allAffectations;
+    : isGare
+      ? allAffectations.filter((a) => a.gareRoutiereId === auth.gareRoutiereId)
+      : allAffectations;
 
   const visibleVehicules = isSyndicat
     ? allVehicules.filter((v) => v.syndicatId === auth.syndicatId)
     : isCommission
       ? allVehicules.filter((v) => mySyndicatIds.has(v.syndicatId) || visibleAffectations.some((a) => a.actif && a.vehiculeId === v.id))
-      : allVehicules;
+      : isGare
+        ? allVehicules.filter((v) => visibleAffectations.some((a) => a.actif && a.vehiculeId === v.id))
+        : allVehicules;
 
   const visibleLignes = isCommission ? allLignes.filter((l) => l.commissionMixteId === auth.commissionMixteId) : allLignes;
 
+  const visibleGares = isSyndicat
+    ? allGares.filter((g) => g.syndicatId === auth.syndicatId)
+    : isGare
+      ? allGares.filter((g) => g.id === auth.gareRoutiereId)
+      : allGares;
+
   const visibleDriverIds = new Set(visibleDrivers.map((d) => d.id));
-  const visibleAchats = (isSyndicat || isCommission) ? allAchats.filter((a) => visibleDriverIds.has(a.chauffeurId)) : allAchats;
+  const visibleAchats = (isSyndicat || isCommission) ? allAchats.filter((a) => visibleDriverIds.has(a.chauffeurId)) : isGare ? [] : allAchats;
 
   res.status(200).json({
     proprietaires: visibleOwners.map(toApiOwner),
@@ -141,6 +161,7 @@ export default async function handler(req, res) {
     )),
     commissionsMixtes: allCommissions.map(toApiCommission), // lecture ouverte à tous les rôles authentifiés
     syndicats: visibleSyndicats.map(toApiSyndicat),
+    garesRoutieres: visibleGares.map(toApiGareRoutiere),
     lignes: visibleLignes,
     affectations: visibleAffectations,
   });

@@ -10,6 +10,8 @@ import {
 export const commissionsMixtes = pgTable("commissions_mixtes", {
   id: uuid("id").defaultRandom().primaryKey(),
   nom: varchar("nom", { length: 160 }).notNull(),
+  sigle: varchar("sigle", { length: 20 }),
+  logoUrl: text("logo_url"),
   commune: varchar("commune", { length: 120 }).notNull(),
   localisation: varchar("localisation", { length: 255 }),
   latitude: numeric("latitude", { precision: 10, scale: 6 }),
@@ -23,12 +25,15 @@ export const commissionsMixtes = pgTable("commissions_mixtes", {
 
 /* ---------- Syndicats ----------
    Rattaché à une commission mixte. Compte créé par l'administrateur
-   général, géré au quotidien par le syndicat lui-même (gestion de ses
-   propres membres : véhicules, chauffeurs, propriétaires). */
+   général ou par la commission mixte elle-même, géré au quotidien par le
+   syndicat (gestion de ses propres membres, chauffeurs, véhicules, gares
+   routières). */
 export const syndicats = pgTable("syndicats", {
   id: uuid("id").defaultRandom().primaryKey(),
   commissionMixteId: uuid("commission_mixte_id").references(() => commissionsMixtes.id).notNull(),
   nom: varchar("nom", { length: 160 }).notNull(),
+  sigle: varchar("sigle", { length: 20 }),
+  logoUrl: text("logo_url"),
   presidentNom: varchar("president_nom", { length: 160 }),
   presidentContact: varchar("president_contact", { length: 30 }),
   login: varchar("login", { length: 20 }).unique(),
@@ -138,12 +143,28 @@ export const lignes = pgTable("lignes", {
 });
 
 /* ---------- Affectation d'un véhicule à une commission mixte / ligne ---------- */
+/* ---------- Gares routières ----------
+   Lieu physique où le véhicule opère (distinct de la commission mixte,
+   organe administratif). Créée par le syndicat lui-même. Compte de
+   connexion optionnel (login/PIN) pour un futur accès dédié. */
+export const garesRoutieres = pgTable("gares_routieres", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  syndicatId: uuid("syndicat_id").references(() => syndicats.id).notNull(),
+  nom: varchar("nom", { length: 160 }).notNull(),
+  sigle: varchar("sigle", { length: 20 }),
+  logoUrl: text("logo_url"),
+  login: varchar("login", { length: 20 }).unique(),
+  pinCode: varchar("pin_code", { length: 4 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const affectations = pgTable("affectations", {
   id: uuid("id").defaultRandom().primaryKey(),
   vehiculeId: uuid("vehicule_id").references(() => vehicules.id).notNull(),
   commissionMixteId: uuid("commission_mixte_id").references(() => commissionsMixtes.id).notNull(),
   ligneId: uuid("ligne_id").references(() => lignes.id).notNull(),
-  gareRoutiere: varchar("gare_routiere", { length: 160 }), // gare routière (lieu physique) où le véhicule opère
+  gareRoutiere: varchar("gare_routiere", { length: 160 }), // ancien champ libre — conservé pour compatibilité
+  gareRoutiereId: uuid("gare_routiere_id").references(() => garesRoutieres.id), // gare routière (lieu physique) où le véhicule opère
   dateAffectation: date("date_affectation").notNull(),
   dateFin: date("date_fin"),
   actif: boolean("actif").default(true).notNull(),

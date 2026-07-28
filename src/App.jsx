@@ -335,7 +335,7 @@ function StepIndicator({ step }) {
   );
 }
 
-function VehicleForm({ auth, owners, drivers, syndicats, commissionsMixtes, lignes, onCancel, onSave, addOwner, addDriver, affecterVehicule }) {
+function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commissionsMixtes, lignes, onCancel, onSave, addOwner, addDriver, affecterVehicule }) {
   const [step, setStep] = useState(0);
   const isAdmin = auth?.role === "admin";
   const [syndicatIdSel, setSyndicatIdSel] = useState(isAdmin ? "" : (auth?.syndicatId || ""));
@@ -368,10 +368,12 @@ function VehicleForm({ auth, owners, drivers, syndicats, commissionsMixtes, lign
   const [communeSel, setCommuneSel] = useState("");
   const [commissionId, setCommissionId] = useState(isSyndicatAccount ? auth.commissionMixteId : "");
   const [ligneId, setLigneId] = useState("");
-  const [gareRoutiere, setGareRoutiere] = useState("");
+  const [gareRoutiereId, setGareRoutiereId] = useState("");
   const [dateAffectation, setDateAffectation] = useState(new Date().toISOString().slice(0, 10));
   const commissionsDeLaCommune = commissionsMixtes.filter((c) => c.commune === communeSel);
   const lignesDeLaCommission = lignes.filter((l) => l.commissionMixteId === commissionId);
+  const gareOwnerSyndicatId = isSyndicatAccount ? auth.syndicatId : syndicatIdSel;
+  const garesDeMonSyndicat = garesRoutieres.filter((g) => g.syndicatId === gareOwnerSyndicatId);
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -416,7 +418,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, commissionsMixtes, lign
       }); // POST /api/vehicules
 
       if (commissionId && ligneId && createdVehicle?.id) {
-        await affecterVehicule({ vehiculeId: createdVehicle.id, commissionMixteId: commissionId, ligneId, gareRoutiere, dateAffectation });
+        await affecterVehicule({ vehiculeId: createdVehicle.id, commissionMixteId: commissionId, ligneId, gareRoutiereId, dateAffectation });
       }
     } catch (err) {
       setSaveError(err.message || "Erreur lors de l'enregistrement. Vérifiez la connexion à la base.");
@@ -598,7 +600,12 @@ function VehicleForm({ auth, owners, drivers, syndicats, commissionsMixtes, lign
                       {lignesDeLaCommission.map((l) => <option key={l.id} value={l.id}>{l.lieuDepart} → {l.lieuArrivee} ({l.cout.toLocaleString("fr-FR")} F)</option>)}
                     </select>
                   </Field>
-                  <Field label="Gare routière (lieu d'opération)"><TextInput value={gareRoutiere} onChange={(e) => setGareRoutiere(e.target.value)} placeholder="Gare de Yopougon Sicogi" /></Field>
+                  <Field label="Gare routière (lieu d'opération)">
+                    <select style={inputStyle} className="font-body" value={gareRoutiereId} onChange={(e) => setGareRoutiereId(e.target.value)}>
+                      <option value="">— Aucune / non renseignée —</option>
+                      {garesDeMonSyndicat.map((g) => <option key={g.id} value={g.id}>{g.sigle || g.nom}</option>)}
+                    </select>
+                  </Field>
                   <Field label="Date d'affectation">
                     <DateInput value={dateAffectation} onChange={(e) => setDateAffectation(e.target.value)} />
                   </Field>
@@ -626,7 +633,12 @@ function VehicleForm({ auth, owners, drivers, syndicats, commissionsMixtes, lign
                     {lignesDeLaCommission.map((l) => <option key={l.id} value={l.id}>{l.lieuDepart} → {l.lieuArrivee} ({l.cout.toLocaleString("fr-FR")} F)</option>)}
                   </select>
                 </Field>
-                <Field label="Gare routière (lieu d'opération)"><TextInput value={gareRoutiere} onChange={(e) => setGareRoutiere(e.target.value)} placeholder="Gare de Yopougon Sicogi" /></Field>
+                <Field label="Gare routière (lieu d'opération)">
+                  <select style={inputStyle} className="font-body" value={gareRoutiereId} onChange={(e) => setGareRoutiereId(e.target.value)}>
+                    <option value="">— Aucune / non renseignée —</option>
+                    {garesDeMonSyndicat.map((g) => <option key={g.id} value={g.id}>{g.sigle || g.nom}</option>)}
+                  </select>
+                </Field>
                 <Field label="Date d'affectation">
                   <DateInput value={dateAffectation} onChange={(e) => setDateAffectation(e.target.value)} />
                 </Field>
@@ -1034,7 +1046,7 @@ const NON_COMPLIANT_GROUPINGS = [
   { key: "gare", label: "Par gare routière" },
 ];
 
-function HautConseilPanel({ vehicles, owners, commissionsMixtes, syndicats, affectations, critical, onOpenFiche }) {
+function HautConseilPanel({ vehicles, owners, commissionsMixtes, syndicats, garesRoutieres, affectations, critical, onOpenFiche }) {
   const [query, setQuery] = useState("");
   const [notFound, setNotFound] = useState(false);
   const [groupBy, setGroupBy] = useState("commission");
@@ -1082,8 +1094,8 @@ function HautConseilPanel({ vehicles, owners, commissionsMixtes, syndicats, affe
       const s = syndicats.find((x) => x.id === vehicle.syndicatId);
       return { key: s?.id || "none", label: s?.nom || "Non rattaché à un syndicat" };
     }
-    const gare = affectation?.gareRoutiere;
-    return { key: gare || "none", label: gare || "Gare routière non renseignée" };
+    const gare = affectation?.gareRoutiereId ? garesRoutieres.find((g) => g.id === affectation.gareRoutiereId) : null;
+    return { key: gare?.id || "none", label: gare ? (gare.sigle || gare.nom) : "Gare routière non renseignée" };
   }
 
   const groups = [];
@@ -1436,6 +1448,10 @@ function Dashboard({ auth, onLogout }) {
   const [showFuelForm, setShowFuelForm] = useState(false);
   const [commissionsMixtes, setCommissionsMixtes] = useState([]);
   const [syndicats, setSyndicats] = useState([]);
+  const [garesRoutieres, setGaresRoutieres] = useState([]);
+  const [showGareRoutiereFormFor, setShowGareRoutiereFormFor] = useState(null); // syndicatId
+  const [editGareRoutiere, setEditGareRoutiere] = useState(null);
+  const [showMemberFormFor, setShowMemberFormFor] = useState(false);
   const [lignes, setLignes] = useState([]);
   const [affectations, setAffectations] = useState([]);
   const [showCommissionForm, setShowCommissionForm] = useState(false);
@@ -1454,13 +1470,14 @@ function Dashboard({ auth, onLogout }) {
       try {
         const data = await apiGet("/api/bootstrap");
         if (cancelled) return;
-        const { proprietaires: o, chauffeurs: d, vehicules: v, carburant: ac, commissionsMixtes: cm, syndicats: sy, lignes: li, affectations: af } = data;
+        const { proprietaires: o, chauffeurs: d, vehicules: v, carburant: ac, commissionsMixtes: cm, syndicats: sy, garesRoutieres: gr, lignes: li, affectations: af } = data;
         setOwners(o);
         setDrivers(d);
         setVehicles(v);
         setAchats(ac);
         setCommissionsMixtes(cm);
         setSyndicats(sy);
+        setGaresRoutieres(gr);
         setLignes(li);
         setAffectations(af);
 
@@ -1593,6 +1610,20 @@ function Dashboard({ auth, onLogout }) {
     await apiDelete(`/api/syndicats?id=${syndicatId}`);
     setSyndicats((s) => s.filter((sy) => sy.id !== syndicatId));
   };
+  const addGareRoutiere = async (payload) => {
+    const created = await apiPost("/api/gares-routieres", payload);
+    setGaresRoutieres((s) => [...s, created]);
+    return created;
+  };
+  const updateGareRoutiere = async (gareId, payload) => {
+    const updated = await apiPatch(`/api/gares-routieres?id=${gareId}`, payload);
+    setGaresRoutieres((s) => s.map((g) => (g.id === gareId ? updated : g)));
+    return updated;
+  };
+  const deleteGareRoutiere = async (gareId) => {
+    await apiDelete(`/api/gares-routieres?id=${gareId}`);
+    setGaresRoutieres((s) => s.filter((g) => g.id !== gareId));
+  };
   const addLigne = async (payload) => {
     const created = await apiPost("/api/lignes", payload);
     setLignes((s) => [...s, created]);
@@ -1635,6 +1666,7 @@ function Dashboard({ auth, onLogout }) {
     { key: "drivers", label: "Chauffeurs", icon: <Users size={17} /> },
     ...(auth.role === "admin" ? [{ key: "commissions", label: "Commissions Mixtes", icon: <MapPin size={17} /> }] : []),
     ...(auth.role === "admin" || auth.role === "commission_mixte" ? [{ key: "syndicats", label: "Syndicats", icon: <Building2 size={17} /> }] : []),
+    ...(auth.role === "syndicat" ? [{ key: "garesroutieres", label: "Gares Routières", icon: <MapPin size={17} /> }] : []),
     { key: "carburant", label: "Carburant", icon: <Fuel size={17} /> },
     { key: "alerts", label: "Alertes documents", icon: <Bell size={17} />, count: critical.length },
   ];
@@ -1729,12 +1761,37 @@ function Dashboard({ auth, onLogout }) {
           <>
           {page === "dashboard" && (
             <div className="flex flex-col gap-6">
+              {auth.role !== "admin" && (() => {
+                const entity = auth.role === "commission_mixte"
+                  ? commissionsMixtes.find((c) => c.id === auth.commissionMixteId)
+                  : auth.role === "syndicat"
+                    ? syndicats.find((s) => s.id === auth.syndicatId)
+                    : garesRoutieres.find((g) => g.id === auth.gareRoutiereId);
+                const displayName = entity?.sigle || entity?.nom || auth.nom;
+                return (
+                  <div className="flex items-center gap-4" style={{ background: `linear-gradient(120deg, ${C.greenDark}, ${C.green})`, borderRadius: 14, padding: 20 }}>
+                    {entity?.logoUrl ? (
+                      <img src={entity.logoUrl} alt="" style={{ width: 56, height: 56, borderRadius: 12, objectFit: "cover", border: "2px solid rgba(255,255,255,0.5)" }} />
+                    ) : (
+                      <div style={{ width: 56, height: 56, borderRadius: 12, background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <Building2 size={26} color="#fff" />
+                      </div>
+                    )}
+                    <div>
+                      <div className="font-body" style={{ color: "rgba(255,255,255,0.75)", fontSize: 12 }}>Bienvenue sur le dashboard de :</div>
+                      <div className="font-display" style={{ color: "#fff", fontSize: 20, fontWeight: 700 }}>{displayName}</div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {auth.role === "admin" && (
                 <HautConseilPanel
                   vehicles={vehicles}
                   owners={owners}
                   commissionsMixtes={commissionsMixtes}
                   syndicats={syndicats}
+                  garesRoutieres={garesRoutieres}
                   affectations={affectations}
                   critical={critical}
                   onOpenFiche={openFiche}
@@ -1842,7 +1899,15 @@ function Dashboard({ auth, onLogout }) {
           )}
 
           {page === "owners" && (
-            <div className="grid grid-cols-3 gap-4">
+            <div className="flex flex-col gap-4">
+              {auth.role === "syndicat" && (
+                <div className="flex justify-end">
+                  <button onClick={() => setShowMemberFormFor(true)} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: C.orange, color: "#fff" }}>
+                    <Plus size={16} /> Ajouter un membre
+                  </button>
+                </div>
+              )}
+              <div className="grid grid-cols-3 gap-4">
               {owners.map((o) => {
                 const ownedCount = vehicles.filter((v) => v.proprietaireId === o.id).length;
                 return (
@@ -1863,6 +1928,7 @@ function Dashboard({ auth, onLogout }) {
                   </div>
                 );
               })}
+            </div>
             </div>
           )}
 
@@ -2071,11 +2137,71 @@ function Dashboard({ auth, onLogout }) {
                   const commission = commissionsMixtes.find((c) => c.id === auth.commissionMixteId);
                   const totalMembres = owners.length; // déjà filtré côté API aux syndicats de cette commission
                   return (
-                    <SectionCard accent={C.orangeDark} icon={<MapPin size={18} />} title={`${commission?.nom || "Ma commission mixte"} — ${totalMembres} membre(s) au total`}>
-                      <SyndicatMembersTable commissionSyndicats={syndicats} owners={owners} />
+                    <SectionCard
+                      accent={C.orangeDark}
+                      icon={<MapPin size={18} />}
+                      title={`${commission?.nom || "Ma commission mixte"} — ${totalMembres} membre(s) au total`}
+                      right={
+                        <button onClick={() => setShowSyndicatFormFor(auth.commissionMixteId)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: C.orange, color: "#fff" }}>
+                          <Plus size={14} /> Ajouter un syndicat
+                        </button>
+                      }
+                    >
+                      <SyndicatMembersTable
+                        commissionSyndicats={syndicats}
+                        owners={owners}
+                        onEdit={setEditSyndicat}
+                        onDelete={async (id) => { try { await deleteSyndicat(id); } catch (err) { alert(err.message || "Suppression impossible."); } }}
+                      />
                     </SectionCard>
                   );
                 })()
+              )}
+            </div>
+          )}
+
+          {page === "garesroutieres" && (
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <p className="font-body text-sm" style={{ color: C.slate }}>{garesRoutieres.length} gare{garesRoutieres.length > 1 ? "s" : ""} routière{garesRoutieres.length > 1 ? "s" : ""} enregistrée{garesRoutieres.length > 1 ? "s" : ""}</p>
+                <button onClick={() => setShowGareRoutiereFormFor(auth.syndicatId)} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: C.orange, color: "#fff" }}>
+                  <Plus size={16} /> Ajouter une gare routière
+                </button>
+              </div>
+              {garesRoutieres.length === 0 ? (
+                <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 24 }} className="font-body text-sm text-center">
+                  <span style={{ color: C.slate }}>Aucune gare routière enregistrée — ajoutez le premier lieu d'exploitation de vos véhicules.</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-4">
+                  {garesRoutieres.map((g) => (
+                    <div key={g.id} style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 16 }}>
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          {g.logoUrl ? <img src={g.logoUrl} alt="" style={{ width: 32, height: 32, borderRadius: 7, objectFit: "cover" }} /> : <div style={{ width: 32, height: 32, borderRadius: 7, background: C.cream, display: "flex", alignItems: "center", justifyContent: "center" }}><MapPin size={15} color={C.slate} /></div>}
+                          <div>
+                            <div className="font-semibold text-sm">{g.sigle || g.nom}</div>
+                            {g.sigle && <div className="text-xs" style={{ color: C.slate }}>{g.nom}</div>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => setEditGareRoutiere(g)} title="Modifier" style={{ color: C.slate }}><Pencil size={13} /></button>
+                          <button
+                            onClick={async () => {
+                              if (!window.confirm(`Supprimer la gare routière "${g.nom}" ?`)) return;
+                              try { await deleteGareRoutiere(g.id); } catch (err) { alert(err.message || "Suppression impossible."); }
+                            }}
+                            title="Supprimer"
+                            style={{ color: C.red }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                      {g.login && <div className="font-body text-xs flex items-center gap-1.5" style={{ color: C.slate }}><BadgeCheck size={12} /> Compte : {g.login} {g.pinConfigure ? "· PIN configuré" : ""}</div>}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           )}
@@ -2155,7 +2281,7 @@ function Dashboard({ auth, onLogout }) {
 
       {/* MODALS */}
       {showForm && <Modal onClose={() => setShowForm(false)} title="Ajouter un véhicule" wide>
-        <VehicleForm auth={auth} owners={owners} drivers={drivers} syndicats={syndicats} commissionsMixtes={commissionsMixtes} lignes={lignes} onCancel={() => setShowForm(false)} onSave={addVehicle} addOwner={addOwner} addDriver={addDriver} affecterVehicule={affecterVehicule} />
+        <VehicleForm auth={auth} owners={owners} drivers={drivers} syndicats={syndicats} garesRoutieres={garesRoutieres} commissionsMixtes={commissionsMixtes} lignes={lignes} onCancel={() => setShowForm(false)} onSave={addVehicle} addOwner={addOwner} addDriver={addDriver} affecterVehicule={affecterVehicule} />
       </Modal>}
 
       {ficheVehicle && <Modal onClose={closeFiche} title="Fiche d'Identification du Transporteur" wide>
@@ -2188,6 +2314,18 @@ function Dashboard({ auth, onLogout }) {
         <SyndicatForm commission={commissionsMixtes.find((c) => c.id === editSyndicat.commissionMixteId)} initialSyndicat={editSyndicat} onCancel={() => setEditSyndicat(null)} onSave={async (payload) => { await updateSyndicat(editSyndicat.id, payload); setEditSyndicat(null); }} />
       </Modal>}
 
+      {showGareRoutiereFormFor && <Modal onClose={() => setShowGareRoutiereFormFor(null)} title="Ajouter une gare routière" wide>
+        <GareRoutiereForm syndicat={syndicats.find((s) => s.id === showGareRoutiereFormFor) || { id: showGareRoutiereFormFor, nom: auth.nom }} onCancel={() => setShowGareRoutiereFormFor(null)} onSave={async (payload) => { await addGareRoutiere(payload); setShowGareRoutiereFormFor(null); }} />
+      </Modal>}
+
+      {showMemberFormFor && <Modal onClose={() => setShowMemberFormFor(false)} title="Ajouter un membre" wide>
+        <MemberForm onCancel={() => setShowMemberFormFor(false)} onSave={async (payload) => { await addOwner(payload); setShowMemberFormFor(false); }} />
+      </Modal>}
+
+      {editGareRoutiere && <Modal onClose={() => setEditGareRoutiere(null)} title={`Modifier — ${editGareRoutiere.nom}`} wide>
+        <GareRoutiereForm syndicat={syndicats.find((s) => s.id === editGareRoutiere.syndicatId) || { nom: auth.nom }} initialGare={editGareRoutiere} onCancel={() => setEditGareRoutiere(null)} onSave={async (payload) => { await updateGareRoutiere(editGareRoutiere.id, payload); setEditGareRoutiere(null); }} />
+      </Modal>}
+
       {ligneFormCommissionId && <Modal onClose={() => setLigneFormCommissionId(null)} title="Ajouter une ligne" wide>
         <LigneForm commission={commissionsMixtes.find((c) => c.id === ligneFormCommissionId)} onCancel={() => setLigneFormCommissionId(null)} onSave={async (payload) => { await addLigne(payload); setLigneFormCommissionId(null); }} />
       </Modal>}
@@ -2206,6 +2344,7 @@ function Dashboard({ auth, onLogout }) {
           vehicle={reassignVehicle}
           commissionsMixtes={commissionsMixtes}
           lignes={lignes}
+          garesRoutieres={garesRoutieres}
           currentAffectation={affectations.find((a) => a.vehiculeId === reassignVehicle.id && a.actif)}
           onCancel={() => setReassignVehicle(null)}
           onReassign={async (payload) => { await affecterVehicule(payload); setReassignVehicle(null); }}
@@ -2313,6 +2452,8 @@ function FuelPurchaseForm({ drivers, vehicles, onCancel, onSave }) {
 function CommissionMixteForm({ initialCommission, onCancel, onSave }) {
   const isEdit = !!initialCommission;
   const [nom, setNom] = useState(initialCommission?.nom || "");
+  const [sigle, setSigle] = useState(initialCommission?.sigle || "");
+  const [logoUrl, setLogoUrl] = useState(initialCommission?.logoUrl || null);
   const [commune, setCommune] = useState(initialCommission?.commune || "");
   const [localisation, setLocalisation] = useState(initialCommission?.localisation || "");
   const [latitude, setLatitude] = useState(initialCommission?.latitude ?? "");
@@ -2333,7 +2474,7 @@ function CommissionMixteForm({ initialCommission, onCancel, onSave }) {
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, commune, localisation, latitude, longitude, presidentNom, presidentContact, login, pinCode });
+      await onSave({ nom, sigle, logoUrl, commune, localisation, latitude, longitude, presidentNom, presidentContact, login, pinCode });
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -2342,10 +2483,12 @@ function CommissionMixteForm({ initialCommission, onCancel, onSave }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <PhotoUpload value={logoUrl} onChange={setLogoUrl} label="Logo de la commission mixte" shape="square" />
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom de la commission mixte"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Commission Mixte de Yopougon" /></Field>
-        <Field label="Commune"><TextInput value={commune} onChange={(e) => setCommune(e.target.value)} placeholder="Yopougon" /></Field>
+        <Field label="Sigle" hint="Affiché sur le tableau de bord (nom souvent trop long)"><TextInput value={sigle} onChange={(e) => setSigle(e.target.value)} placeholder="CMY" maxLength={20} /></Field>
       </div>
+      <Field label="Commune"><TextInput value={commune} onChange={(e) => setCommune(e.target.value)} placeholder="Yopougon" /></Field>
       <Field label="Localisation (adresse / repère)"><TextInput value={localisation} onChange={(e) => setLocalisation(e.target.value)} placeholder="Carrefour Sicogi, près du marché" /></Field>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Latitude" hint="Coordonnées GPS — via Google Maps"><TextInput type="number" step="0.000001" value={latitude} onChange={(e) => setLatitude(e.target.value)} placeholder="5.345317" /></Field>
@@ -2402,6 +2545,8 @@ function CommissionMixteForm({ initialCommission, onCancel, onSave }) {
 function SyndicatForm({ commission, initialSyndicat, onCancel, onSave }) {
   const isEdit = !!initialSyndicat;
   const [nom, setNom] = useState(initialSyndicat?.nom || "");
+  const [sigle, setSigle] = useState(initialSyndicat?.sigle || "");
+  const [logoUrl, setLogoUrl] = useState(initialSyndicat?.logoUrl || null);
   const [presidentNom, setPresidentNom] = useState(initialSyndicat?.presidentNom || "");
   const [presidentContact, setPresidentContact] = useState(initialSyndicat?.presidentContact || "");
   const [login, setLogin] = useState(initialSyndicat?.login || "");
@@ -2416,7 +2561,7 @@ function SyndicatForm({ commission, initialSyndicat, onCancel, onSave }) {
     setSaving(true);
     setError(null);
     try {
-      await onSave({ commissionMixteId: commission.id, nom, presidentNom, presidentContact, login, pinCode });
+      await onSave({ commissionMixteId: commission.id, nom, sigle, logoUrl, presidentNom, presidentContact, login, pinCode });
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -2428,7 +2573,11 @@ function SyndicatForm({ commission, initialSyndicat, onCancel, onSave }) {
       <p className="font-body text-xs px-3 py-2.5 rounded-lg" style={{ background: C.cream, color: C.slate }}>
         Syndicat rattaché à <strong>{commission?.nom}</strong> ({commission?.commune})
       </p>
-      <Field label="Nom du syndicat"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Syndicat des Transporteurs de Yopougon" /></Field>
+      <PhotoUpload value={logoUrl} onChange={setLogoUrl} label="Logo du syndicat" shape="square" />
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Nom du syndicat"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Syndicat des Transporteurs de Yopougon" /></Field>
+        <Field label="Sigle" hint="Affiché sur le tableau de bord"><TextInput value={sigle} onChange={(e) => setSigle(e.target.value)} placeholder="STY" maxLength={20} /></Field>
+      </div>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom du président"><TextInput value={presidentNom} onChange={(e) => setPresidentNom(e.target.value)} /></Field>
         <Field label="Contact du président"><TextInput value={presidentContact} onChange={(e) => setPresidentContact(e.target.value)} /></Field>
@@ -2458,6 +2607,135 @@ function SyndicatForm({ commission, initialSyndicat, onCancel, onSave }) {
         <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
         <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
           <Check size={16} /> {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Enregistrer le syndicat"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   GARE ROUTIÈRE — formulaire d'ajout, créée par le syndicat lui-même
+   ============================================================ */
+/* ============================================================
+   MEMBRE (Transporteur) — ajout autonome depuis le dashboard syndicat,
+   sans passer par la création d'un véhicule.
+   ============================================================ */
+function MemberForm({ onCancel, onSave }) {
+  const [nom, setNom] = useState("");
+  const [prenoms, setPrenoms] = useState("");
+  const [cni, setCni] = useState("");
+  const [carteTransporteurNumero, setCarteTransporteurNumero] = useState("");
+  const [numeroPermis, setNumeroPermis] = useState("");
+  const [contact1, setContact1] = useState("");
+  const [contact2, setContact2] = useState("");
+  const [contact3, setContact3] = useState("");
+  const [email, setEmail] = useState("");
+  const [ville, setVille] = useState("");
+  const [quartier, setQuartier] = useState("");
+  const [photo, setPhoto] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const canSave = nom && prenoms && cni && !saving;
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave({ nom, prenoms, cni, carteTransporteurNumero, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo });
+    } catch (err) {
+      setError(err.message || "Erreur lors de l'enregistrement.");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <PhotoUpload value={photo} onChange={setPhoto} label="Photo du membre" />
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
+        <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
+        <Field label="Numéro CNI"><TextInput value={cni} onChange={(e) => setCni(e.target.value)} /></Field>
+        <Field label="Numéro carte transporteur"><TextInput value={carteTransporteurNumero} onChange={(e) => setCarteTransporteurNumero(e.target.value)} /></Field>
+        <Field label="Numéro permis de conduire"><TextInput value={numeroPermis} onChange={(e) => setNumeroPermis(e.target.value)} /></Field>
+        <Field label="Adresse email"><TextInput value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
+        <Field label="Contact 1"><TextInput value={contact1} onChange={(e) => setContact1(e.target.value)} /></Field>
+        <Field label="Contact 2"><TextInput value={contact2} onChange={(e) => setContact2(e.target.value)} /></Field>
+        <Field label="Contact 3"><TextInput value={contact3} onChange={(e) => setContact3(e.target.value)} /></Field>
+        <Field label="Ville de résidence"><TextInput value={ville} onChange={(e) => setVille(e.target.value)} /></Field>
+        <Field label="Quartier"><TextInput value={quartier} onChange={(e) => setQuartier(e.target.value)} /></Field>
+      </div>
+
+      <div className="flex items-center justify-end gap-3 pt-2">
+        {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
+        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
+        <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
+          <Check size={16} /> {saving ? "Enregistrement…" : "Enregistrer le membre"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function GareRoutiereForm({ syndicat, initialGare, onCancel, onSave }) {
+  const isEdit = !!initialGare;
+  const [nom, setNom] = useState(initialGare?.nom || "");
+  const [sigle, setSigle] = useState(initialGare?.sigle || "");
+  const [logoUrl, setLogoUrl] = useState(initialGare?.logoUrl || null);
+  const [login, setLogin] = useState(initialGare?.login || "");
+  const [pinCode, setPinCode] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const pinValid = !pinCode || /^\d{4}$/.test(pinCode);
+  const canSave = nom && pinValid && !saving;
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave({ syndicatId: syndicat.id, nom, sigle, logoUrl, login, pinCode });
+    } catch (err) {
+      setError(err.message || "Erreur lors de l'enregistrement.");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="font-body text-xs px-3 py-2.5 rounded-lg" style={{ background: C.cream, color: C.slate }}>
+        Gare routière rattachée au syndicat <strong>{syndicat?.nom}</strong>
+      </p>
+      <PhotoUpload value={logoUrl} onChange={setLogoUrl} label="Logo de la gare routière" shape="square" />
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Nom de la gare routière"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Gare de Yopougon Sicogi" /></Field>
+        <Field label="Sigle" hint="Affiché sur le tableau de bord"><TextInput value={sigle} onChange={(e) => setSigle(e.target.value)} placeholder="GYS" maxLength={20} /></Field>
+      </div>
+
+      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
+        <p className="font-body text-xs mb-3" style={{ color: C.slate }}>
+          Compte de la gare routière (optionnel) — pour un futur accès dédié.
+        </p>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Login (numéro de téléphone)"><TextInput value={login} onChange={(e) => setLogin(e.target.value)} placeholder="07 08 12 34 56" /></Field>
+          <Field label="Code PIN (4 chiffres)" hint={isEdit ? "Laisser vide pour conserver le PIN actuel" : undefined}>
+            <TextInput
+              value={pinCode}
+              maxLength={4}
+              inputMode="numeric"
+              onChange={(e) => setPinCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              placeholder={isEdit ? "••••" : "0000"}
+            />
+          </Field>
+        </div>
+        {!pinValid && <p className="font-body text-xs mt-1.5" style={{ color: C.red }}>Le code PIN doit comporter exactement 4 chiffres.</p>}
+      </div>
+
+      <div className="flex items-center justify-end gap-3 pt-2">
+        {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
+        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
+        <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
+          <Check size={16} /> {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Enregistrer la gare routière"}
         </button>
       </div>
     </div>
@@ -2589,13 +2867,13 @@ function VehicleEditForm({ vehicle, onCancel, onSave }) {
   );
 }
 
-function ReassignForm({ auth, vehicle, commissionsMixtes, lignes, currentAffectation, onCancel, onReassign, onUnassign }) {
+function ReassignForm({ auth, vehicle, commissionsMixtes, lignes, garesRoutieres, currentAffectation, onCancel, onReassign, onUnassign }) {
   const isSyndicatAccount = auth?.role === "syndicat";
   const communes = [...new Set(commissionsMixtes.map((c) => c.commune))].sort();
   const [communeSel, setCommuneSel] = useState("");
   const [commissionId, setCommissionId] = useState(isSyndicatAccount ? auth.commissionMixteId : "");
   const [ligneId, setLigneId] = useState("");
-  const [gareRoutiere, setGareRoutiere] = useState(currentAffectation?.gareRoutiere || "");
+  const [gareRoutiereId, setGareRoutiereId] = useState(currentAffectation?.gareRoutiereId || "");
   const [dateAffectation, setDateAffectation] = useState(new Date().toISOString().slice(0, 10));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -2604,12 +2882,13 @@ function ReassignForm({ auth, vehicle, commissionsMixtes, lignes, currentAffecta
   const lignesDeLaCommission = lignes.filter((l) => l.commissionMixteId === commissionId);
   const currentCommission = currentAffectation ? commissionsMixtes.find((c) => c.id === currentAffectation.commissionMixteId) : null;
   const currentLigne = currentAffectation ? lignes.find((l) => l.id === currentAffectation.ligneId) : null;
+  const garesDeMonSyndicat = garesRoutieres.filter((g) => g.syndicatId === vehicle.syndicatId);
 
   const handleReassign = async () => {
     setBusy(true);
     setError(null);
     try {
-      await onReassign({ vehiculeId: vehicle.id, commissionMixteId: commissionId, ligneId, gareRoutiere, dateAffectation });
+      await onReassign({ vehiculeId: vehicle.id, commissionMixteId: commissionId, ligneId, gareRoutiereId, dateAffectation });
     } catch (err) {
       setError(err.message || "Erreur lors de l'affectation.");
       setBusy(false);
@@ -2645,7 +2924,12 @@ function ReassignForm({ auth, vehicle, commissionsMixtes, lignes, currentAffecta
                 {lignesDeLaCommission.map((l) => <option key={l.id} value={l.id}>{l.lieuDepart} → {l.lieuArrivee} ({l.cout.toLocaleString("fr-FR")} F)</option>)}
               </select>
             </Field>
-            <Field label="Gare routière (lieu d'opération)"><TextInput value={gareRoutiere} onChange={(e) => setGareRoutiere(e.target.value)} placeholder="Gare de Yopougon Sicogi" /></Field>
+            <Field label="Gare routière (lieu d'opération)">
+              <select style={inputStyle} className="font-body" value={gareRoutiereId} onChange={(e) => setGareRoutiereId(e.target.value)}>
+                <option value="">— Aucune / non renseignée —</option>
+                {garesDeMonSyndicat.map((g) => <option key={g.id} value={g.id}>{g.sigle || g.nom}</option>)}
+              </select>
+            </Field>
             <Field label="Date d'affectation">
               <DateInput value={dateAffectation} onChange={(e) => setDateAffectation(e.target.value)} />
             </Field>
@@ -2673,7 +2957,12 @@ function ReassignForm({ auth, vehicle, commissionsMixtes, lignes, currentAffecta
               {lignesDeLaCommission.map((l) => <option key={l.id} value={l.id}>{l.lieuDepart} → {l.lieuArrivee} ({l.cout.toLocaleString("fr-FR")} F)</option>)}
             </select>
           </Field>
-          <Field label="Gare routière (lieu d'opération)"><TextInput value={gareRoutiere} onChange={(e) => setGareRoutiere(e.target.value)} placeholder="Gare de Yopougon Sicogi" /></Field>
+          <Field label="Gare routière (lieu d'opération)">
+            <select style={inputStyle} className="font-body" value={gareRoutiereId} onChange={(e) => setGareRoutiereId(e.target.value)}>
+              <option value="">— Aucune / non renseignée —</option>
+              {garesDeMonSyndicat.map((g) => <option key={g.id} value={g.id}>{g.sigle || g.nom}</option>)}
+            </select>
+          </Field>
           <Field label="Date d'affectation">
             <DateInput value={dateAffectation} onChange={(e) => setDateAffectation(e.target.value)} />
           </Field>
@@ -2708,7 +2997,7 @@ function ReassignForm({ auth, vehicle, commissionsMixtes, lignes, currentAffecta
 /* ============================================================
    TABLEAU DES MEMBRES PAR SYNDICAT (vue commission mixte / admin)
    ============================================================ */
-function SyndicatMembersTable({ commissionSyndicats, owners }) {
+function SyndicatMembersTable({ commissionSyndicats, owners, onEdit, onDelete }) {
   if (commissionSyndicats.length === 0) {
     return <p className="font-body text-sm" style={{ color: C.slate }}>Aucun syndicat rattaché.</p>;
   }
@@ -2719,7 +3008,19 @@ function SyndicatMembersTable({ commissionSyndicats, owners }) {
           const count = owners.filter((o) => o.syndicatId === s.id).length;
           return (
             <div key={s.id} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 12 }}>
-              <div className="font-body text-xs font-semibold" style={{ color: C.ink }}>{s.nom}</div>
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2">
+                  {s.logoUrl && <img src={s.logoUrl} alt="" style={{ width: 22, height: 22, borderRadius: 5, objectFit: "cover" }} />}
+                  <div className="font-body text-xs font-semibold" style={{ color: C.ink }}>{s.sigle || s.nom}</div>
+                </div>
+                {(onEdit || onDelete) && (
+                  <div className="flex items-center gap-1.5">
+                    {onEdit && <button onClick={() => onEdit(s)} title="Modifier" style={{ color: C.slate }}><Pencil size={11} /></button>}
+                    {onDelete && <button onClick={() => onDelete(s.id)} title="Supprimer" style={{ color: C.red }}><Trash2 size={11} /></button>}
+                  </div>
+                )}
+              </div>
+              {s.sigle && <div className="font-body text-xs" style={{ color: C.slate }}>{s.nom}</div>}
               <div className="font-display" style={{ fontSize: 22, fontWeight: 700, color: C.green }}>{count}</div>
               <div className="font-body text-xs" style={{ color: C.slate }}>membre{count > 1 ? "s" : ""}</div>
             </div>

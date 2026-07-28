@@ -45,6 +45,8 @@ export default async function handler(req, res) {
       try {
         const [created] = await db.insert(commissionsMixtes).values({
           nom: body.nom,
+          sigle: body.sigle || null,
+          logoUrl: body.logoUrl || null,
           commune: body.commune,
           localisation: body.localisation || null,
           latitude: body.latitude !== undefined && body.latitude !== "" ? String(body.latitude) : null,
@@ -84,7 +86,7 @@ export default async function handler(req, res) {
     }
 
     const patch = {};
-    ["nom", "commune", "localisation", "presidentNom", "presidentContact", "login"].forEach((k) => {
+    ["nom", "sigle", "logoUrl", "commune", "localisation", "presidentNom", "presidentContact", "login"].forEach((k) => {
       if (k in body) patch[k] = body[k] || null;
     });
     if (body.pinCode) patch.pinCode = body.pinCode;
