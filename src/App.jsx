@@ -1009,7 +1009,7 @@ const SYNDICAT_SUSPECT_THRESHOLD = 3; // en dessous de ce nombre de membres, un 
    Recherche véhicule → fiche transporteur, + vue d'ensemble
    commissions mixtes / syndicats / effectifs.
    ============================================================ */
-function HautConseilPanel({ vehicles, owners, commissionsMixtes, syndicats, onOpenFiche }) {
+function HautConseilPanel({ vehicles, owners, commissionsMixtes, syndicats, critical, onOpenFiche }) {
   const [query, setQuery] = useState("");
   const [notFound, setNotFound] = useState(false);
 
@@ -1027,6 +1027,18 @@ function HautConseilPanel({ vehicles, owners, commissionsMixtes, syndicats, onOp
       setNotFound(true);
     }
   };
+
+  // Véhicules distincts ayant au moins un document expiré ou proche de
+  // l'expiration (≤ 30 j), signalés automatiquement par l'application.
+  const nonCompliant = [];
+  const seen = new Set();
+  critical.forEach((a) => {
+    if (!seen.has(a.vehicle.id)) {
+      seen.add(a.vehicle.id);
+      nonCompliant.push({ vehicle: a.vehicle, issues: critical.filter((x) => x.vehicle.id === a.vehicle.id) });
+    }
+  });
+  nonCompliant.sort((a, b) => Math.min(...a.issues.map((i) => i.days ?? 9999)) - Math.min(...b.issues.map((i) => i.days ?? 9999)));
 
   return (
     <div className="flex flex-col gap-4">
@@ -1052,6 +1064,38 @@ function HautConseilPanel({ vehicles, owners, commissionsMixtes, syndicats, onOp
         </form>
         {notFound && <p className="font-body text-xs mt-2" style={{ color: "#FDEBD8" }}>Aucun véhicule trouvé pour "{query}".</p>}
       </div>
+
+      <SectionCard accent={C.red} icon={<AlertTriangle size={18} />} title={`Véhicules non en règle (${nonCompliant.length})`}>
+        {nonCompliant.length === 0 ? (
+          <div className="text-sm" style={{ color: C.slate }}>Aucun véhicule signalé pour le moment. 👍</div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {nonCompliant.slice(0, 8).map(({ vehicle, issues }, i) => {
+              const worst = issues.some((x) => x.days !== null && x.days < 0) ? "expire" : "alerte";
+              const badgeStatus = worst === "expire"
+                ? { label: `${issues.length} document(s) — dont expiré(s)`, color: C.red, bg: C.redLight }
+                : { label: `${issues.length} document(s) proche(s) d'échéance`, color: C.amber, bg: C.amberLight };
+              return (
+                <button
+                  key={vehicle.id}
+                  onClick={() => onOpenFiche(vehicle)}
+                  className="flex items-center justify-between py-2 text-left w-full"
+                  style={{ borderBottom: i < Math.min(nonCompliant.length, 8) - 1 ? `1px solid ${C.border}` : "none" }}
+                >
+                  <div className="flex items-center gap-3">
+                    <Car size={15} color={C.slate} />
+                    <div>
+                      <div className="text-sm font-medium" style={{ color: C.ink }}>{vehicle.immatriculation} <span style={{ color: C.slate, fontWeight: 400 }}>· {vehicle.marque} {vehicle.modele}</span></div>
+                      <div className="text-xs" style={{ color: C.slate }}>{issues.map((x) => x.label).join(", ")}</div>
+                    </div>
+                  </div>
+                  <Badge status={badgeStatus} />
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </SectionCard>
 
       <SectionCard accent={C.orangeDark} icon={<Building2 size={18} />} title={`Commissions mixtes & syndicats (${commissionsMixtes.length} commission${commissionsMixtes.length > 1 ? "s" : ""}, ${syndicats.length} syndicat${syndicats.length > 1 ? "s" : ""})`}>
         {commissionsMixtes.length === 0 ? (
@@ -1606,6 +1650,7 @@ function Dashboard({ auth, onLogout }) {
                   owners={owners}
                   commissionsMixtes={commissionsMixtes}
                   syndicats={syndicats}
+                  critical={critical}
                   onOpenFiche={openFiche}
                 />
               )}
