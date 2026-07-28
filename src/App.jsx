@@ -1628,27 +1628,79 @@ function Dashboard({ auth, onLogout }) {
                 )}
               </div>
 
-              <SectionCard accent={C.red} icon={<Bell size={18} />} title="Alertes prioritaires" right={<button onClick={() => setPage("alerts")} className="font-body text-xs font-semibold flex items-center gap-1" style={{ color: C.green }}>Tout voir <ChevronRight size={13} /></button>}>
-                <div className="flex flex-col gap-2">
-                  {critical.slice(0, 6).map((a, i) => (
-                    <div key={i} className="flex items-center justify-between py-2" style={{ borderBottom: i < 5 ? `1px solid ${C.border}` : "none" }}>
-                      <div className="flex items-center gap-3">
-                        <Car size={15} color={C.slate} />
-                        <div>
-                          <div className="text-sm font-medium">{a.vehicle.immatriculation} <span style={{ color: C.slate, fontWeight: 400 }}>· {a.label}</span></div>
-                          <div className="text-xs" style={{ color: C.slate }}>Échéance {fmt(a.date)}</div>
-                        </div>
+              {auth.role === "admin" ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <SectionCard accent={C.orangeDark} icon={<MapPin size={18} />} title="Commissions mixtes récemment ajoutées" right={<button onClick={() => setPage("commissions")} className="font-body text-xs font-semibold flex items-center gap-1" style={{ color: C.green }}>Tout voir <ChevronRight size={13} /></button>}>
+                    {commissionsMixtes.length === 0 ? (
+                      <div className="text-sm" style={{ color: C.slate }}>Aucune commission mixte enregistrée.</div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {commissionsMixtes.slice(-6).reverse().map((c, i) => (
+                          <div key={c.id} className="flex items-center justify-between py-2" style={{ borderBottom: i < Math.min(commissionsMixtes.length, 6) - 1 ? `1px solid ${C.border}` : "none" }}>
+                            <div className="flex items-center gap-3">
+                              <MapPin size={15} color={C.slate} />
+                              <div>
+                                <div className="text-sm font-medium">{c.nom}</div>
+                                <div className="text-xs" style={{ color: C.slate }}>{c.commune}</div>
+                              </div>
+                            </div>
+                            <span className="text-xs" style={{ color: C.slate }}>{syndicats.filter((s) => s.commissionMixteId === c.id).length} syndicat(s)</span>
+                          </div>
+                        ))}
                       </div>
-                      <Badge status={statusOf(a.date)} />
-                    </div>
-                  ))}
-                  {critical.length === 0 && <div className="text-sm" style={{ color: C.slate }}>Aucune échéance urgente. 👍</div>}
-                </div>
-              </SectionCard>
+                    )}
+                  </SectionCard>
 
-              <SectionCard accent={C.green} icon={<Car size={18} />} title="Véhicules récemment ajoutés">
-                <VehicleTable vehicles={vehicles.slice(-5).reverse()} owners={owners} onFiche={openFiche} onPhoto={updateVehiclePhoto} commissionsMixtes={commissionsMixtes} lignes={lignes} affectations={affectations} onReassign={setReassignVehicle} onEdit={setEditVehicle} onDelete={deleteVehicle} />
-              </SectionCard>
+                  <SectionCard accent={C.green} icon={<Building2 size={18} />} title="Syndicats récemment ajoutés" right={<button onClick={() => setPage("syndicats")} className="font-body text-xs font-semibold flex items-center gap-1" style={{ color: C.green }}>Tout voir <ChevronRight size={13} /></button>}>
+                    {syndicats.length === 0 ? (
+                      <div className="text-sm" style={{ color: C.slate }}>Aucun syndicat enregistré.</div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {syndicats.slice(-6).reverse().map((s, i) => {
+                          const commission = commissionsMixtes.find((c) => c.id === s.commissionMixteId);
+                          const count = owners.filter((o) => o.syndicatId === s.id).length;
+                          return (
+                            <div key={s.id} className="flex items-center justify-between py-2" style={{ borderBottom: i < Math.min(syndicats.length, 6) - 1 ? `1px solid ${C.border}` : "none" }}>
+                              <div className="flex items-center gap-3">
+                                <Building2 size={15} color={C.slate} />
+                                <div>
+                                  <div className="text-sm font-medium">{s.nom}</div>
+                                  <div className="text-xs" style={{ color: C.slate }}>{commission?.nom || "—"}</div>
+                                </div>
+                              </div>
+                              <span className="text-xs" style={{ color: C.slate }}>{count} membre(s)</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </SectionCard>
+                </div>
+              ) : (
+                <>
+                  <SectionCard accent={C.red} icon={<Bell size={18} />} title="Alertes prioritaires" right={<button onClick={() => setPage("alerts")} className="font-body text-xs font-semibold flex items-center gap-1" style={{ color: C.green }}>Tout voir <ChevronRight size={13} /></button>}>
+                    <div className="flex flex-col gap-2">
+                      {critical.slice(0, 6).map((a, i) => (
+                        <div key={i} className="flex items-center justify-between py-2" style={{ borderBottom: i < 5 ? `1px solid ${C.border}` : "none" }}>
+                          <div className="flex items-center gap-3">
+                            <Car size={15} color={C.slate} />
+                            <div>
+                              <div className="text-sm font-medium">{a.vehicle.immatriculation} <span style={{ color: C.slate, fontWeight: 400 }}>· {a.label}</span></div>
+                              <div className="text-xs" style={{ color: C.slate }}>Échéance {fmt(a.date)}</div>
+                            </div>
+                          </div>
+                          <Badge status={statusOf(a.date)} />
+                        </div>
+                      ))}
+                      {critical.length === 0 && <div className="text-sm" style={{ color: C.slate }}>Aucune échéance urgente. 👍</div>}
+                    </div>
+                  </SectionCard>
+
+                  <SectionCard accent={C.green} icon={<Car size={18} />} title="Véhicules récemment ajoutés">
+                    <VehicleTable vehicles={vehicles.slice(-5).reverse()} owners={owners} onFiche={openFiche} onPhoto={updateVehiclePhoto} commissionsMixtes={commissionsMixtes} lignes={lignes} affectations={affectations} onReassign={setReassignVehicle} onEdit={setEditVehicle} onDelete={deleteVehicle} />
+                  </SectionCard>
+                </>
+              )}
             </div>
           )}
 
