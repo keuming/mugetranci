@@ -370,10 +370,9 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
   const [ligneId, setLigneId] = useState("");
   const [gareRoutiereId, setGareRoutiereId] = useState("");
   const [dateAffectation, setDateAffectation] = useState(new Date().toISOString().slice(0, 10));
-  const commissionsDeLaCommune = commissionsMixtes.filter((c) => c.commune === communeSel);
-  const lignesDeLaCommission = lignes.filter((l) => l.commissionMixteId === commissionId);
   const gareOwnerSyndicatId = isSyndicatAccount ? auth.syndicatId : syndicatIdSel;
   const garesDeMonSyndicat = garesRoutieres.filter((g) => g.syndicatId === gareOwnerSyndicatId);
+  const lignesDeLaGareChoisie = lignes.filter((l) => l.gareRoutiereId === gareRoutiereId);
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -418,7 +417,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
       }); // POST /api/vehicules
 
       if (commissionId && ligneId && createdVehicle?.id) {
-        await affecterVehicule({ vehiculeId: createdVehicle.id, commissionMixteId: commissionId, ligneId, gareRoutiereId, dateAffectation });
+        await affecterVehicule({ vehiculeId: createdVehicle.id, ligneId, gareRoutiereId, dateAffectation });
       }
     } catch (err) {
       setSaveError(err.message || "Erreur lors de l'enregistrement. Vérifiez la connexion à la base.");
@@ -585,58 +584,24 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
         )}
 
         {step === 4 && (
-          <SectionCard accent={C.orangeDark} icon={<MapPin size={18} />} title="Affectation (commission mixte, gare & ligne)">
+          <SectionCard accent={C.orangeDark} icon={<MapPin size={18} />} title="Affectation (gare routière & ligne)">
             <p className="font-body text-xs mb-4 px-3 py-2.5 rounded-lg" style={{ color: C.slate, background: C.cream }}>
-              💡 Étape optionnelle. Un véhicule peut être affecté plus tard, ou réaffecté depuis la liste des véhicules.
+              💡 Étape optionnelle. Un véhicule peut être affecté plus tard, ou réaffecté depuis la liste des véhicules. La commission mixte est déduite automatiquement de la gare routière choisie.
             </p>
-            {isSyndicatAccount ? (
-              lignesDeLaCommission.length === 0 ? (
-                <p className="font-body text-sm" style={{ color: C.slate }}>Votre commission mixte n'a encore aucune ligne enregistrée.</p>
-              ) : (
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Ligne (votre commission mixte)">
-                    <select style={inputStyle} className="font-body" value={ligneId} onChange={(e) => setLigneId(e.target.value)}>
-                      <option value="">— Sélectionner —</option>
-                      {lignesDeLaCommission.map((l) => <option key={l.id} value={l.id}>{l.lieuDepart} → {l.lieuArrivee} ({l.cout.toLocaleString("fr-FR")} F)</option>)}
-                    </select>
-                  </Field>
-                  <Field label="Gare routière (lieu d'opération)">
-                    <select style={inputStyle} className="font-body" value={gareRoutiereId} onChange={(e) => setGareRoutiereId(e.target.value)}>
-                      <option value="">— Aucune / non renseignée —</option>
-                      {garesDeMonSyndicat.map((g) => <option key={g.id} value={g.id}>{g.sigle || g.nom}</option>)}
-                    </select>
-                  </Field>
-                  <Field label="Date d'affectation">
-                    <DateInput value={dateAffectation} onChange={(e) => setDateAffectation(e.target.value)} />
-                  </Field>
-                </div>
-              )
-            ) : commissionsMixtes.length === 0 ? (
-              <p className="font-body text-sm" style={{ color: C.slate }}>Aucune commission mixte enregistrée pour le moment — créez-en une depuis la page "Commissions Mixtes", puis revenez affecter ce véhicule.</p>
+            {garesDeMonSyndicat.length === 0 ? (
+              <p className="font-body text-sm" style={{ color: C.slate }}>Aucune gare routière enregistrée pour ce syndicat — créez-en une depuis la page "Gares Routières", puis revenez affecter ce véhicule.</p>
             ) : (
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Commune">
-                  <select style={inputStyle} className="font-body" value={communeSel} onChange={(e) => { setCommuneSel(e.target.value); setCommissionId(""); setLigneId(""); }}>
+                <Field label="Gare routière (lieu d'opération)">
+                  <select style={inputStyle} className="font-body" value={gareRoutiereId} onChange={(e) => { setGareRoutiereId(e.target.value); setLigneId(""); }}>
                     <option value="">— Sélectionner —</option>
-                    {communes.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </Field>
-                <Field label="Commission mixte">
-                  <select style={inputStyle} className="font-body" value={commissionId} onChange={(e) => { setCommissionId(e.target.value); setLigneId(""); }} disabled={!communeSel}>
-                    <option value="">— Sélectionner —</option>
-                    {commissionsDeLaCommune.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                    {garesDeMonSyndicat.map((g) => <option key={g.id} value={g.id}>{g.sigle || g.nom}</option>)}
                   </select>
                 </Field>
                 <Field label="Ligne">
-                  <select style={inputStyle} className="font-body" value={ligneId} onChange={(e) => setLigneId(e.target.value)} disabled={!commissionId}>
+                  <select style={inputStyle} className="font-body" value={ligneId} onChange={(e) => setLigneId(e.target.value)} disabled={!gareRoutiereId}>
                     <option value="">— Sélectionner —</option>
-                    {lignesDeLaCommission.map((l) => <option key={l.id} value={l.id}>{l.lieuDepart} → {l.lieuArrivee} ({l.cout.toLocaleString("fr-FR")} F)</option>)}
-                  </select>
-                </Field>
-                <Field label="Gare routière (lieu d'opération)">
-                  <select style={inputStyle} className="font-body" value={gareRoutiereId} onChange={(e) => setGareRoutiereId(e.target.value)}>
-                    <option value="">— Aucune / non renseignée —</option>
-                    {garesDeMonSyndicat.map((g) => <option key={g.id} value={g.id}>{g.sigle || g.nom}</option>)}
+                    {lignesDeLaGareChoisie.map((l) => <option key={l.id} value={l.id}>{l.lieuDepart} → {l.lieuArrivee} ({l.cout.toLocaleString("fr-FR")} F)</option>)}
                   </select>
                 </Field>
                 <Field label="Date d'affectation">
@@ -1206,7 +1171,7 @@ function HautConseilPanel({ vehicles, owners, commissionsMixtes, syndicats, gare
                 <div key={c.id} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="font-body text-sm font-semibold" style={{ color: C.ink }}>{c.nom} <span style={{ color: C.slate, fontWeight: 400 }}>({c.commune})</span></div>
-                    <div className="font-body text-xs" style={{ color: C.slate }}>{commissionSyndicats.length} syndicat{commissionSyndicats.length > 1 ? "s" : ""} · {totalMembres} membre{totalMembres > 1 ? "s" : ""}</div>
+                    <div className="font-body text-xs" style={{ color: C.slate }}>{commissionSyndicats.length} syndicat{commissionSyndicats.length > 1 ? "s" : ""} · {totalMembres} transporteur{totalMembres > 1 ? "s" : ""}</div>
                   </div>
                   {commissionSyndicats.length === 0 ? (
                     <p className="font-body text-xs" style={{ color: C.slate }}>Aucun syndicat pour cette commission.</p>
@@ -1456,7 +1421,7 @@ function Dashboard({ auth, onLogout }) {
   const [affectations, setAffectations] = useState([]);
   const [showCommissionForm, setShowCommissionForm] = useState(false);
   const [showSyndicatFormFor, setShowSyndicatFormFor] = useState(null); // commissionMixteId
-  const [ligneFormCommissionId, setLigneFormCommissionId] = useState(null);
+  const [ligneFormGareId, setLigneFormGareId] = useState(null);
   const [editCommission, setEditCommission] = useState(null);
   const [editSyndicat, setEditSyndicat] = useState(null);
   const [editLigne, setEditLigne] = useState(null);
@@ -1662,7 +1627,7 @@ function Dashboard({ auth, onLogout }) {
   const nav = [
     { key: "dashboard", label: "Tableau de bord", icon: <Home size={17} /> },
     { key: "vehicles", label: "Véhicules", icon: <Car size={17} /> },
-    { key: "owners", label: "Membres", icon: <User size={17} /> },
+    { key: "owners", label: "Transporteurs", icon: <User size={17} /> },
     { key: "drivers", label: "Chauffeurs", icon: <Users size={17} /> },
     ...(auth.role === "admin" ? [{ key: "commissions", label: "Commissions Mixtes", icon: <MapPin size={17} /> }] : []),
     ...(auth.role === "admin" || auth.role === "commission_mixte" ? [{ key: "syndicats", label: "Syndicats", icon: <Building2 size={17} /> }] : []),
@@ -1724,9 +1689,9 @@ function Dashboard({ auth, onLogout }) {
           <div className="flex items-center justify-between mb-7">
             <div>
               <h1 className="font-display" style={{ fontSize: 24, fontWeight: 700 }}>
-                {{ dashboard: "Tableau de bord", vehicles: "Véhicules", owners: "Membres", drivers: "Chauffeurs", commissions: "Commissions Mixtes", syndicats: "Syndicats", carburant: "Carburant", alerts: "Alertes documents" }[page]}
+                {{ dashboard: "Tableau de bord", vehicles: "Véhicules", owners: "Transporteurs", drivers: "Chauffeurs", commissions: "Commissions Mixtes", syndicats: "Syndicats", carburant: "Carburant", alerts: "Alertes documents" }[page]}
               </h1>
-              <p className="text-sm" style={{ color: C.slate }}>Registre unifié véhicules · membres · chauffeurs</p>
+              <p className="text-sm" style={{ color: C.slate }}>Registre unifié véhicules · transporteurs · chauffeurs</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ border: `1px solid ${C.border}`, background: "#fff" }}>
@@ -1809,7 +1774,7 @@ function Dashboard({ auth, onLogout }) {
                 ) : (
                   <>
                     <StatCard icon={<Car size={17} />} label="Véhicules enregistrés" value={vehicles.length} accent={C.green} />
-                    <StatCard icon={<User size={17} />} label="Membres" value={owners.length} accent={C.orange} />
+                    <StatCard icon={<User size={17} />} label="Transporteurs" value={owners.length} accent={C.orange} />
                     <StatCard icon={<Users size={17} />} label="Chauffeurs" value={drivers.length} accent={C.greenDark} />
                     <StatCard icon={<AlertTriangle size={17} />} label="Documents à traiter (≤ 30 j)" value={critical.length} accent={C.red} />
                   </>
@@ -1856,7 +1821,7 @@ function Dashboard({ auth, onLogout }) {
                                   <div className="text-xs" style={{ color: C.slate }}>{commission?.nom || "—"}</div>
                                 </div>
                               </div>
-                              <span className="text-xs" style={{ color: C.slate }}>{count} membre(s)</span>
+                              <span className="text-xs" style={{ color: C.slate }}>{count} transporteur(s)</span>
                             </div>
                           );
                         })}
@@ -1903,7 +1868,7 @@ function Dashboard({ auth, onLogout }) {
               {auth.role === "syndicat" && (
                 <div className="flex justify-end">
                   <button onClick={() => setShowMemberFormFor(true)} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: C.orange, color: "#fff" }}>
-                    <Plus size={16} /> Ajouter un membre
+                    <Plus size={16} /> Ajouter un transporteur
                   </button>
                 </div>
               )}
@@ -2016,7 +1981,6 @@ function Dashboard({ auth, onLogout }) {
               ) : (
                 <div className="grid grid-cols-2 gap-4">
                   {commissionsMixtes.map((c) => {
-                    const commissionLignes = lignes.filter((l) => l.commissionMixteId === c.id);
                     const commissionSyndicats = syndicats.filter((s) => s.commissionMixteId === c.id);
                     return (
                       <div key={c.id} style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 18 }}>
@@ -2059,7 +2023,7 @@ function Dashboard({ auth, onLogout }) {
                                 <div key={s.id} className="flex items-center justify-between font-body text-xs" style={{ color: C.ink }}>
                                   <span>{s.nom}</span>
                                   <div className="flex items-center gap-2">
-                                    <span style={{ color: C.slate }}>{owners.filter((o) => o.syndicatId === s.id).length} membre(s)</span>
+                                    <span style={{ color: C.slate }}>{owners.filter((o) => o.syndicatId === s.id).length} transporteur(s)</span>
                                     <button onClick={() => setEditSyndicat(s)} title="Modifier le syndicat" style={{ color: C.slate }}><Pencil size={12} /></button>
                                     <button
                                       onClick={async () => {
@@ -2080,38 +2044,6 @@ function Dashboard({ auth, onLogout }) {
                             <Plus size={14} /> Ajouter un syndicat à cette commission
                           </button>
                         </div>
-
-                        <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
-                          <span className="font-body text-xs font-semibold" style={{ color: C.ink }}>Lignes ({commissionLignes.length})</span>
-                          {commissionLignes.length === 0 ? (
-                            <p className="font-body text-xs mt-1.5 mb-2" style={{ color: C.slate }}>Aucune ligne pour cette commission.</p>
-                          ) : (
-                            <div className="flex flex-col gap-1.5 mt-1.5 mb-2">
-                              {commissionLignes.map((l) => (
-                                <div key={l.id} className="flex items-center justify-between font-body text-xs" style={{ color: C.ink }}>
-                                  <span>{l.lieuDepart} → {l.lieuArrivee}</span>
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-mono font-semibold">{l.cout.toLocaleString("fr-FR")} F</span>
-                                    <button onClick={() => setEditLigne(l)} title="Modifier la ligne" style={{ color: C.slate }}><Pencil size={12} /></button>
-                                    <button
-                                      onClick={async () => {
-                                        if (!window.confirm(`Supprimer la ligne "${l.lieuDepart} → ${l.lieuArrivee}" ?`)) return;
-                                        try { await deleteLigne(l.id); } catch (err) { alert(err.message || "Suppression impossible."); }
-                                      }}
-                                      title="Supprimer la ligne"
-                                      style={{ color: C.red }}
-                                    >
-                                      <Trash2 size={12} />
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          <button onClick={() => setLigneFormCommissionId(c.id)} className="w-full font-body text-xs font-semibold flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg" style={{ background: C.orangeLight, color: C.orangeDark }}>
-                            <Plus size={14} /> Ajouter une ligne à cette commission
-                          </button>
-                        </div>
                       </div>
                     );
                   })}
@@ -2127,7 +2059,7 @@ function Dashboard({ auth, onLogout }) {
                   const commissionSyndicats = syndicats.filter((s) => s.commissionMixteId === c.id);
                   const totalMembres = owners.filter((o) => commissionSyndicats.some((s) => s.id === o.syndicatId)).length;
                   return (
-                    <SectionCard key={c.id} accent={C.orangeDark} icon={<MapPin size={18} />} title={`${c.nom} (${c.commune}) — ${totalMembres} membre(s) au total`}>
+                    <SectionCard key={c.id} accent={C.orangeDark} icon={<MapPin size={18} />} title={`${c.nom} (${c.commune}) — ${totalMembres} transporteur(s) au total`}>
                       <SyndicatMembersTable commissionSyndicats={commissionSyndicats} owners={owners} />
                     </SectionCard>
                   );
@@ -2140,7 +2072,7 @@ function Dashboard({ auth, onLogout }) {
                     <SectionCard
                       accent={C.orangeDark}
                       icon={<MapPin size={18} />}
-                      title={`${commission?.nom || "Ma commission mixte"} — ${totalMembres} membre(s) au total`}
+                      title={`${commission?.nom || "Ma commission mixte"} — ${totalMembres} transporteur(s) au total`}
                       right={
                         <button onClick={() => setShowSyndicatFormFor(auth.commissionMixteId)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: C.orange, color: "#fff" }}>
                           <Plus size={14} /> Ajouter un syndicat
@@ -2199,6 +2131,45 @@ function Dashboard({ auth, onLogout }) {
                         </div>
                       </div>
                       {g.login && <div className="font-body text-xs flex items-center gap-1.5" style={{ color: C.slate }}><BadgeCheck size={12} /> Compte : {g.login} {g.pinConfigure ? "· PIN configuré" : ""}</div>}
+
+                      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10, marginTop: 10 }}>
+                        {(() => {
+                          const gareLignes = lignes.filter((l) => l.gareRoutiereId === g.id);
+                          return (
+                            <>
+                              <span className="font-body text-xs font-semibold" style={{ color: C.ink }}>Lignes ({gareLignes.length})</span>
+                              {gareLignes.length === 0 ? (
+                                <p className="font-body text-xs mt-1.5 mb-2" style={{ color: C.slate }}>Aucune ligne pour cette gare.</p>
+                              ) : (
+                                <div className="flex flex-col gap-1.5 mt-1.5 mb-2">
+                                  {gareLignes.map((l) => (
+                                    <div key={l.id} className="flex items-center justify-between font-body text-xs" style={{ color: C.ink }}>
+                                      <span>{l.lieuDepart} → {l.lieuArrivee}</span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-mono font-semibold">{l.cout.toLocaleString("fr-FR")} F</span>
+                                        <button onClick={() => setEditLigne(l)} title="Modifier la ligne" style={{ color: C.slate }}><Pencil size={11} /></button>
+                                        <button
+                                          onClick={async () => {
+                                            if (!window.confirm(`Supprimer la ligne "${l.lieuDepart} → ${l.lieuArrivee}" ?`)) return;
+                                            try { await deleteLigne(l.id); } catch (err) { alert(err.message || "Suppression impossible."); }
+                                          }}
+                                          title="Supprimer la ligne"
+                                          style={{ color: C.red }}
+                                        >
+                                          <Trash2 size={11} />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
+                        <button onClick={() => setLigneFormGareId(g.id)} className="w-full font-body text-xs font-semibold flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg" style={{ background: C.orangeLight, color: C.orangeDark }}>
+                          <Plus size={13} /> Ajouter une ligne
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -2318,7 +2289,7 @@ function Dashboard({ auth, onLogout }) {
         <GareRoutiereForm syndicat={syndicats.find((s) => s.id === showGareRoutiereFormFor) || { id: showGareRoutiereFormFor, nom: auth.nom }} onCancel={() => setShowGareRoutiereFormFor(null)} onSave={async (payload) => { await addGareRoutiere(payload); setShowGareRoutiereFormFor(null); }} />
       </Modal>}
 
-      {showMemberFormFor && <Modal onClose={() => setShowMemberFormFor(false)} title="Ajouter un membre" wide>
+      {showMemberFormFor && <Modal onClose={() => setShowMemberFormFor(false)} title="Ajouter un transporteur" wide>
         <MemberForm onCancel={() => setShowMemberFormFor(false)} onSave={async (payload) => { await addOwner(payload); setShowMemberFormFor(false); }} />
       </Modal>}
 
@@ -2326,12 +2297,12 @@ function Dashboard({ auth, onLogout }) {
         <GareRoutiereForm syndicat={syndicats.find((s) => s.id === editGareRoutiere.syndicatId) || { nom: auth.nom }} initialGare={editGareRoutiere} onCancel={() => setEditGareRoutiere(null)} onSave={async (payload) => { await updateGareRoutiere(editGareRoutiere.id, payload); setEditGareRoutiere(null); }} />
       </Modal>}
 
-      {ligneFormCommissionId && <Modal onClose={() => setLigneFormCommissionId(null)} title="Ajouter une ligne" wide>
-        <LigneForm commission={commissionsMixtes.find((c) => c.id === ligneFormCommissionId)} onCancel={() => setLigneFormCommissionId(null)} onSave={async (payload) => { await addLigne(payload); setLigneFormCommissionId(null); }} />
+      {ligneFormGareId && <Modal onClose={() => setLigneFormGareId(null)} title="Ajouter une ligne" wide>
+        <LigneForm gare={garesRoutieres.find((g) => g.id === ligneFormGareId)} onCancel={() => setLigneFormGareId(null)} onSave={async (payload) => { await addLigne(payload); setLigneFormGareId(null); }} />
       </Modal>}
 
       {editLigne && <Modal onClose={() => setEditLigne(null)} title="Modifier la ligne" wide>
-        <LigneForm commission={commissionsMixtes.find((c) => c.id === editLigne.commissionMixteId)} initialLigne={editLigne} onCancel={() => setEditLigne(null)} onSave={async (payload) => { await updateLigne(editLigne.id, payload); setEditLigne(null); }} />
+        <LigneForm gare={garesRoutieres.find((g) => g.id === editLigne.gareRoutiereId)} initialLigne={editLigne} onCancel={() => setEditLigne(null)} onSave={async (payload) => { await updateLigne(editLigne.id, payload); setEditLigne(null); }} />
       </Modal>}
 
       {editVehicle && <Modal onClose={() => setEditVehicle(null)} title={`Modifier — ${editVehicle.immatriculation}`} wide>
@@ -2651,7 +2622,7 @@ function MemberForm({ onCancel, onSave }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <PhotoUpload value={photo} onChange={setPhoto} label="Photo du membre" />
+      <PhotoUpload value={photo} onChange={setPhoto} label="Photo du transporteur" />
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
         <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
@@ -2670,7 +2641,7 @@ function MemberForm({ onCancel, onSave }) {
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
         <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
         <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
-          <Check size={16} /> {saving ? "Enregistrement…" : "Enregistrer le membre"}
+          <Check size={16} /> {saving ? "Enregistrement…" : "Enregistrer le transporteur"}
         </button>
       </div>
     </div>
@@ -2742,7 +2713,7 @@ function GareRoutiereForm({ syndicat, initialGare, onCancel, onSave }) {
   );
 }
 
-function LigneForm({ commission, initialLigne, onCancel, onSave }) {
+function LigneForm({ gare, initialLigne, onCancel, onSave }) {
   const isEdit = !!initialLigne;
   const [lieuDepart, setLieuDepart] = useState(initialLigne?.lieuDepart || "");
   const [lieuArrivee, setLieuArrivee] = useState(initialLigne?.lieuArrivee || "");
@@ -2758,7 +2729,7 @@ function LigneForm({ commission, initialLigne, onCancel, onSave }) {
     setSaving(true);
     setError(null);
     try {
-      await onSave({ commissionMixteId: commission.id, lieuDepart, lieuArrivee, cout, chefNom, chefContact });
+      await onSave({ gareRoutiereId: gare.id, lieuDepart, lieuArrivee, cout, chefNom, chefContact });
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -2768,7 +2739,7 @@ function LigneForm({ commission, initialLigne, onCancel, onSave }) {
   return (
     <div className="flex flex-col gap-4">
       <p className="font-body text-xs px-3 py-2.5 rounded-lg" style={{ background: C.cream, color: C.slate }}>
-        Ligne rattachée à <strong>{commission?.nom}</strong> ({commission?.commune})
+        Ligne rattachée à la gare routière <strong>{gare?.sigle || gare?.nom}</strong>
       </p>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Lieu de départ"><TextInput value={lieuDepart} onChange={(e) => setLieuDepart(e.target.value)} placeholder="Yopougon" /></Field>
@@ -2868,27 +2839,23 @@ function VehicleEditForm({ vehicle, onCancel, onSave }) {
 }
 
 function ReassignForm({ auth, vehicle, commissionsMixtes, lignes, garesRoutieres, currentAffectation, onCancel, onReassign, onUnassign }) {
-  const isSyndicatAccount = auth?.role === "syndicat";
-  const communes = [...new Set(commissionsMixtes.map((c) => c.commune))].sort();
-  const [communeSel, setCommuneSel] = useState("");
-  const [commissionId, setCommissionId] = useState(isSyndicatAccount ? auth.commissionMixteId : "");
   const [ligneId, setLigneId] = useState("");
   const [gareRoutiereId, setGareRoutiereId] = useState(currentAffectation?.gareRoutiereId || "");
   const [dateAffectation, setDateAffectation] = useState(new Date().toISOString().slice(0, 10));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  const commissionsDeLaCommune = commissionsMixtes.filter((c) => c.commune === communeSel);
-  const lignesDeLaCommission = lignes.filter((l) => l.commissionMixteId === commissionId);
   const currentCommission = currentAffectation ? commissionsMixtes.find((c) => c.id === currentAffectation.commissionMixteId) : null;
   const currentLigne = currentAffectation ? lignes.find((l) => l.id === currentAffectation.ligneId) : null;
+  const currentGare = currentAffectation ? garesRoutieres.find((g) => g.id === currentAffectation.gareRoutiereId) : null;
   const garesDeMonSyndicat = garesRoutieres.filter((g) => g.syndicatId === vehicle.syndicatId);
+  const lignesDeLaGareChoisie = lignes.filter((l) => l.gareRoutiereId === gareRoutiereId);
 
   const handleReassign = async () => {
     setBusy(true);
     setError(null);
     try {
-      await onReassign({ vehiculeId: vehicle.id, commissionMixteId: commissionId, ligneId, gareRoutiereId, dateAffectation });
+      await onReassign({ vehiculeId: vehicle.id, ligneId, gareRoutiereId, dateAffectation });
     } catch (err) {
       setError(err.message || "Erreur lors de l'affectation.");
       setBusy(false);
@@ -2909,58 +2876,24 @@ function ReassignForm({ auth, vehicle, commissionsMixtes, lignes, garesRoutieres
     <div className="flex flex-col gap-4">
       <p className="font-body text-xs px-3 py-2.5 rounded-lg" style={{ background: C.cream, color: C.slate }}>
         {currentAffectation
-          ? <>Actuellement affecté à <strong>{currentCommission?.nom}</strong> ({currentCommission?.commune}) — ligne {currentLigne?.lieuDepart} → {currentLigne?.lieuArrivee}.</>
-          : "Ce véhicule n'est affecté à aucune commission mixte pour le moment."}
+          ? <>Actuellement affecté à la gare <strong>{currentGare?.sigle || currentGare?.nom || "—"}</strong> ({currentCommission?.nom}) — ligne {currentLigne?.lieuDepart} → {currentLigne?.lieuArrivee}.</>
+          : "Ce véhicule n'est affecté à aucune gare routière pour le moment."}
       </p>
 
-      {isSyndicatAccount ? (
-        lignesDeLaCommission.length === 0 ? (
-          <p className="font-body text-sm" style={{ color: C.slate }}>Votre commission mixte n'a encore aucune ligne enregistrée.</p>
-        ) : (
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Ligne (votre commission mixte)">
-              <select style={inputStyle} className="font-body" value={ligneId} onChange={(e) => setLigneId(e.target.value)}>
-                <option value="">— Sélectionner —</option>
-                {lignesDeLaCommission.map((l) => <option key={l.id} value={l.id}>{l.lieuDepart} → {l.lieuArrivee} ({l.cout.toLocaleString("fr-FR")} F)</option>)}
-              </select>
-            </Field>
-            <Field label="Gare routière (lieu d'opération)">
-              <select style={inputStyle} className="font-body" value={gareRoutiereId} onChange={(e) => setGareRoutiereId(e.target.value)}>
-                <option value="">— Aucune / non renseignée —</option>
-                {garesDeMonSyndicat.map((g) => <option key={g.id} value={g.id}>{g.sigle || g.nom}</option>)}
-              </select>
-            </Field>
-            <Field label="Date d'affectation">
-              <DateInput value={dateAffectation} onChange={(e) => setDateAffectation(e.target.value)} />
-            </Field>
-          </div>
-        )
-      ) : commissionsMixtes.length === 0 ? (
-        <p className="font-body text-sm" style={{ color: C.slate }}>Aucune commission mixte enregistrée — créez-en une depuis la page "Commissions Mixtes".</p>
+      {garesDeMonSyndicat.length === 0 ? (
+        <p className="font-body text-sm" style={{ color: C.slate }}>Aucune gare routière enregistrée pour ce syndicat — créez-en une depuis la page "Gares Routières".</p>
       ) : (
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Commune">
-            <select style={inputStyle} className="font-body" value={communeSel} onChange={(e) => { setCommuneSel(e.target.value); setCommissionId(""); setLigneId(""); }}>
+          <Field label="Gare routière (lieu d'opération)">
+            <select style={inputStyle} className="font-body" value={gareRoutiereId} onChange={(e) => { setGareRoutiereId(e.target.value); setLigneId(""); }}>
               <option value="">— Sélectionner —</option>
-              {communes.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </Field>
-          <Field label="Commission mixte">
-            <select style={inputStyle} className="font-body" value={commissionId} onChange={(e) => { setCommissionId(e.target.value); setLigneId(""); }} disabled={!communeSel}>
-              <option value="">— Sélectionner —</option>
-              {commissionsDeLaCommune.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
+              {garesDeMonSyndicat.map((g) => <option key={g.id} value={g.id}>{g.sigle || g.nom}</option>)}
             </select>
           </Field>
           <Field label="Ligne">
-            <select style={inputStyle} className="font-body" value={ligneId} onChange={(e) => setLigneId(e.target.value)} disabled={!commissionId}>
+            <select style={inputStyle} className="font-body" value={ligneId} onChange={(e) => setLigneId(e.target.value)} disabled={!gareRoutiereId}>
               <option value="">— Sélectionner —</option>
-              {lignesDeLaCommission.map((l) => <option key={l.id} value={l.id}>{l.lieuDepart} → {l.lieuArrivee} ({l.cout.toLocaleString("fr-FR")} F)</option>)}
-            </select>
-          </Field>
-          <Field label="Gare routière (lieu d'opération)">
-            <select style={inputStyle} className="font-body" value={gareRoutiereId} onChange={(e) => setGareRoutiereId(e.target.value)}>
-              <option value="">— Aucune / non renseignée —</option>
-              {garesDeMonSyndicat.map((g) => <option key={g.id} value={g.id}>{g.sigle || g.nom}</option>)}
+              {lignesDeLaGareChoisie.map((l) => <option key={l.id} value={l.id}>{l.lieuDepart} → {l.lieuArrivee} ({l.cout.toLocaleString("fr-FR")} F)</option>)}
             </select>
           </Field>
           <Field label="Date d'affectation">
@@ -2982,9 +2915,9 @@ function ReassignForm({ auth, vehicle, commissionsMixtes, lignes, garesRoutieres
           <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Fermer</button>
           <button
             onClick={handleReassign}
-            disabled={!commissionId || !ligneId || busy}
+            disabled={!gareRoutiereId || !ligneId || busy}
             className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2"
-            style={{ background: commissionId && ligneId ? C.orange : "#D8B48A", color: "#fff", cursor: commissionId && ligneId ? "pointer" : "not-allowed" }}
+            style={{ background: gareRoutiereId && ligneId ? C.orange : "#D8B48A", color: "#fff", cursor: gareRoutiereId && ligneId ? "pointer" : "not-allowed" }}
           >
             <Check size={16} /> {busy ? "…" : "Affecter"}
           </button>
@@ -3022,7 +2955,7 @@ function SyndicatMembersTable({ commissionSyndicats, owners, onEdit, onDelete })
               </div>
               {s.sigle && <div className="font-body text-xs" style={{ color: C.slate }}>{s.nom}</div>}
               <div className="font-display" style={{ fontSize: 22, fontWeight: 700, color: C.green }}>{count}</div>
-              <div className="font-body text-xs" style={{ color: C.slate }}>membre{count > 1 ? "s" : ""}</div>
+              <div className="font-body text-xs" style={{ color: C.slate }}>transporteur{count > 1 ? "s" : ""}</div>
             </div>
           );
         })}
@@ -3033,7 +2966,7 @@ function SyndicatMembersTable({ commissionSyndicats, owners, onEdit, onDelete })
         if (members.length === 0) return null;
         return (
           <div key={s.id}>
-            <div className="font-body text-xs font-semibold mb-2" style={{ color: C.ink }}>{s.nom} — {members.length} membre{members.length > 1 ? "s" : ""}</div>
+            <div className="font-body text-xs font-semibold mb-2" style={{ color: C.ink }}>{s.nom} — {members.length} transporteur{members.length > 1 ? "s" : ""}</div>
             <table className="w-full font-body text-sm" style={{ borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ color: C.slate, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.4 }}>

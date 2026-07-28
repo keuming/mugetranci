@@ -135,7 +135,19 @@ export default async function handler(req, res) {
         ? allVehicules.filter((v) => visibleAffectations.some((a) => a.actif && a.vehiculeId === v.id))
         : allVehicules;
 
-  const visibleLignes = isCommission ? allLignes.filter((l) => l.commissionMixteId === auth.commissionMixteId) : allLignes;
+  const visibleLignes = isCommission
+    ? allLignes.filter((l) => {
+        const gare = allGares.find((g) => g.id === l.gareRoutiereId);
+        return gare && mySyndicatIds.has(gare.syndicatId);
+      })
+    : isSyndicat
+      ? allLignes.filter((l) => {
+          const gare = allGares.find((g) => g.id === l.gareRoutiereId);
+          return gare && gare.syndicatId === auth.syndicatId;
+        })
+      : isGare
+        ? allLignes.filter((l) => l.gareRoutiereId === auth.gareRoutiereId)
+        : allLignes;
 
   const visibleGares = isSyndicat
     ? allGares.filter((g) => g.syndicatId === auth.syndicatId)

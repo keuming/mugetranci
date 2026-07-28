@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { affectations } from "../db/schema.js";
+import { affectations, garesRoutieres, syndicats } from "../db/schema.js";
 import { requireAuth } from "../lib/auth.js";
 
 export default async function handler(req, res) {
@@ -33,16 +33,24 @@ export default async function handler(req, res) {
       return res.status(200).json({ desaffecte: true });
     }
 
-    if (!body.commissionMixteId || !body.ligneId) {
-      return res.status(400).json({ error: "commissionMixteId et ligneId sont requis pour une (ré)affectation" });
+    if (!body.gareRoutiereId || !body.ligneId) {
+      return res.status(400).json({ error: "gareRoutiereId et ligneId sont requis pour une (ré)affectation" });
+    }
+
+    // La commission mixte est désormais déduite automatiquement :
+    // gare routière → syndicat propriétaire → sa commission mixte.
+    let commissionMixteId = null;
+    const [gare] = await db.select().from(garesRoutieres).where(eq(garesRoutieres.id, body.gareRoutiereId));
+    if (gare) {
+      const [syndicat] = await db.select().from(syndicats).where(eq(syndicats.id, gare.syndicatId));
+      commissionMixteId = syndicat ? syndicat.commissionMixteId : null;
     }
 
     const [created] = await db.insert(affectations).values({
       vehiculeId: body.vehiculeId,
-      commissionMixteId: body.commissionMixteId,
+      commissionMixteId,
       ligneId: body.ligneId,
-      gareRoutiere: body.gareRoutiere || null,
-      gareRoutiereId: body.gareRoutiereId || null,
+      gareRoutiereId: body.gareRoutiereId,
       dateAffectation: body.dateAffectation || today,
     }).returning();
 

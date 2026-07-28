@@ -133,7 +133,8 @@ export const achatsCarburant = pgTable("achats_carburant", {
 /* ---------- Lignes (trajets) rattachées à une commission mixte ---------- */
 export const lignes = pgTable("lignes", {
   id: uuid("id").defaultRandom().primaryKey(),
-  commissionMixteId: uuid("commission_mixte_id").references(() => commissionsMixtes.id).notNull(),
+  commissionMixteId: uuid("commission_mixte_id").references(() => commissionsMixtes.id), // ancien champ — conservé pour compatibilité, plus utilisé pour les nouvelles lignes
+  gareRoutiereId: uuid("gare_routiere_id").references(() => garesRoutieres.id), // une ligne est désormais affiliée à une gare routière, créée par le syndicat
   lieuDepart: varchar("lieu_depart", { length: 160 }).notNull(),
   lieuArrivee: varchar("lieu_arrivee", { length: 160 }).notNull(),
   cout: integer("cout").notNull(),
@@ -161,7 +162,7 @@ export const garesRoutieres = pgTable("gares_routieres", {
 export const affectations = pgTable("affectations", {
   id: uuid("id").defaultRandom().primaryKey(),
   vehiculeId: uuid("vehicule_id").references(() => vehicules.id).notNull(),
-  commissionMixteId: uuid("commission_mixte_id").references(() => commissionsMixtes.id).notNull(),
+  commissionMixteId: uuid("commission_mixte_id").references(() => commissionsMixtes.id), // désormais dérivé automatiquement (gare routière -> syndicat -> commission)
   ligneId: uuid("ligne_id").references(() => lignes.id).notNull(),
   gareRoutiere: varchar("gare_routiere", { length: 160 }), // ancien champ libre — conservé pour compatibilité
   gareRoutiereId: uuid("gare_routiere_id").references(() => garesRoutieres.id), // gare routière (lieu physique) où le véhicule opère

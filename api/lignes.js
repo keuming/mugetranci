@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { lignes, affectations } from "../db/schema.js";
+import { lignes, affectations, garesRoutieres } from "../db/schema.js";
 import { requireAuth } from "../lib/auth.js";
 
 export default async function handler(req, res) {
@@ -12,25 +12,34 @@ export default async function handler(req, res) {
   if (!id) {
     if (req.method === "GET") {
       let rows = await db.select().from(lignes);
-      if (auth.role === "commission_mixte") {
-        rows = rows.filter((l) => l.commissionMixteId === auth.commissionMixteId);
+      if (auth.role === "syndicat") {
+        const mesGares = await db.select().from(garesRoutieres).where(eq(garesRoutieres.syndicatId, auth.syndicatId));
+        const mesGareIds = new Set(mesGares.map((g) => g.id));
+        rows = rows.filter((l) => mesGareIds.has(l.gareRoutiereId));
+      } else if (auth.role === "gare") {
+        rows = rows.filter((l) => l.gareRoutiereId === auth.gareRoutiereId);
       }
-      // Un syndicat voit toutes les lignes (pour affecter ses véhicules à
-      // n'importe quelle commission), pas seulement celles de "sa" commission.
+      // admin et commission_mixte voient l'ensemble (lecture)
       return res.status(200).json(rows);
     }
 
     if (req.method === "POST") {
-      if (auth.role === "syndicat") {
-        return res.status(403).json({ error: "La création de ligne est réservée à l'admin et aux commissions mixtes." });
+      // Créée par le syndicat (pour l'une de ses propres gares) ou par l'admin.
+      if (auth.role !== "admin" && auth.role !== "syndicat") {
+        return res.status(403).json({ error: "Réservé à l'administrateur général ou à un syndicat." });
       }
       const body = req.body || {};
-      const commissionMixteId = auth.role === "commission_mixte" ? auth.commissionMixteId : body.commissionMixteId;
-      if (!commissionMixteId || !body.lieuDepart || !body.lieuArrivee || !body.cout) {
-        return res.status(400).json({ error: "commissionMixteId, lieuDepart, lieuArrivee et cout sont requis" });
+      if (!body.gareRoutiereId || !body.lieuDepart || !body.lieuArrivee || !body.cout) {
+        return res.status(400).json({ error: "gareRoutiereId, lieuDepart, lieuArrivee et cout sont requis" });
+      }
+      if (auth.role === "syndicat") {
+        const [gare] = await db.select().from(garesRoutieres).where(eq(garesRoutieres.id, body.gareRoutiereId));
+        if (!gare || gare.syndicatId !== auth.syndicatId) {
+          return res.status(403).json({ error: "Cette gare routière n'appartient pas à votre syndicat." });
+        }
       }
       const [created] = await db.insert(lignes).values({
-        commissionMixteId,
+        gareRoutiereId: body.gareRoutiereId,
         lieuDepart: body.lieuDepart,
         lieuArrivee: body.lieuArrivee,
         cout: Math.round(Number(body.cout)),
@@ -46,13 +55,14 @@ export default async function handler(req, res) {
 
   async function assertOwnership() {
     if (auth.role === "admin") return true;
-    if (auth.role !== "commission_mixte") {
-      res.status(403).json({ error: "Modification réservée à l'admin et aux commissions mixtes." });
+    if (auth.role !== "syndicat") {
+      res.status(403).json({ error: "Modification réservée à l'admin général ou au syndicat propriétaire de la gare." });
       return false;
     }
     const [l] = await db.select().from(lignes).where(eq(lignes.id, id));
     if (!l) { res.status(404).json({ error: "Ligne introuvable" }); return false; }
-    if (l.commissionMixteId !== auth.commissionMixteId) { res.status(403).json({ error: "Cette ligne n'appartient pas à votre commission mixte." }); return false; }
+    const [gare] = await db.select().from(garesRoutieres).where(eq(garesRoutieres.id, l.gareRoutiereId));
+    if (!gare || gare.syndicatId !== auth.syndicatId) { res.status(403).json({ error: "Cette ligne n'appartient pas à votre syndicat." }); return false; }
     return true;
   }
 
