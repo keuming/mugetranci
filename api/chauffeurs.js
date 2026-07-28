@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { chauffeurs } from "../db/schema.js";
+import { chauffeurs, syndicats } from "../db/schema.js";
 import { requireAuth } from "../lib/auth.js";
 
 function toApi(row) {
@@ -20,19 +20,27 @@ export default async function handler(req, res) {
 
   if (!id) {
     if (req.method === "GET") {
-      const rows = auth.role === "gare"
-        ? await db.select().from(chauffeurs).where(eq(chauffeurs.gareId, auth.gareId))
-        : await db.select().from(chauffeurs);
+      let rows = await db.select().from(chauffeurs);
+      if (auth.role === "syndicat") {
+        rows = rows.filter((c) => c.syndicatId === auth.syndicatId);
+      } else if (auth.role === "commission_mixte") {
+        const mySyndicats = await db.select().from(syndicats).where(eq(syndicats.commissionMixteId, auth.commissionMixteId));
+        const mySyndicatIds = new Set(mySyndicats.map((s) => s.id));
+        rows = rows.filter((c) => mySyndicatIds.has(c.syndicatId));
+      }
       return res.status(200).json(rows.map(toApi));
     }
 
     if (req.method === "POST") {
+      if (auth.role === "commission_mixte") {
+        return res.status(403).json({ error: "La commission mixte est en lecture seule — c'est au syndicat de gérer ses chauffeurs." });
+      }
       const body = req.body || {};
       if (!body.nom || !body.prenoms || !body.cni || !body.permisNumero || !body.permisDateFin) {
         return res.status(400).json({ error: "nom, prenoms, cni, permisNumero et permisDateFin sont requis" });
       }
       const values = toDb(body);
-      if (auth.role === "gare") values.gareId = auth.gareId;
+      if (auth.role === "syndicat") values.syndicatId = auth.syndicatId;
       const [created] = await db.insert(chauffeurs).values(values).returning();
       return res.status(201).json(toApi(created));
     }
@@ -43,9 +51,13 @@ export default async function handler(req, res) {
 
   async function assertOwnership() {
     if (auth.role === "admin") return true;
+    if (auth.role === "commission_mixte") {
+      res.status(403).json({ error: "La commission mixte est en lecture seule." });
+      return false;
+    }
     const [c] = await db.select().from(chauffeurs).where(eq(chauffeurs.id, id));
     if (!c) { res.status(404).json({ error: "Chauffeur introuvable" }); return false; }
-    if (c.gareId !== auth.gareId) { res.status(403).json({ error: "Ce chauffeur n'appartient pas à votre gare." }); return false; }
+    if (c.syndicatId !== auth.syndicatId) { res.status(403).json({ error: "Ce chauffeur n'appartient pas à votre syndicat." }); return false; }
     return true;
   }
 

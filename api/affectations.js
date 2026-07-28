@@ -8,8 +8,8 @@ export default async function handler(req, res) {
   if (!auth) return;
 
   if (req.method === "GET") {
-    const rows = auth.role === "gare"
-      ? await db.select().from(affectations).where(eq(affectations.gareId, auth.gareId))
+    const rows = auth.role === "commission_mixte"
+      ? await db.select().from(affectations).where(eq(affectations.commissionMixteId, auth.commissionMixteId))
       : await db.select().from(affectations);
     return res.status(200).json(rows);
   }
@@ -19,8 +19,8 @@ export default async function handler(req, res) {
     if (!body.vehiculeId) {
       return res.status(400).json({ error: "vehiculeId est requis" });
     }
-    if (auth.role === "gare" && body.gareId && body.gareId !== auth.gareId) {
-      return res.status(403).json({ error: "Vous ne pouvez affecter un véhicule qu'à votre propre gare." });
+    if (auth.role === "commission_mixte") {
+      return res.status(403).json({ error: "La commission mixte est en lecture seule sur les affectations." });
     }
 
     const today = new Date().toISOString().slice(0, 10);
@@ -33,14 +33,13 @@ export default async function handler(req, res) {
       return res.status(200).json({ desaffecte: true });
     }
 
-    const gareId = auth.role === "gare" ? auth.gareId : body.gareId;
-    if (!gareId || !body.ligneId) {
-      return res.status(400).json({ error: "gareId et ligneId sont requis pour une (ré)affectation" });
+    if (!body.commissionMixteId || !body.ligneId) {
+      return res.status(400).json({ error: "commissionMixteId et ligneId sont requis pour une (ré)affectation" });
     }
 
     const [created] = await db.insert(affectations).values({
       vehiculeId: body.vehiculeId,
-      gareId,
+      commissionMixteId: body.commissionMixteId,
       ligneId: body.ligneId,
       dateAffectation: body.dateAffectation || today,
     }).returning();

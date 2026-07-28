@@ -2,6 +2,40 @@ import {
   pgTable, uuid, varchar, text, date, timestamp, boolean, integer, numeric,
 } from "drizzle-orm/pg-core";
 
+/* ---------- Commissions Mixtes (COMIX-CI) ----------
+   Une commission mixte est reconnue par les autorités communales et
+   regroupe plusieurs syndicats de transporteurs de sa commune. Compte
+   créé par l'administrateur général — accès en lecture sur ses syndicats
+   et leurs membres, ne gère pas directement les membres. */
+export const commissionsMixtes = pgTable("commissions_mixtes", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  nom: varchar("nom", { length: 160 }).notNull(),
+  commune: varchar("commune", { length: 120 }).notNull(),
+  localisation: varchar("localisation", { length: 255 }),
+  latitude: numeric("latitude", { precision: 10, scale: 6 }),
+  longitude: numeric("longitude", { precision: 10, scale: 6 }),
+  presidentNom: varchar("president_nom", { length: 160 }),
+  presidentContact: varchar("president_contact", { length: 30 }),
+  login: varchar("login", { length: 20 }).unique(),
+  pinCode: varchar("pin_code", { length: 4 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+/* ---------- Syndicats ----------
+   Rattaché à une commission mixte. Compte créé par l'administrateur
+   général, géré au quotidien par le syndicat lui-même (gestion de ses
+   propres membres : véhicules, chauffeurs, propriétaires). */
+export const syndicats = pgTable("syndicats", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  commissionMixteId: uuid("commission_mixte_id").references(() => commissionsMixtes.id).notNull(),
+  nom: varchar("nom", { length: 160 }).notNull(),
+  presidentNom: varchar("president_nom", { length: 160 }),
+  presidentContact: varchar("president_contact", { length: 30 }),
+  login: varchar("login", { length: 20 }).unique(),
+  pinCode: varchar("pin_code", { length: 4 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 /* ---------- Propriétaires ---------- */
 export const proprietaires = pgTable("proprietaires", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -17,11 +51,11 @@ export const proprietaires = pgTable("proprietaires", {
   ville: varchar("ville", { length: 80 }),
   quartier: varchar("quartier", { length: 120 }),
   photoUrl: text("photo_url"),
-  gareId: uuid("gare_id"), // gare qui a créé ce propriétaire (null = créé par l'admin)
+  syndicatId: uuid("syndicat_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-/* ---------- Chauffeurs ---------- */
+/* ---------- Chauffeurs (membres des syndicats) ---------- */
 export const chauffeurs = pgTable("chauffeurs", {
   id: uuid("id").defaultRandom().primaryKey(),
   nom: varchar("nom", { length: 120 }).notNull(),
@@ -34,11 +68,8 @@ export const chauffeurs = pgTable("chauffeurs", {
   contact3: varchar("contact3", { length: 30 }),
   email: varchar("email", { length: 160 }),
   photoUrl: text("photo_url"),
-  // QR code de paiement Mobile Money : image générée par le wallet du
-  // chauffeur (ex. application MobilePay), importée telle quelle — ce n'est
-  // pas un QR généré par notre application.
   qrPaiementUrl: text("qr_paiement_url"),
-  gareId: uuid("gare_id"), // gare qui a créé ce chauffeur (null = créé par l'admin)
+  syndicatId: uuid("syndicat_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -49,33 +80,30 @@ export const vehicules = pgTable("vehicules", {
   modele: varchar("modele", { length: 120 }).notNull(),
   chassis: varchar("chassis", { length: 60 }).notNull().unique(),
   carteGrise: varchar("carte_grise", { length: 60 }),
-  nomCarteGrise: varchar("nom_carte_grise", { length: 160 }), // titulaire inscrit sur la carte grise (peut différer du propriétaire actuel)
+  nomCarteGrise: varchar("nom_carte_grise", { length: 160 }),
+  categorie: varchar("categorie", { length: 40 }), // VTC, Minibus, Taxi brousse, Taxi compteur…
   immatriculation: varchar("immatriculation", { length: 30 }).notNull().unique(),
   dateMiseCirculation: date("date_mise_circulation"),
   photoUrl: text("photo_url"),
-
-  // documents administratifs du véhicule — dates de fin de validité
   visiteTechniqueDateFin: date("visite_technique_date_fin"),
   assuranceAutoDateFin: date("assurance_auto_date_fin"),
   vignetteDateFin: date("vignette_date_fin"),
   carteStationnementDateFin: date("carte_stationnement_date_fin"),
-
   proprietaireId: uuid("proprietaire_id").references(() => proprietaires.id),
-  gareId: uuid("gare_id"), // gare qui a créé ce véhicule (null = créé par l'admin)
-
+  syndicatId: uuid("syndicat_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-/* ---------- Historique des propriétaires (traçabilité en cas de revente) ---------- */
+/* ---------- Historique des propriétaires ---------- */
 export const historiqueProprietaires = pgTable("historique_proprietaires", {
   id: uuid("id").defaultRandom().primaryKey(),
   vehiculeId: uuid("vehicule_id").references(() => vehicules.id).notNull(),
   proprietaireId: uuid("proprietaire_id").references(() => proprietaires.id).notNull(),
   depuis: date("depuis").notNull(),
-  jusquA: date("jusqu_a"), // null = propriétaire actuel
+  jusquA: date("jusqu_a"),
 });
 
-/* ---------- Liaison véhicule <-> chauffeur(s) (plusieurs chauffeurs/véhicule) ---------- */
+/* ---------- Liaison véhicule <-> chauffeur(s) ---------- */
 export const vehiculeChauffeurs = pgTable("vehicule_chauffeurs", {
   id: uuid("id").defaultRandom().primaryKey(),
   vehiculeId: uuid("vehicule_id").references(() => vehicules.id).notNull(),
@@ -84,16 +112,12 @@ export const vehiculeChauffeurs = pgTable("vehicule_chauffeurs", {
   depuis: date("depuis").defaultNow(),
 });
 
-/* ---------- Achats de carburant (pointage station) ----------
-   Créé lors du scan du QR verso de la carte de membre (ID carte +
-   numéro de carte grise) : le pompiste saisit ensuite le volume et le
-   montant sur l'application mobile. Une commission de la mutuelle est
-   calculée automatiquement sur chaque transaction. */
+/* ---------- Achats de carburant ---------- */
 export const achatsCarburant = pgTable("achats_carburant", {
   id: uuid("id").defaultRandom().primaryKey(),
   chauffeurId: uuid("chauffeur_id").references(() => chauffeurs.id).notNull(),
   vehiculeId: uuid("vehicule_id").references(() => vehicules.id),
-  carteGrise: varchar("carte_grise", { length: 60 }).notNull(), // dénormalisé : lu depuis le QR au scan
+  carteGrise: varchar("carte_grise", { length: 60 }).notNull(),
   volumeLitres: numeric("volume_litres", { precision: 8, scale: 2 }).notNull(),
   montantFcfa: integer("montant_fcfa").notNull(),
   commissionFcfa: integer("commission_fcfa").notNull(),
@@ -101,51 +125,26 @@ export const achatsCarburant = pgTable("achats_carburant", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-/* ---------- Gares routières ----------
-   Une gare appartient à une commune (simple champ texte — la liste des
-   communes proposées dans les menus déroulants est déduite des gares
-   déjà créées, pas une table de référence figée). */
-export const gares = pgTable("gares", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  nom: varchar("nom", { length: 160 }).notNull(),
-  commune: varchar("commune", { length: 120 }).notNull(),
-  localisation: varchar("localisation", { length: 255 }), // adresse / description libre
-  latitude: numeric("latitude", { precision: 10, scale: 6 }),
-  longitude: numeric("longitude", { precision: 10, scale: 6 }),
-  chefNom: varchar("chef_nom", { length: 160 }),
-  chefContact: varchar("chef_contact", { length: 30 }),
-  // Compte de la gare, créé par l'administrateur MUGETRAN-CI. Sert de base
-  // pour un futur portail de connexion dédié au personnel de la gare
-  // (gestion de ses propres lignes et véhicules). Ce n'est pas encore un
-  // système d'authentification opérationnel — juste les identifiants.
-  login: varchar("login", { length: 20 }).unique(), // numéro de téléphone
-  pinCode: varchar("pin_code", { length: 4 }),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-/* ---------- Lignes (trajets) rattachées à une gare ---------- */
+/* ---------- Lignes (trajets) rattachées à une commission mixte ---------- */
 export const lignes = pgTable("lignes", {
   id: uuid("id").defaultRandom().primaryKey(),
-  gareId: uuid("gare_id").references(() => gares.id).notNull(),
+  commissionMixteId: uuid("commission_mixte_id").references(() => commissionsMixtes.id).notNull(),
   lieuDepart: varchar("lieu_depart", { length: 160 }).notNull(),
   lieuArrivee: varchar("lieu_arrivee", { length: 160 }).notNull(),
-  cout: integer("cout").notNull(), // FCFA
+  cout: integer("cout").notNull(),
   chefNom: varchar("chef_nom", { length: 160 }),
   chefContact: varchar("chef_contact", { length: 30 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-/* ---------- Affectation d'un véhicule à une gare / ligne ----------
-   Historisée comme pour les propriétaires : une nouvelle affectation
-   clôture automatiquement la précédente (désaffectation + réaffectation
-   possible vers une autre commune / gare / ligne). */
+/* ---------- Affectation d'un véhicule à une commission mixte / ligne ---------- */
 export const affectations = pgTable("affectations", {
   id: uuid("id").defaultRandom().primaryKey(),
   vehiculeId: uuid("vehicule_id").references(() => vehicules.id).notNull(),
-  gareId: uuid("gare_id").references(() => gares.id).notNull(),
+  commissionMixteId: uuid("commission_mixte_id").references(() => commissionsMixtes.id).notNull(),
   ligneId: uuid("ligne_id").references(() => lignes.id).notNull(),
   dateAffectation: date("date_affectation").notNull(),
-  dateFin: date("date_fin"), // null = affectation active
+  dateFin: date("date_fin"),
   actif: boolean("actif").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

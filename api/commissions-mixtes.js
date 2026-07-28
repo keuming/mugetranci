@@ -1,10 +1,10 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { gares, lignes } from "../db/schema.js";
+import { commissionsMixtes, syndicats } from "../db/schema.js";
 import { requireAuth, requireAdmin } from "../lib/auth.js";
 
 function toApi(row) {
-  const { pinCode, ...rest } = row; // le PIN ne transite jamais côté client, admin inclus
+  const { pinCode, ...rest } = row; // le PIN ne transite jamais côté client
   return {
     ...rest,
     latitude: row.latitude !== null ? Number(row.latitude) : null,
@@ -18,11 +18,10 @@ export default async function handler(req, res) {
   const id = Array.isArray(idParam) ? idParam[0] : idParam;
 
   if (!id) {
-    // /api/gares
     if (req.method === "GET") {
       const auth = requireAuth(req, res);
       if (!auth) return;
-      const rows = await db.select().from(gares);
+      const rows = await db.select().from(commissionsMixtes);
       return res.status(200).json(rows.map(toApi));
     }
 
@@ -44,24 +43,24 @@ export default async function handler(req, res) {
       }
 
       try {
-        const [created] = await db.insert(gares).values({
+        const [created] = await db.insert(commissionsMixtes).values({
           nom: body.nom,
           commune: body.commune,
           localisation: body.localisation || null,
           latitude: body.latitude !== undefined && body.latitude !== "" ? String(body.latitude) : null,
           longitude: body.longitude !== undefined && body.longitude !== "" ? String(body.longitude) : null,
-          chefNom: body.chefNom || null,
-          chefContact: body.chefContact || null,
+          presidentNom: body.presidentNom || null,
+          presidentContact: body.presidentContact || null,
           login: body.login || null,
           pinCode: body.pinCode || null,
         }).returning();
         return res.status(201).json(toApi(created));
       } catch (err) {
         if (err.code === "23505") {
-          return res.status(400).json({ error: "Ce numéro de téléphone (login) est déjà utilisé par une autre gare." });
+          return res.status(400).json({ error: "Ce numéro de téléphone (login) est déjà utilisé." });
         }
-        console.error("POST /api/gares:", err);
-        return res.status(500).json({ error: "Erreur lors de l'enregistrement de la gare. Vérifiez les valeurs saisies." });
+        console.error("POST /api/commissions-mixtes:", err);
+        return res.status(500).json({ error: "Erreur lors de l'enregistrement." });
       }
     }
 
@@ -69,7 +68,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Méthode non autorisée" });
   }
 
-  // /api/gares/:id
   const auth = requireAdmin(req, res);
   if (!auth) return;
 
@@ -86,7 +84,7 @@ export default async function handler(req, res) {
     }
 
     const patch = {};
-    ["nom", "commune", "localisation", "chefNom", "chefContact", "login"].forEach((k) => {
+    ["nom", "commune", "localisation", "presidentNom", "presidentContact", "login"].forEach((k) => {
       if (k in body) patch[k] = body[k] || null;
     });
     if (body.pinCode) patch.pinCode = body.pinCode;
@@ -98,25 +96,25 @@ export default async function handler(req, res) {
     }
 
     try {
-      const [updated] = await db.update(gares).set(patch).where(eq(gares.id, id)).returning();
-      if (!updated) return res.status(404).json({ error: "Gare introuvable" });
+      const [updated] = await db.update(commissionsMixtes).set(patch).where(eq(commissionsMixtes.id, id)).returning();
+      if (!updated) return res.status(404).json({ error: "Commission mixte introuvable" });
       return res.status(200).json(toApi(updated));
     } catch (err) {
       if (err.code === "23505") {
-        return res.status(400).json({ error: "Ce numéro de téléphone (login) est déjà utilisé par une autre gare." });
+        return res.status(400).json({ error: "Ce numéro de téléphone (login) est déjà utilisé." });
       }
-      console.error("PATCH /api/gares/[id]:", err);
-      return res.status(500).json({ error: "Erreur lors de la mise à jour de la gare." });
+      console.error("PATCH /api/commissions-mixtes:", err);
+      return res.status(500).json({ error: "Erreur lors de la mise à jour." });
     }
   }
 
   if (req.method === "DELETE") {
-    const existingLignes = await db.select().from(lignes).where(eq(lignes.gareId, id));
-    if (existingLignes.length > 0) {
-      return res.status(400).json({ error: `Impossible de supprimer cette gare : ${existingLignes.length} ligne(s) y sont rattachées. Supprimez-les d'abord.` });
+    const existingSyndicats = await db.select().from(syndicats).where(eq(syndicats.commissionMixteId, id));
+    if (existingSyndicats.length > 0) {
+      return res.status(400).json({ error: `Impossible de supprimer : ${existingSyndicats.length} syndicat(s) y sont rattachés. Supprimez-les d'abord.` });
     }
-    const [deleted] = await db.delete(gares).where(eq(gares.id, id)).returning();
-    if (!deleted) return res.status(404).json({ error: "Gare introuvable" });
+    const [deleted] = await db.delete(commissionsMixtes).where(eq(commissionsMixtes.id, id)).returning();
+    if (!deleted) return res.status(404).json({ error: "Commission mixte introuvable" });
     return res.status(200).json({ deleted: true });
   }
 

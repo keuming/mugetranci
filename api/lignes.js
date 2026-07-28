@@ -11,20 +11,26 @@ export default async function handler(req, res) {
 
   if (!id) {
     if (req.method === "GET") {
-      const rows = auth.role === "gare"
-        ? await db.select().from(lignes).where(eq(lignes.gareId, auth.gareId))
-        : await db.select().from(lignes);
+      let rows = await db.select().from(lignes);
+      if (auth.role === "commission_mixte") {
+        rows = rows.filter((l) => l.commissionMixteId === auth.commissionMixteId);
+      }
+      // Un syndicat voit toutes les lignes (pour affecter ses véhicules à
+      // n'importe quelle commission), pas seulement celles de "sa" commission.
       return res.status(200).json(rows);
     }
 
     if (req.method === "POST") {
+      if (auth.role === "syndicat") {
+        return res.status(403).json({ error: "La création de ligne est réservée à l'admin et aux commissions mixtes." });
+      }
       const body = req.body || {};
-      const gareId = auth.role === "gare" ? auth.gareId : body.gareId;
-      if (!gareId || !body.lieuDepart || !body.lieuArrivee || !body.cout) {
-        return res.status(400).json({ error: "gareId, lieuDepart, lieuArrivee et cout sont requis" });
+      const commissionMixteId = auth.role === "commission_mixte" ? auth.commissionMixteId : body.commissionMixteId;
+      if (!commissionMixteId || !body.lieuDepart || !body.lieuArrivee || !body.cout) {
+        return res.status(400).json({ error: "commissionMixteId, lieuDepart, lieuArrivee et cout sont requis" });
       }
       const [created] = await db.insert(lignes).values({
-        gareId,
+        commissionMixteId,
         lieuDepart: body.lieuDepart,
         lieuArrivee: body.lieuArrivee,
         cout: Math.round(Number(body.cout)),
@@ -40,9 +46,13 @@ export default async function handler(req, res) {
 
   async function assertOwnership() {
     if (auth.role === "admin") return true;
+    if (auth.role !== "commission_mixte") {
+      res.status(403).json({ error: "Modification réservée à l'admin et aux commissions mixtes." });
+      return false;
+    }
     const [l] = await db.select().from(lignes).where(eq(lignes.id, id));
     if (!l) { res.status(404).json({ error: "Ligne introuvable" }); return false; }
-    if (l.gareId !== auth.gareId) { res.status(403).json({ error: "Cette ligne n'appartient pas à votre gare." }); return false; }
+    if (l.commissionMixteId !== auth.commissionMixteId) { res.status(403).json({ error: "Cette ligne n'appartient pas à votre commission mixte." }); return false; }
     return true;
   }
 

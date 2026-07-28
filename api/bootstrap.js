@@ -2,7 +2,7 @@ import { eq, desc } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
   proprietaires, chauffeurs, vehicules, historiqueProprietaires, vehiculeChauffeurs,
-  achatsCarburant, gares, lignes, affectations,
+  achatsCarburant, commissionsMixtes, syndicats, lignes, affectations,
 } from "../db/schema.js";
 import { requireAuth } from "../lib/auth.js";
 
@@ -32,7 +32,7 @@ function toApiVehicule(v, chauffeurIds, historique) {
     historiqueProprietaires: historique.map((h) => ({ proprietaireId: h.proprietaireId, depuis: h.depuis })),
   };
 }
-function toApiGare(row) {
+function toApiCommission(row) {
   const { pinCode, ...rest } = row;
   return {
     ...rest,
@@ -40,6 +40,10 @@ function toApiGare(row) {
     longitude: row.longitude !== null ? Number(row.longitude) : null,
     pinConfigure: !!pinCode,
   };
+}
+function toApiSyndicat(row) {
+  const { pinCode, ...rest } = row;
+  return { ...rest, pinConfigure: !!pinCode };
 }
 function toApiAchat(row, chauffeur, vehicule) {
   return {
@@ -66,12 +70,9 @@ export default async function handler(req, res) {
   const auth = requireAuth(req, res);
   if (!auth) return;
 
-  // Une seule invocation de fonction, toutes les lectures lancées en parallèle
-  // (au lieu de 7 requêtes/fonctions séparées côté client) : réduit nettement
-  // le temps de chargement initial du tableau de bord.
   const [
     allOwners, allDrivers, allVehicules, junctions, historiques,
-    allAchats, allGares, allLignes, allAffectations,
+    allAchats, allCommissions, allSyndicats, allLignes, allAffectations,
   ] = await Promise.all([
     db.select().from(proprietaires),
     db.select().from(chauffeurs),
@@ -79,25 +80,51 @@ export default async function handler(req, res) {
     db.select().from(vehiculeChauffeurs).where(eq(vehiculeChauffeurs.actif, true)),
     db.select().from(historiqueProprietaires),
     db.select().from(achatsCarburant).orderBy(desc(achatsCarburant.createdAt)),
-    db.select().from(gares),
+    db.select().from(commissionsMixtes),
+    db.select().from(syndicats),
     db.select().from(lignes),
     db.select().from(affectations),
   ]);
 
-  const isGare = auth.role === "gare";
+  const isSyndicat = auth.role === "syndicat";
+  const isCommission = auth.role === "commission_mixte";
 
-  const visibleAffectations = isGare ? allAffectations.filter((a) => a.gareId === auth.gareId) : allAffectations;
+  const mySyndicatIds = isCommission
+    ? new Set(allSyndicats.filter((s) => s.commissionMixteId === auth.commissionMixteId).map((s) => s.id))
+    : null;
 
-  const visibleVehicules = isGare
-    ? allVehicules.filter((v) => v.gareId === auth.gareId || allAffectations.some((a) => a.gareId === auth.gareId && a.actif && a.vehiculeId === v.id))
-    : allVehicules;
+  const visibleSyndicats = isCommission
+    ? allSyndicats.filter((s) => mySyndicatIds.has(s.id))
+    : isSyndicat
+      ? allSyndicats.filter((s) => s.id === auth.syndicatId)
+      : allSyndicats;
 
-  const visibleDrivers = isGare ? allDrivers.filter((d) => d.gareId === auth.gareId) : allDrivers;
-  const visibleOwners = isGare ? allOwners.filter((o) => o.gareId === auth.gareId) : allOwners;
-  const visibleLignes = isGare ? allLignes.filter((l) => l.gareId === auth.gareId) : allLignes;
+  const visibleOwners = isSyndicat
+    ? allOwners.filter((o) => o.syndicatId === auth.syndicatId)
+    : isCommission
+      ? allOwners.filter((o) => mySyndicatIds.has(o.syndicatId))
+      : allOwners;
 
-  const myDriverIds = new Set(visibleDrivers.map((d) => d.id));
-  const visibleAchats = isGare ? allAchats.filter((a) => myDriverIds.has(a.chauffeurId)) : allAchats;
+  const visibleDrivers = isSyndicat
+    ? allDrivers.filter((d) => d.syndicatId === auth.syndicatId)
+    : isCommission
+      ? allDrivers.filter((d) => mySyndicatIds.has(d.syndicatId))
+      : allDrivers;
+
+  const visibleAffectations = isCommission
+    ? allAffectations.filter((a) => a.commissionMixteId === auth.commissionMixteId)
+    : allAffectations;
+
+  const visibleVehicules = isSyndicat
+    ? allVehicules.filter((v) => v.syndicatId === auth.syndicatId)
+    : isCommission
+      ? allVehicules.filter((v) => mySyndicatIds.has(v.syndicatId) || visibleAffectations.some((a) => a.actif && a.vehiculeId === v.id))
+      : allVehicules;
+
+  const visibleLignes = isCommission ? allLignes.filter((l) => l.commissionMixteId === auth.commissionMixteId) : allLignes;
+
+  const visibleDriverIds = new Set(visibleDrivers.map((d) => d.id));
+  const visibleAchats = (isSyndicat || isCommission) ? allAchats.filter((a) => visibleDriverIds.has(a.chauffeurId)) : allAchats;
 
   res.status(200).json({
     proprietaires: visibleOwners.map(toApiOwner),
@@ -112,7 +139,8 @@ export default async function handler(req, res) {
       allDrivers.find((c) => c.id === r.chauffeurId),
       allVehicules.find((v) => v.id === r.vehiculeId)
     )),
-    gares: allGares.map(toApiGare), // lecture ouverte aux deux rôles, comme /api/gares
+    commissionsMixtes: allCommissions.map(toApiCommission), // lecture ouverte à tous les rôles authentifiés
+    syndicats: visibleSyndicats.map(toApiSyndicat),
     lignes: visibleLignes,
     affectations: visibleAffectations,
   });

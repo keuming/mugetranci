@@ -1,6 +1,6 @@
 import { eq, desc } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { achatsCarburant, chauffeurs, vehicules } from "../db/schema.js";
+import { achatsCarburant, chauffeurs, vehicules, syndicats } from "../db/schema.js";
 import { requireAuth } from "../lib/auth.js";
 
 // Taux de commission de la mutuelle sur chaque achat de carburant.
@@ -35,8 +35,13 @@ export default async function handler(req, res) {
     ]);
 
     let visibleRows = rows;
-    if (auth.role === "gare") {
-      const myChauffeurIds = new Set(allChauffeurs.filter((c) => c.gareId === auth.gareId).map((c) => c.id));
+    if (auth.role === "syndicat") {
+      const myChauffeurIds = new Set(allChauffeurs.filter((c) => c.syndicatId === auth.syndicatId).map((c) => c.id));
+      visibleRows = rows.filter((r) => myChauffeurIds.has(r.chauffeurId));
+    } else if (auth.role === "commission_mixte") {
+      const mySyndicats = await db.select().from(syndicats).where(eq(syndicats.commissionMixteId, auth.commissionMixteId));
+      const mySyndicatIds = new Set(mySyndicats.map((s) => s.id));
+      const myChauffeurIds = new Set(allChauffeurs.filter((c) => mySyndicatIds.has(c.syndicatId)).map((c) => c.id));
       visibleRows = rows.filter((r) => myChauffeurIds.has(r.chauffeurId));
     }
 

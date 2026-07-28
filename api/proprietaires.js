@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { proprietaires } from "../db/schema.js";
+import { proprietaires, syndicats } from "../db/schema.js";
 import { requireAuth } from "../lib/auth.js";
 
 function toApi(row) {
@@ -20,19 +20,29 @@ export default async function handler(req, res) {
 
   if (!id) {
     if (req.method === "GET") {
-      const rows = auth.role === "gare"
-        ? await db.select().from(proprietaires).where(eq(proprietaires.gareId, auth.gareId))
-        : await db.select().from(proprietaires);
+      let rows = await db.select().from(proprietaires);
+      if (auth.role === "syndicat") {
+        rows = rows.filter((p) => p.syndicatId === auth.syndicatId);
+      } else if (auth.role === "commission_mixte") {
+        // Vue agrégée en lecture seule : tous les membres de tous les
+        // syndicats rattachés à cette commission mixte.
+        const mySyndicats = await db.select().from(syndicats).where(eq(syndicats.commissionMixteId, auth.commissionMixteId));
+        const mySyndicatIds = new Set(mySyndicats.map((s) => s.id));
+        rows = rows.filter((p) => mySyndicatIds.has(p.syndicatId));
+      }
       return res.status(200).json(rows.map(toApi));
     }
 
     if (req.method === "POST") {
+      if (auth.role === "commission_mixte") {
+        return res.status(403).json({ error: "La commission mixte est en lecture seule sur les membres — c'est au syndicat de les gérer." });
+      }
       const body = req.body || {};
       if (!body.nom || !body.prenoms || !body.cni) {
         return res.status(400).json({ error: "nom, prenoms et cni sont requis" });
       }
       const values = toDb(body);
-      if (auth.role === "gare") values.gareId = auth.gareId;
+      if (auth.role === "syndicat") values.syndicatId = auth.syndicatId;
       const [created] = await db.insert(proprietaires).values(values).returning();
       return res.status(201).json(toApi(created));
     }
@@ -43,9 +53,13 @@ export default async function handler(req, res) {
 
   async function assertOwnership() {
     if (auth.role === "admin") return true;
+    if (auth.role === "commission_mixte") {
+      res.status(403).json({ error: "La commission mixte est en lecture seule sur les membres." });
+      return false;
+    }
     const [p] = await db.select().from(proprietaires).where(eq(proprietaires.id, id));
-    if (!p) { res.status(404).json({ error: "Propriétaire introuvable" }); return false; }
-    if (p.gareId !== auth.gareId) { res.status(403).json({ error: "Ce propriétaire n'appartient pas à votre gare." }); return false; }
+    if (!p) { res.status(404).json({ error: "Membre introuvable" }); return false; }
+    if (p.syndicatId !== auth.syndicatId) { res.status(403).json({ error: "Ce membre n'appartient pas à votre syndicat." }); return false; }
     return true;
   }
 
@@ -71,14 +85,14 @@ export default async function handler(req, res) {
     }
 
     const [updated] = await db.update(proprietaires).set(patch).where(eq(proprietaires.id, id)).returning();
-    if (!updated) return res.status(404).json({ error: "Propriétaire introuvable" });
+    if (!updated) return res.status(404).json({ error: "Membre introuvable" });
     return res.status(200).json(toApi(updated));
   }
 
   if (req.method === "DELETE") {
     if (!(await assertOwnership())) return;
     const [deleted] = await db.delete(proprietaires).where(eq(proprietaires.id, id)).returning();
-    if (!deleted) return res.status(404).json({ error: "Propriétaire introuvable" });
+    if (!deleted) return res.status(404).json({ error: "Membre introuvable" });
     return res.status(200).json({ deleted: true });
   }
 

@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
-  vehicules, historiqueProprietaires, vehiculeChauffeurs, affectations, achatsCarburant,
+  vehicules, historiqueProprietaires, vehiculeChauffeurs, affectations, achatsCarburant, syndicats,
 } from "../db/schema.js";
 import { requireAuth } from "../lib/auth.js";
 
@@ -55,9 +55,13 @@ export default async function handler(req, res) {
       ]);
 
       let visibleRows = rows;
-      if (auth.role === "gare") {
-        const affectedIds = new Set(allAffectations.filter((a) => a.gareId === auth.gareId).map((a) => a.vehiculeId));
-        visibleRows = rows.filter((v) => v.gareId === auth.gareId || affectedIds.has(v.id));
+      if (auth.role === "syndicat") {
+        visibleRows = rows.filter((v) => v.syndicatId === auth.syndicatId);
+      } else if (auth.role === "commission_mixte") {
+        const mySyndicats = await db.select().from(syndicats).where(eq(syndicats.commissionMixteId, auth.commissionMixteId));
+        const mySyndicatIds = new Set(mySyndicats.map((s) => s.id));
+        const affectedIds = new Set(allAffectations.filter((a) => a.commissionMixteId === auth.commissionMixteId).map((a) => a.vehiculeId));
+        visibleRows = rows.filter((v) => mySyndicatIds.has(v.syndicatId) || affectedIds.has(v.id));
       }
 
       const result = visibleRows.map((v) => {
@@ -69,6 +73,9 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
+      if (auth.role === "commission_mixte") {
+        return res.status(403).json({ error: "La commission mixte est en lecture seule — c'est au syndicat de gérer les véhicules." });
+      }
       const body = req.body || {};
       const { chauffeurIds = [] } = body;
 
@@ -77,7 +84,7 @@ export default async function handler(req, res) {
       }
 
       const dbValues = toDbVehicule(body);
-      if (auth.role === "gare") dbValues.gareId = auth.gareId;
+      if (auth.role === "syndicat") dbValues.syndicatId = auth.syndicatId;
 
       const [vehicule] = await db.insert(vehicules).values(dbValues).returning();
 
@@ -106,13 +113,14 @@ export default async function handler(req, res) {
 
   async function assertOwnership() {
     if (auth.role === "admin") return true;
+    if (auth.role === "commission_mixte") {
+      res.status(403).json({ error: "La commission mixte est en lecture seule." });
+      return false;
+    }
     const [v] = await db.select().from(vehicules).where(eq(vehicules.id, id));
     if (!v) { res.status(404).json({ error: "Véhicule introuvable" }); return false; }
-    if (v.gareId === auth.gareId) return true;
-    const [aff] = await db.select().from(affectations).where(eq(affectations.vehiculeId, id));
-    if (aff && aff.gareId === auth.gareId && aff.actif) return true;
-    res.status(403).json({ error: "Ce véhicule n'appartient pas à votre gare." });
-    return false;
+    if (v.syndicatId !== auth.syndicatId) { res.status(403).json({ error: "Ce véhicule n'appartient pas à votre syndicat." }); return false; }
+    return true;
   }
 
   if (req.method === "PATCH") {
@@ -127,6 +135,7 @@ export default async function handler(req, res) {
     if ("chassis" in body) patch.chassis = body.chassis;
     if ("carteGrise" in body) patch.carteGrise = body.carteGrise;
     if ("nomCarteGrise" in body) patch.nomCarteGrise = body.nomCarteGrise;
+    if ("categorie" in body) patch.categorie = body.categorie;
     if ("immatriculation" in body) patch.immatriculation = body.immatriculation;
     if ("dateMiseCirculation" in body) patch.dateMiseCirculation = body.dateMiseCirculation || null;
     if ("visiteTechnique" in documents) patch.visiteTechniqueDateFin = documents.visiteTechnique || null;
@@ -146,7 +155,7 @@ export default async function handler(req, res) {
       if (err.code === "23505") {
         return res.status(400).json({ error: "Ce numéro de châssis ou d'immatriculation est déjà utilisé par un autre véhicule." });
       }
-      console.error("PATCH /api/vehicules/[id]:", err);
+      console.error("PATCH /api/vehicules:", err);
       return res.status(500).json({ error: "Erreur lors de la mise à jour du véhicule." });
     }
   }
