@@ -667,7 +667,7 @@ function FicheVehicule({ vehicle, owners, drivers, onClose }) {
               </div>
               <div>
                 <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Commissions Mixtes de Côte d'Ivoire — COMIX-CI</div>
-                <div className="font-body" style={{ fontSize: 11, color: "rgba(255,255,255,0.75)" }}>Fiche Véhicule Commercial — Réf. {vehicle.id}</div>
+                <div className="font-body" style={{ fontSize: 11, color: "rgba(255,255,255,0.75)" }}>Fiche d'Identification du Transporteur — Réf. {vehicle.id}</div>
               </div>
             </div>
             <button onClick={() => window.print()} className="no-print font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-2 rounded-lg" style={{ border: `1px solid rgba(255,255,255,0.4)`, color: "#fff", background: "rgba(255,255,255,0.1)" }}>
@@ -679,8 +679,42 @@ function FicheVehicule({ vehicle, owners, drivers, onClose }) {
 
         <div style={{ padding: "16px 22px 14px" }}>
 
-        {/* Véhicule */}
+        {/* Transporteur (ex-Propriétaire) — première section de la fiche */}
         <div className="mb-3">
+          <div className="font-display flex items-center gap-1.5 mb-2" style={{ fontSize: 12.5, fontWeight: 700, color: C.orangeDark }}>
+            <User size={13} /> Transporteur
+          </div>
+          {owner ? (
+            <div className="flex gap-3">
+              <div style={{ width: 44, height: 44, borderRadius: 999, overflow: "hidden", background: C.cream, flexShrink: 0, border: `1px solid ${C.border}` }}>
+                {owner.photo ? <img src={owner.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-semibold" style={{ color: C.slate, fontSize: 11 }}>{initials(owner.nom, owner.prenoms)}</div>}
+              </div>
+              <div className="font-body grid grid-cols-4 gap-x-3 gap-y-1 flex-1" style={{ color: C.ink, fontSize: 10.5 }}>
+                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Nom & prénoms</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.prenoms} {owner.nom}</div></div>
+                <div><span style={{ color: C.slate, fontSize: 8.5 }}>CNI</span><div className="font-mono font-medium" style={{ lineHeight: 1.3 }}>{owner.cni}</div></div>
+                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Carte transporteur</span><div className="font-mono font-medium" style={{ lineHeight: 1.3 }}>{owner.carteTransporteurNumero || "—"}</div></div>
+                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Permis de conduire</span><div className="font-mono font-medium" style={{ lineHeight: 1.3 }}>{owner.numeroPermis || "—"}</div></div>
+                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Contacts</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{[owner.contact1, owner.contact2, owner.contact3].filter(Boolean).join(" · ")}</div></div>
+                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Email</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.email || "—"}</div></div>
+                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Ville</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.ville}</div></div>
+                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Quartier</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.quartier}</div></div>
+              </div>
+            </div>
+          ) : <div className="font-body text-xs" style={{ color: C.slate }}>Aucun transporteur enregistré.</div>}
+          {vehicle.historiqueProprietaires.length > 1 && (
+            <div className="font-body" style={{ fontSize: 8.5, marginTop: 6, color: C.slate }}>
+              Historique : {vehicle.historiqueProprietaires.map((h, i) => {
+                const o = owners.find((x) => x.id === h.proprietaireId);
+                return `${o ? o.prenoms + " " + o.nom : "?"} (depuis ${fmt(h.depuis)})`;
+              }).join("  →  ")}
+            </div>
+          )}
+        </div>
+
+        <div style={{ height: 1, background: C.border }} />
+
+        {/* Véhicule */}
+        <div className="my-3">
           <div className="font-display flex items-center gap-1.5 mb-2" style={{ fontSize: 12.5, fontWeight: 700, color: C.green }}>
             <Car size={13} /> Véhicule
           </div>
@@ -722,40 +756,6 @@ function FicheVehicule({ vehicle, owners, drivers, onClose }) {
           <div className="font-body" style={{ fontSize: 10.5, color: C.ink }}>
             {vehicle.categorie || "—"}
           </div>
-        </div>
-
-        <div style={{ height: 1, background: C.border }} />
-
-        {/* Propriétaire */}
-        <div className="my-3">
-          <div className="font-display flex items-center gap-1.5 mb-2" style={{ fontSize: 12.5, fontWeight: 700, color: C.orangeDark }}>
-            <User size={13} /> Propriétaire
-          </div>
-          {owner ? (
-            <div className="flex gap-3">
-              <div style={{ width: 44, height: 44, borderRadius: 999, overflow: "hidden", background: C.cream, flexShrink: 0, border: `1px solid ${C.border}` }}>
-                {owner.photo ? <img src={owner.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-semibold" style={{ color: C.slate, fontSize: 11 }}>{initials(owner.nom, owner.prenoms)}</div>}
-              </div>
-              <div className="font-body grid grid-cols-4 gap-x-3 gap-y-1 flex-1" style={{ color: C.ink, fontSize: 10.5 }}>
-                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Nom & prénoms</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.prenoms} {owner.nom}</div></div>
-                <div><span style={{ color: C.slate, fontSize: 8.5 }}>CNI</span><div className="font-mono font-medium" style={{ lineHeight: 1.3 }}>{owner.cni}</div></div>
-                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Carte transporteur</span><div className="font-mono font-medium" style={{ lineHeight: 1.3 }}>{owner.carteTransporteurNumero || "—"}</div></div>
-                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Permis de conduire</span><div className="font-mono font-medium" style={{ lineHeight: 1.3 }}>{owner.numeroPermis || "—"}</div></div>
-                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Contacts</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{[owner.contact1, owner.contact2, owner.contact3].filter(Boolean).join(" · ")}</div></div>
-                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Email</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.email || "—"}</div></div>
-                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Ville</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.ville}</div></div>
-                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Quartier</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.quartier}</div></div>
-              </div>
-            </div>
-          ) : <div className="font-body text-xs" style={{ color: C.slate }}>Aucun propriétaire enregistré.</div>}
-          {vehicle.historiqueProprietaires.length > 1 && (
-            <div className="font-body" style={{ fontSize: 8.5, marginTop: 6, color: C.slate }}>
-              Historique : {vehicle.historiqueProprietaires.map((h, i) => {
-                const o = owners.find((x) => x.id === h.proprietaireId);
-                return `${o ? o.prenoms + " " + o.nom : "?"} (depuis ${fmt(h.depuis)})`;
-              }).join("  →  ")}
-            </div>
-          )}
         </div>
 
         <div style={{ height: 1, background: C.border }} />
@@ -1002,6 +1002,107 @@ function CardSheet({ drivers, vehicles, selectedIds }) {
 /* ============================================================
    DASHBOARD / LIST PAGES
    ============================================================ */
+const SYNDICAT_SUSPECT_THRESHOLD = 3; // en dessous de ce nombre de membres, un syndicat est signalé comme à surveiller
+
+/* ============================================================
+   PANNEAU HAUT CONSEIL DU TRANSPORT — accueil admin
+   Recherche véhicule → fiche transporteur, + vue d'ensemble
+   commissions mixtes / syndicats / effectifs.
+   ============================================================ */
+function HautConseilPanel({ vehicles, owners, commissionsMixtes, syndicats, onOpenFiche }) {
+  const [query, setQuery] = useState("");
+  const [notFound, setNotFound] = useState(false);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    const q = query.trim().toLowerCase();
+    if (!q) return;
+    const match = vehicles.find((v) =>
+      v.immatriculation?.toLowerCase().includes(q) || v.chassis?.toLowerCase().includes(q)
+    );
+    if (match) {
+      setNotFound(false);
+      onOpenFiche(match);
+    } else {
+      setNotFound(true);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div style={{ background: `linear-gradient(120deg, ${C.greenDark}, ${C.green})`, borderRadius: 14, padding: 20 }}>
+        <div className="font-display" style={{ color: "#fff", fontSize: 16, fontWeight: 700 }}>Haut Conseil du Transport de Côte d'Ivoire</div>
+        <div className="font-body" style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, marginBottom: 14 }}>
+          Vue d'ensemble des commissions mixtes, des syndicats et de leurs membres
+        </div>
+        <form onSubmit={handleSearch} className="flex items-center gap-2">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg flex-1" style={{ background: "#fff" }}>
+            <Search size={15} color={C.slate} />
+            <input
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setNotFound(false); }}
+              placeholder="Rechercher un véhicule (immatriculation ou châssis) → fiche du transporteur"
+              className="font-body text-sm flex-1"
+              style={{ border: "none", outline: "none" }}
+            />
+          </div>
+          <button type="submit" className="font-body text-sm font-semibold px-4 py-2 rounded-lg" style={{ background: C.orange, color: "#fff" }}>
+            Rechercher
+          </button>
+        </form>
+        {notFound && <p className="font-body text-xs mt-2" style={{ color: "#FDEBD8" }}>Aucun véhicule trouvé pour "{query}".</p>}
+      </div>
+
+      <SectionCard accent={C.orangeDark} icon={<Building2 size={18} />} title={`Commissions mixtes & syndicats (${commissionsMixtes.length} commission${commissionsMixtes.length > 1 ? "s" : ""}, ${syndicats.length} syndicat${syndicats.length > 1 ? "s" : ""})`}>
+        {commissionsMixtes.length === 0 ? (
+          <p className="font-body text-sm" style={{ color: C.slate }}>Aucune commission mixte enregistrée.</p>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {commissionsMixtes.map((c) => {
+              const commissionSyndicats = syndicats.filter((s) => s.commissionMixteId === c.id);
+              const totalMembres = owners.filter((o) => commissionSyndicats.some((s) => s.id === o.syndicatId)).length;
+              return (
+                <div key={c.id} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="font-body text-sm font-semibold" style={{ color: C.ink }}>{c.nom} <span style={{ color: C.slate, fontWeight: 400 }}>({c.commune})</span></div>
+                    <div className="font-body text-xs" style={{ color: C.slate }}>{commissionSyndicats.length} syndicat{commissionSyndicats.length > 1 ? "s" : ""} · {totalMembres} membre{totalMembres > 1 ? "s" : ""}</div>
+                  </div>
+                  {commissionSyndicats.length === 0 ? (
+                    <p className="font-body text-xs" style={{ color: C.slate }}>Aucun syndicat pour cette commission.</p>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2">
+                      {commissionSyndicats.map((s) => {
+                        const count = owners.filter((o) => o.syndicatId === s.id).length;
+                        const suspect = count < SYNDICAT_SUSPECT_THRESHOLD;
+                        return (
+                          <div key={s.id} style={{ background: suspect ? C.redLight : C.cream, borderRadius: 8, padding: "8px 10px" }}>
+                            <div className="font-body text-xs font-medium" style={{ color: C.ink }}>{s.nom}</div>
+                            <div className="flex items-center justify-between mt-1">
+                              <span className="font-display" style={{ fontSize: 16, fontWeight: 700, color: suspect ? C.red : C.green }}>{count}</span>
+                              {suspect && (
+                                <span className="font-body flex items-center gap-1" style={{ fontSize: 9, color: C.red, fontWeight: 600 }}>
+                                  <AlertTriangle size={10} /> À surveiller
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <p className="font-body text-xs mt-3" style={{ color: C.slate }}>
+          💡 Un syndicat affichant moins de {SYNDICAT_SUSPECT_THRESHOLD} membres est signalé "À surveiller" — repère utile pour identifier d'éventuels syndicats fantaisistes créés pour abuser de la vulnérabilité des transporteurs.
+        </p>
+      </SectionCard>
+    </div>
+  );
+}
+
 function StatCard({ icon, label, value, accent }) {
   return (
     <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 18, flex: 1 }}>
@@ -1499,11 +1600,32 @@ function Dashboard({ auth, onLogout }) {
           <>
           {page === "dashboard" && (
             <div className="flex flex-col gap-6">
+              {auth.role === "admin" && (
+                <HautConseilPanel
+                  vehicles={vehicles}
+                  owners={owners}
+                  commissionsMixtes={commissionsMixtes}
+                  syndicats={syndicats}
+                  onOpenFiche={openFiche}
+                />
+              )}
+
               <div className="flex gap-4">
-                <StatCard icon={<Car size={17} />} label="Véhicules enregistrés" value={vehicles.length} accent={C.green} />
-                <StatCard icon={<User size={17} />} label="Propriétaires" value={owners.length} accent={C.orange} />
-                <StatCard icon={<Users size={17} />} label="Chauffeurs" value={drivers.length} accent={C.greenDark} />
-                <StatCard icon={<AlertTriangle size={17} />} label="Documents à traiter (≤ 30 j)" value={critical.length} accent={C.red} />
+                {auth.role === "admin" ? (
+                  <>
+                    <StatCard icon={<MapPin size={17} />} label="Commissions mixtes" value={commissionsMixtes.length} accent={C.orange} />
+                    <StatCard icon={<Building2 size={17} />} label="Syndicats" value={syndicats.length} accent={C.green} />
+                    <StatCard icon={<User size={17} />} label="Membres (transporteurs)" value={owners.length} accent={C.greenDark} />
+                    <StatCard icon={<AlertTriangle size={17} />} label="Documents à traiter (≤ 30 j)" value={critical.length} accent={C.red} />
+                  </>
+                ) : (
+                  <>
+                    <StatCard icon={<Car size={17} />} label="Véhicules enregistrés" value={vehicles.length} accent={C.green} />
+                    <StatCard icon={<User size={17} />} label="Membres" value={owners.length} accent={C.orange} />
+                    <StatCard icon={<Users size={17} />} label="Chauffeurs" value={drivers.length} accent={C.greenDark} />
+                    <StatCard icon={<AlertTriangle size={17} />} label="Documents à traiter (≤ 30 j)" value={critical.length} accent={C.red} />
+                  </>
+                )}
               </div>
 
               <SectionCard accent={C.red} icon={<Bell size={18} />} title="Alertes prioritaires" right={<button onClick={() => setPage("alerts")} className="font-body text-xs font-semibold flex items-center gap-1" style={{ color: C.green }}>Tout voir <ChevronRight size={13} /></button>}>
@@ -1853,7 +1975,7 @@ function Dashboard({ auth, onLogout }) {
         <VehicleForm auth={auth} owners={owners} drivers={drivers} commissionsMixtes={commissionsMixtes} lignes={lignes} onCancel={() => setShowForm(false)} onSave={addVehicle} addOwner={addOwner} addDriver={addDriver} affecterVehicule={affecterVehicule} />
       </Modal>}
 
-      {ficheVehicle && <Modal onClose={closeFiche} title="Fiche Véhicule Commercial" wide>
+      {ficheVehicle && <Modal onClose={closeFiche} title="Fiche d'Identification du Transporteur" wide>
         <FicheVehicule vehicle={ficheVehicle} owners={owners} drivers={drivers} onClose={closeFiche} />
       </Modal>}
 
