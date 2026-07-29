@@ -1417,6 +1417,7 @@ function Dashboard({ auth, onLogout }) {
   const [showGareRoutiereFormFor, setShowGareRoutiereFormFor] = useState(null); // syndicatId
   const [editGareRoutiere, setEditGareRoutiere] = useState(null);
   const [showMemberFormFor, setShowMemberFormFor] = useState(false);
+  const [editMember, setEditMember] = useState(null);
   const [lignes, setLignes] = useState([]);
   const [affectations, setAffectations] = useState([]);
   const [showCommissionForm, setShowCommissionForm] = useState(false);
@@ -1524,6 +1525,15 @@ function Dashboard({ auth, onLogout }) {
   const updateOwnerPhoto = async (ownerId, photoDataUrl) => {
     const updated = await apiPatch(`/api/proprietaires?id=${ownerId}`, { photo: photoDataUrl });
     setOwners((s) => s.map((o) => (o.id === ownerId ? updated : o)));
+  };
+  const updateOwner = async (ownerId, payload) => {
+    const updated = await apiPatch(`/api/proprietaires?id=${ownerId}`, payload);
+    setOwners((s) => s.map((o) => (o.id === ownerId ? updated : o)));
+    return updated;
+  };
+  const deleteOwner = async (ownerId) => {
+    await apiDelete(`/api/proprietaires?id=${ownerId}`);
+    setOwners((s) => s.filter((o) => o.id !== ownerId));
   };
   const updateVehiclePhoto = async (vehiculeId, photoDataUrl) => {
     const updated = await apiPatch(`/api/vehicules?id=${vehiculeId}`, { photo: photoDataUrl });
@@ -1716,12 +1726,6 @@ function Dashboard({ auth, onLogout }) {
             <div className="font-body text-sm mb-5" style={{ color: C.slate }}>Chargement des données depuis la base…</div>
           )}
 
-          {!loading && !loadError && vehicles.length === 0 && owners.length === 0 && drivers.length === 0 && page === "dashboard" && (
-            <div className="font-body text-sm mb-5 px-4 py-3 rounded-lg" style={{ background: C.greenLight, color: C.greenDark }}>
-              La base est vide. Ajoutez un véhicule pour commencer, ou lancez <code>npm run db:seed</code> depuis votre terminal pour charger des données de démonstration.
-            </div>
-          )}
-
           {!loading && (
           <>
           {page === "dashboard" && (
@@ -1877,11 +1881,26 @@ function Dashboard({ auth, onLogout }) {
                 const ownedCount = vehicles.filter((v) => v.proprietaireId === o.id).length;
                 return (
                   <div key={o.id} style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 18 }}>
-                    <div className="flex items-center gap-3 mb-3">
-                      <AvatarUpload photo={o.photo} nom={o.nom} prenoms={o.prenoms} size={48} onUpload={(dataUrl) => updateOwnerPhoto(o.id, dataUrl)} />
-                      <div>
-                        <div className="font-semibold text-sm">{o.prenoms} {o.nom}</div>
-                        <div className="text-xs" style={{ color: C.slate }}>{ownedCount} véhicule{ownedCount > 1 ? "s" : ""}</div>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <AvatarUpload photo={o.photo} nom={o.nom} prenoms={o.prenoms} size={48} onUpload={(dataUrl) => updateOwnerPhoto(o.id, dataUrl)} />
+                        <div>
+                          <div className="font-semibold text-sm">{o.prenoms} {o.nom}</div>
+                          <div className="text-xs" style={{ color: C.slate }}>{ownedCount} véhicule{ownedCount > 1 ? "s" : ""}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setEditMember(o)} title="Modifier" style={{ color: C.slate }}><Pencil size={14} /></button>
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm(`Supprimer le transporteur "${o.prenoms} ${o.nom}" ?`)) return;
+                            try { await deleteOwner(o.id); } catch (err) { alert(err.message || "Suppression impossible."); }
+                          }}
+                          title="Supprimer"
+                          style={{ color: C.red }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </div>
                     <div className="flex flex-col gap-1.5 text-xs" style={{ color: C.slate }}>
@@ -2293,6 +2312,10 @@ function Dashboard({ auth, onLogout }) {
         <MemberForm onCancel={() => setShowMemberFormFor(false)} onSave={async (payload) => { await addOwner(payload); setShowMemberFormFor(false); }} />
       </Modal>}
 
+      {editMember && <Modal onClose={() => setEditMember(null)} title={`Modifier — ${editMember.prenoms} ${editMember.nom}`} wide>
+        <MemberForm initialMember={editMember} onCancel={() => setEditMember(null)} onSave={async (payload) => { await updateOwner(editMember.id, payload); setEditMember(null); }} />
+      </Modal>}
+
       {editGareRoutiere && <Modal onClose={() => setEditGareRoutiere(null)} title={`Modifier — ${editGareRoutiere.nom}`} wide>
         <GareRoutiereForm syndicat={syndicats.find((s) => s.id === editGareRoutiere.syndicatId) || { nom: auth.nom }} initialGare={editGareRoutiere} onCancel={() => setEditGareRoutiere(null)} onSave={async (payload) => { await updateGareRoutiere(editGareRoutiere.id, payload); setEditGareRoutiere(null); }} />
       </Modal>}
@@ -2591,19 +2614,20 @@ function SyndicatForm({ commission, initialSyndicat, onCancel, onSave }) {
    MEMBRE (Transporteur) — ajout autonome depuis le dashboard syndicat,
    sans passer par la création d'un véhicule.
    ============================================================ */
-function MemberForm({ onCancel, onSave }) {
-  const [nom, setNom] = useState("");
-  const [prenoms, setPrenoms] = useState("");
-  const [cni, setCni] = useState("");
-  const [carteTransporteurNumero, setCarteTransporteurNumero] = useState("");
-  const [numeroPermis, setNumeroPermis] = useState("");
-  const [contact1, setContact1] = useState("");
-  const [contact2, setContact2] = useState("");
-  const [contact3, setContact3] = useState("");
-  const [email, setEmail] = useState("");
-  const [ville, setVille] = useState("");
-  const [quartier, setQuartier] = useState("");
-  const [photo, setPhoto] = useState(null);
+function MemberForm({ initialMember, onCancel, onSave }) {
+  const isEdit = !!initialMember;
+  const [nom, setNom] = useState(initialMember?.nom || "");
+  const [prenoms, setPrenoms] = useState(initialMember?.prenoms || "");
+  const [cni, setCni] = useState(initialMember?.cni || "");
+  const [carteTransporteurNumero, setCarteTransporteurNumero] = useState(initialMember?.carteTransporteurNumero || "");
+  const [numeroPermis, setNumeroPermis] = useState(initialMember?.numeroPermis || "");
+  const [contact1, setContact1] = useState(initialMember?.contact1 || "");
+  const [contact2, setContact2] = useState(initialMember?.contact2 || "");
+  const [contact3, setContact3] = useState(initialMember?.contact3 || "");
+  const [email, setEmail] = useState(initialMember?.email || "");
+  const [ville, setVille] = useState(initialMember?.ville || "");
+  const [quartier, setQuartier] = useState(initialMember?.quartier || "");
+  const [photo, setPhoto] = useState(initialMember?.photo || null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
@@ -2641,7 +2665,7 @@ function MemberForm({ onCancel, onSave }) {
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
         <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
         <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
-          <Check size={16} /> {saving ? "Enregistrement…" : "Enregistrer le transporteur"}
+          <Check size={16} /> {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Enregistrer le transporteur"}
         </button>
       </div>
     </div>

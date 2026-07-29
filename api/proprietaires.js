@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { proprietaires, syndicats } from "../db/schema.js";
+import { proprietaires, syndicats, vehicules, historiqueProprietaires } from "../db/schema.js";
 import { requireAuth } from "../lib/auth.js";
 
 function toApi(row) {
@@ -91,6 +91,13 @@ export default async function handler(req, res) {
 
   if (req.method === "DELETE") {
     if (!(await assertOwnership())) return;
+    const [vehiculesLies, historique] = await Promise.all([
+      db.select().from(vehicules).where(eq(vehicules.proprietaireId, id)),
+      db.select().from(historiqueProprietaires).where(eq(historiqueProprietaires.proprietaireId, id)),
+    ]);
+    if (vehiculesLies.length > 0 || historique.length > 0) {
+      return res.status(400).json({ error: "Impossible de supprimer ce transporteur : il a un ou plusieurs véhicules rattachés (actuellement ou dans l'historique)." });
+    }
     const [deleted] = await db.delete(proprietaires).where(eq(proprietaires.id, id)).returning();
     if (!deleted) return res.status(404).json({ error: "Membre introuvable" });
     return res.status(200).json({ deleted: true });
