@@ -1567,6 +1567,8 @@ function Dashboard({ auth, onLogout }) {
   const [reassignVehicle, setReassignVehicle] = useState(null);
   const [editVehicle, setEditVehicle] = useState(null);
   const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [onlyExpiredFilter, setOnlyExpiredFilter] = useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -1768,9 +1770,33 @@ function Dashboard({ auth, onLogout }) {
     return created;
   };
 
-  const filteredVehicles = vehicles.filter((v) =>
-    !search || v.immatriculation.toLowerCase().includes(search.toLowerCase()) || v.marque.toLowerCase().includes(search.toLowerCase()) || v.modele.toLowerCase().includes(search.toLowerCase())
-  );
+  function vehicleMatchesSearch(v, q) {
+    if (!q) return true;
+    const owner = owners.find((o) => o.id === v.proprietaireId);
+    const vDrivers = v.chauffeurIds.map((id) => drivers.find((d) => d.id === id)).filter(Boolean);
+    const affectation = affectations.find((a) => a.vehiculeId === v.id && a.actif);
+    const gare = affectation ? garesRoutieres.find((g) => g.id === affectation.gareRoutiereId) : null;
+    const ligne = affectation ? lignes.find((l) => l.id === affectation.ligneId) : null;
+    const haystack = [
+      v.immatriculation, v.chassis, v.carteGrise, v.marque, v.modele,
+      owner ? `${owner.prenoms} ${owner.nom}` : "", owner?.contact1, owner?.contact2, owner?.contact3,
+      ...vDrivers.flatMap((d) => [`${d.prenoms} ${d.nom}`, d.contact1, d.contact2, d.contact3]),
+      gare?.nom, gare?.sigle,
+      ligne ? `${ligne.lieuDepart} ${ligne.lieuArrivee}` : "",
+    ].filter(Boolean).join(" ").toLowerCase();
+    return haystack.includes(q);
+  }
+  function vehicleHasExpiredDoc(v) {
+    const docs = v.documents || {};
+    return [docs.visiteTechnique, docs.assuranceAuto, docs.vignette, docs.carteStationnement].some((d) => statusOf(d).key === "expire");
+  }
+
+  const searchQuery = search.trim().toLowerCase();
+  const filteredVehicles = vehicles.filter((v) => {
+    if (onlyExpiredFilter && !vehicleHasExpiredDoc(v)) return false;
+    return vehicleMatchesSearch(v, searchQuery);
+  });
+  const searchResults = searchQuery ? vehicles.filter((v) => vehicleMatchesSearch(v, searchQuery)) : [];
 
   const nav = [
     { key: "dashboard", label: "Tableau de bord", icon: <Home size={17} /> },
@@ -1847,9 +1873,68 @@ function Dashboard({ auth, onLogout }) {
               <p className="text-sm" style={{ color: C.slate }}>Registre unifié véhicules · transporteurs · chauffeurs</p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ border: `1px solid ${C.border}`, background: "#fff" }}>
-                <Search size={15} color={C.slate} />
-                <input placeholder="Rechercher un véhicule…" value={search} onChange={(e) => setSearch(e.target.value)} className="font-body text-sm" style={{ border: "none", outline: "none", width: 180 }} />
+              <button
+                onClick={() => { setOnlyExpiredFilter((f) => !f); setPage("vehicles"); }}
+                className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-2 rounded-lg"
+                style={{ background: onlyExpiredFilter ? C.redLight : "transparent", color: onlyExpiredFilter ? C.red : C.slate, border: `1px solid ${onlyExpiredFilter ? C.red : C.border}` }}
+                title="Filtrer les véhicules ayant au moins un document expiré"
+              >
+                <AlertTriangle size={14} /> Documents périmés
+              </button>
+              <div className="relative">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ border: `1px solid ${C.border}`, background: "#fff" }}>
+                  <Search size={15} color={C.slate} />
+                  <input
+                    placeholder="Nom, téléphone, immat., châssis, carte grise, gare, ligne…"
+                    value={search}
+                    onChange={(e) => { setSearch(e.target.value); setSearchOpen(true); }}
+                    onFocus={() => search && setSearchOpen(true)}
+                    onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { setPage("vehicles"); setSearchOpen(false); } }}
+                    className="font-body text-sm"
+                    style={{ border: "none", outline: "none", width: 260 }}
+                  />
+                  {search && (
+                    <button onClick={() => { setSearch(""); setSearchOpen(false); }} style={{ color: C.slate }}>
+                      <X size={14} />
+                    </button>
+                  )}
+                  <button onClick={() => { setPage("vehicles"); setSearchOpen(false); }} title="Rechercher" style={{ color: C.green }}>
+                    <Search size={15} />
+                  </button>
+                </div>
+                {searchOpen && searchQuery && (
+                  <div className="absolute right-0 mt-1.5" style={{ width: 380, background: "#fff", border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: "0 14px 32px rgba(0,0,0,0.14)", maxHeight: 360, overflowY: "auto", zIndex: 50 }}>
+                    {searchResults.length === 0 ? (
+                      <div className="font-body text-sm p-4" style={{ color: C.slate }}>Aucun résultat pour "{search}".</div>
+                    ) : (
+                      <>
+                        {searchResults.slice(0, 8).map((v) => {
+                          const owner = owners.find((o) => o.id === v.proprietaireId);
+                          return (
+                            <button
+                              key={v.id}
+                              onClick={() => { openFiche(v); setSearchOpen(false); setSearch(""); }}
+                              className="w-full text-left px-4 py-2.5 flex items-center justify-between"
+                              style={{ borderBottom: `1px solid ${C.border}` }}
+                            >
+                              <div>
+                                <div className="font-body text-sm font-medium" style={{ color: C.ink }}>{v.immatriculation} <span style={{ color: C.slate, fontWeight: 400 }}>· {v.marque} {v.modele}</span></div>
+                                <div className="font-body text-xs" style={{ color: C.slate }}>{owner ? `${owner.prenoms} ${owner.nom}` : "Sans transporteur"}</div>
+                              </div>
+                              <ChevronRight size={14} color={C.slate} />
+                            </button>
+                          );
+                        })}
+                        {searchResults.length > 8 && (
+                          <button onClick={() => { setPage("vehicles"); setSearchOpen(false); }} className="w-full font-body text-xs font-semibold p-2.5 text-center" style={{ color: C.green }}>
+                            +{searchResults.length - 8} autre(s) résultat(s) — voir tout
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
               {auth.role !== "commission_mixte" && (
                 <button onClick={() => setShowForm(true)} disabled={loading} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: loading ? "#D8B48A" : C.orange, color: "#fff", cursor: loading ? "not-allowed" : "pointer" }}>
@@ -2011,7 +2096,16 @@ function Dashboard({ auth, onLogout }) {
           )}
 
           {page === "vehicles" && (
-            <SectionCard accent={C.green} icon={<Car size={18} />} title={`Tous les véhicules (${filteredVehicles.length})`}>
+            <SectionCard
+              accent={C.green}
+              icon={<Car size={18} />}
+              title={`Tous les véhicules (${filteredVehicles.length})${onlyExpiredFilter ? " — documents périmés" : ""}`}
+              right={onlyExpiredFilter && (
+                <button onClick={() => setOnlyExpiredFilter(false)} className="font-body text-xs font-semibold flex items-center gap-1" style={{ color: C.red }}>
+                  <X size={13} /> Retirer le filtre
+                </button>
+              )}
+            >
               <VehicleTable vehicles={filteredVehicles} owners={owners} onFiche={openFiche} onPhoto={updateVehiclePhoto} commissionsMixtes={commissionsMixtes} lignes={lignes} affectations={affectations} onReassign={setReassignVehicle} onEdit={setEditVehicle} onDelete={deleteVehicle} />
             </SectionCard>
           )}
