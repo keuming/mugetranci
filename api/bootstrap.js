@@ -108,9 +108,9 @@ export default async function handler(req, res) {
   const visibleOwners = isSyndicat
     ? allOwners.filter((o) => o.syndicatId === auth.syndicatId)
     : isCommission
-      ? allOwners.filter((o) => mySyndicatIds.has(o.syndicatId))
+      ? allOwners.filter((o) => mySyndicatIds.has(o.syndicatId) || (o.creatorType === "commission_mixte" && o.creatorId === auth.commissionMixteId))
       : isGare
-        ? []
+        ? allOwners.filter((o) => o.creatorType === "gare" && o.creatorId === auth.gareRoutiereId)
         : allOwners;
 
   const visibleDrivers = isSyndicat

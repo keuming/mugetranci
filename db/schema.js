@@ -57,6 +57,8 @@ export const proprietaires = pgTable("proprietaires", {
   quartier: varchar("quartier", { length: 120 }),
   photoUrl: text("photo_url"),
   syndicatId: uuid("syndicat_id"),
+  creatorType: varchar("creator_type", { length: 20 }), // admin | commission_mixte | syndicat | gare — détermine l'entête de la fiche
+  creatorId: uuid("creator_id"), // id de la commission mixte, du syndicat ou de la gare qui a créé ce transporteur
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

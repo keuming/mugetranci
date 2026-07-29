@@ -87,6 +87,16 @@ function initials(nom, prenoms) {
 function ficheUrl(vehicleId) {
   return `${window.location.origin}${window.location.pathname}?vehicule=${vehicleId}`;
 }
+// Résout l'entité (commission mixte, syndicat ou gare routière) qui a créé
+// un transporteur donné — utilisé pour personnaliser l'entête de la fiche
+// et de la carte transporteur.
+function getCreatorEntity(owner, commissionsMixtes, syndicats, garesRoutieres) {
+  if (!owner) return null;
+  if (owner.creatorType === "commission_mixte") return commissionsMixtes.find((c) => c.id === owner.creatorId) || null;
+  if (owner.creatorType === "syndicat") return syndicats.find((s) => s.id === owner.creatorId) || null;
+  if (owner.creatorType === "gare") return garesRoutieres.find((g) => g.id === owner.creatorId) || null;
+  return null;
+}
 
 /* Les QR codes de la fiche véhicule et de la carte de membre sont désormais
    générés avec la librairie `qrcode.react` (voir cardUrl/ficheUrl ci-dessus). */
@@ -353,7 +363,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
 
   const [ownerMode, setOwnerMode] = useState(owners.length ? "existing" : "new"); // existing | new
   const [ownerId, setOwnerId] = useState(owners[0]?.id || "");
-  const [newOwner, setNewOwner] = useState({ nom: "", prenoms: "", cni: "", carteTransporteurNumero: "", numeroPermis: "", contact1: "", contact2: "", contact3: "", email: "", ville: "", quartier: "", photo: null });
+  const [newOwner, setNewOwner] = useState({ nom: "", prenoms: "", cni: "", numeroPermis: "", contact1: "", contact2: "", contact3: "", email: "", ville: "", quartier: "", photo: null });
 
   const [driverRows, setDriverRows] = useState([{ mode: drivers.length ? "existing" : "new", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null } }]);
 
@@ -504,7 +514,6 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
                   <Field label="Nom"><TextInput value={newOwner.nom} onChange={(e) => setNewOwner({ ...newOwner, nom: e.target.value })} /></Field>
                   <Field label="Prénoms"><TextInput value={newOwner.prenoms} onChange={(e) => setNewOwner({ ...newOwner, prenoms: e.target.value })} /></Field>
                   <Field label="Numéro CNI"><TextInput value={newOwner.cni} onChange={(e) => setNewOwner({ ...newOwner, cni: e.target.value })} /></Field>
-                  <Field label="Numéro carte transporteur"><TextInput value={newOwner.carteTransporteurNumero} onChange={(e) => setNewOwner({ ...newOwner, carteTransporteurNumero: e.target.value })} /></Field>
                   <Field label="Numéro permis de conduire"><TextInput value={newOwner.numeroPermis} onChange={(e) => setNewOwner({ ...newOwner, numeroPermis: e.target.value })} /></Field>
                   <Field label="Adresse email"><TextInput value={newOwner.email} onChange={(e) => setNewOwner({ ...newOwner, email: e.target.value })} /></Field>
                   <Field label="Contact 1"><TextInput value={newOwner.contact1} onChange={(e) => setNewOwner({ ...newOwner, contact1: e.target.value })} /></Field>
@@ -647,9 +656,14 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
 /* ============================================================
    FICHE VÉHICULE COMMERCIAL
    ============================================================ */
-function FicheVehicule({ vehicle, owners, drivers, onClose }) {
+function FicheVehicule({ vehicle, owners, drivers, commissionsMixtes, syndicats, garesRoutieres, onClose }) {
   const owner = owners.find((o) => o.id === vehicle.proprietaireId);
   const vDrivers = vehicle.chauffeurIds.map((id) => drivers.find((d) => d.id === id)).filter(Boolean);
+
+  // Entête personnalisé selon l'entité qui a créé ce transporteur.
+  const headerEntity = getCreatorEntity(owner, commissionsMixtes, syndicats, garesRoutieres);
+  const headerFallbackLabel = "Commissions Mixtes de Côte d'Ivoire — COMIX-CI";
+  const headerTitle = headerEntity ? (headerEntity.sigle ? `${headerEntity.nom} — ${headerEntity.sigle}` : headerEntity.nom) : headerFallbackLabel;
 
   return (
     <div className="fiche-modal-scroll flex flex-col gap-4">
@@ -658,11 +672,11 @@ function FicheVehicule({ vehicle, owners, drivers, onClose }) {
           <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 8, background: C.orange }} />
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <Building2 size={20} color="#fff" />
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+                {headerEntity?.logoUrl ? <img src={headerEntity.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Building2 size={20} color="#fff" />}
               </div>
               <div>
-                <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Commissions Mixtes de Côte d'Ivoire — COMIX-CI</div>
+                <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{headerTitle}</div>
                 <div className="font-body" style={{ fontSize: 11, color: "rgba(255,255,255,0.75)" }}>Fiche d'Identification du Transporteur — Réf. {vehicle.id}</div>
               </div>
             </div>
@@ -688,7 +702,7 @@ function FicheVehicule({ vehicle, owners, drivers, onClose }) {
               <div className="font-body grid grid-cols-4 gap-x-3 gap-y-1 flex-1" style={{ color: C.ink, fontSize: 10.5 }}>
                 <div><span style={{ color: C.slate, fontSize: 8.5 }}>Nom & prénoms</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.prenoms} {owner.nom}</div></div>
                 <div><span style={{ color: C.slate, fontSize: 8.5 }}>CNI</span><div className="font-mono font-medium" style={{ lineHeight: 1.3 }}>{owner.cni}</div></div>
-                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Carte transporteur</span><div className="font-mono font-medium" style={{ lineHeight: 1.3 }}>{owner.carteTransporteurNumero || "—"}</div></div>
+                <div><span style={{ color: C.slate, fontSize: 8.5 }}>N° Carte transporteur</span><div className="font-mono font-medium" style={{ lineHeight: 1.3 }}>{owner.carteTransporteurNumero || "—"}</div></div>
                 <div><span style={{ color: C.slate, fontSize: 8.5 }}>Permis de conduire</span><div className="font-mono font-medium" style={{ lineHeight: 1.3 }}>{owner.numeroPermis || "—"}</div></div>
                 <div><span style={{ color: C.slate, fontSize: 8.5 }}>Contacts</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{[owner.contact1, owner.contact2, owner.contact3].filter(Boolean).join(" · ")}</div></div>
                 <div><span style={{ color: C.slate, fontSize: 8.5 }}>Email</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.email || "—"}</div></div>
@@ -986,6 +1000,127 @@ function CardSheet({ drivers, vehicles, selectedIds }) {
                 <CardFace driver={d} vehicle={v} side="recto" scale={SHEET_CARD_SCALE} />
                 <CardFace driver={d} vehicle={v} side="verso" scale={SHEET_CARD_SCALE} />
                 <div className="font-body" style={{ fontSize: 10, color: C.slate }}>{d.prenoms} {d.nom}</div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ============================================================
+   CARTE TRANSPORTEUR — recto/verso, entête personnalisé selon
+   l'entité créatrice (commission mixte / syndicat / gare routière)
+   ============================================================ */
+function TransporteurCardFace({ owner, headerEntity, side, scale = 1 }) {
+  const isRecto = side === "recto";
+  const headerLabel = headerEntity ? (headerEntity.sigle || headerEntity.nom) : "COMIX-CI";
+  const card = (
+    <div
+      style={{
+        width: 340, height: 214, borderRadius: 16, position: "relative", flexShrink: 0,
+        background: isRecto ? "#fff" : `linear-gradient(135deg, ${C.orange} 0%, ${C.orangeDark} 100%)`,
+        border: isRecto ? `1px solid ${C.border}` : "none",
+        color: isRecto ? C.ink : "#fff", padding: 18, boxShadow: scale === 1 ? "0 12px 28px rgba(11,110,79,0.2)" : "none",
+      }}
+    >
+      {isRecto ? (
+        <div className="flex flex-col h-full justify-between">
+          <div className="flex items-center gap-2">
+            <div style={{ width: 26, height: 26, borderRadius: 6, overflow: "hidden", background: C.cream, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              {headerEntity?.logoUrl ? <img src={headerEntity.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Building2 size={14} color={C.slate} />}
+            </div>
+            <div className="font-display" style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 0.3 }}>{headerLabel}</div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div style={{ width: 52, height: 52, borderRadius: 999, overflow: "hidden", background: C.cream, border: `2px solid ${C.border}`, flexShrink: 0 }}>
+              {owner.photo ? <img src={owner.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-bold text-sm" style={{ color: C.slate }}>{initials(owner.nom, owner.prenoms)}</div>}
+            </div>
+            <div className="font-body">
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{owner.prenoms} {owner.nom}</div>
+              <div style={{ fontSize: 10.5, color: C.slate }}>Transporteur agréé</div>
+            </div>
+          </div>
+          <div className="font-body" style={{ fontSize: 10, color: C.slate }}>
+            <div style={{ fontSize: 8.5 }}>N° Carte</div>
+            <div className="font-mono" style={{ fontWeight: 700, fontSize: 13, color: C.orangeDark }}>{owner.carteTransporteurNumero || "—"}</div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col h-full items-center justify-center gap-2">
+          <div style={{ background: "#fff", borderRadius: 8, padding: 6 }}>
+            <QRCodeSVG value={`transporteur:${owner.id}`} size={110} bgColor="#ffffff" fgColor={C.ink} level="M" />
+          </div>
+          <div className="font-body text-center" style={{ fontSize: 9, opacity: 0.9 }}>
+            {owner.cni} · {owner.contact1 || "—"}
+            <br />En cas de perte, contactez {headerLabel}.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  if (scale === 1) return card;
+  return (
+    <div style={{ width: 340 * scale, height: 214 * scale, overflow: "hidden", flexShrink: 0 }}>
+      <div style={{ width: 340, height: 214, transform: `scale(${scale})`, transformOrigin: "top left" }}>
+        {card}
+      </div>
+    </div>
+  );
+}
+
+function TransporteurCard({ owner, headerEntity, initialFace = "recto" }) {
+  const [flipped, setFlipped] = useState(initialFace === "verso");
+  if (!owner) return null;
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <div className="no-print">
+        <TransporteurCardFace owner={owner} headerEntity={headerEntity} side={flipped ? "verso" : "recto"} />
+      </div>
+      <div className="print-area print-card-duo flex items-center gap-6">
+        <TransporteurCardFace owner={owner} headerEntity={headerEntity} side="recto" />
+        <TransporteurCardFace owner={owner} headerEntity={headerEntity} side="verso" />
+      </div>
+      <div className="no-print flex items-center gap-2">
+        <button onClick={() => setFlipped((f) => !f)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ border: `1px solid ${C.border}`, color: C.ink }}>
+          <RotateCw size={13} /> {flipped ? "Voir le recto" : "Voir le verso"}
+        </button>
+        <button onClick={() => window.print()} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ border: `1px solid ${C.border}`, color: C.ink }}>
+          <Printer size={13} /> Imprimer (recto + verso)
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const TRANSPORTEUR_CARDS_PER_SHEET = 6;
+const TRANSPORTEUR_SHEET_SCALE = 254 / 340;
+
+function TransporteurCardSheet({ owners, commissionsMixtes, syndicats, garesRoutieres, selectedIds }) {
+  const selected = owners.filter((o) => selectedIds.includes(o.id));
+  if (!selected.length) return null;
+
+  const groups = [];
+  for (let i = 0; i < selected.length; i += TRANSPORTEUR_CARDS_PER_SHEET) groups.push(selected.slice(i, i + TRANSPORTEUR_CARDS_PER_SHEET));
+
+  return (
+    <div className="print-area print-card-sheet">
+      {groups.map((group, gi) => (
+        <div key={gi} className="card-sheet-page" style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: gi === 0 ? 0 : 10 }}>
+          {gi === 0 && (
+            <div className="font-body" style={{ fontSize: 11, color: C.slate, marginBottom: 4 }}>
+              Planche de production, cartes transporteurs ({selected.length} carte{selected.length > 1 ? "s" : ""}) — recto/verso par ligne, {TRANSPORTEUR_CARDS_PER_SHEET} cartes/feuille.
+            </div>
+          )}
+          {group.map((o) => {
+            const entity = getCreatorEntity(o, commissionsMixtes, syndicats, garesRoutieres);
+            return (
+              <div key={o.id} className="flex items-center gap-4" style={{ borderBottom: `1px dashed ${C.border}`, paddingBottom: 8 }}>
+                <TransporteurCardFace owner={o} headerEntity={entity} side="recto" scale={TRANSPORTEUR_SHEET_SCALE} />
+                <TransporteurCardFace owner={o} headerEntity={entity} side="verso" scale={TRANSPORTEUR_SHEET_SCALE} />
+                <div className="font-body" style={{ fontSize: 10, color: C.slate }}>{o.prenoms} {o.nom}</div>
               </div>
             );
           })}
@@ -1407,6 +1542,8 @@ function Dashboard({ auth, onLogout }) {
   const [showForm, setShowForm] = useState(false);
   const [ficheVehicle, setFicheVehicle] = useState(null);
   const [cardDriver, setCardDriver] = useState(null);
+  const [cardOwner, setCardOwner] = useState(null);
+  const [selectedOwnerIds, setSelectedOwnerIds] = useState([]);
   const [cardFace, setCardFace] = useState("recto");
   const [selectedDriverIds, setSelectedDriverIds] = useState([]);
   const [achats, setAchats] = useState([]);
@@ -1881,26 +2018,64 @@ function Dashboard({ auth, onLogout }) {
 
           {page === "owners" && (
             <div className="flex flex-col gap-4">
-              {auth.role === "syndicat" && (
-                <div className="flex justify-end">
-                  <button onClick={() => setShowMemberFormFor(true)} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: C.orange, color: "#fff" }}>
-                    <Plus size={16} /> Ajouter un transporteur
-                  </button>
+              <div className="flex items-center justify-between px-4 py-3 rounded-lg" style={{ background: "#fff", border: `1px solid ${C.border}` }}>
+                <div className="font-body text-sm" style={{ color: C.slate }}>
+                  {selectedOwnerIds.length > 0 ? `${selectedOwnerIds.length} transporteur${selectedOwnerIds.length > 1 ? "s" : ""} sélectionné${selectedOwnerIds.length > 1 ? "s" : ""}` : "Sélectionnez des transporteurs pour générer une planche de cartes à imprimer"}
                 </div>
-              )}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setSelectedOwnerIds(selectedOwnerIds.length === owners.length ? [] : owners.map((o) => o.id))}
+                    className="font-body text-xs font-semibold px-3 py-1.5 rounded-full"
+                    style={{ border: `1px solid ${C.border}`, color: C.ink }}
+                  >
+                    {selectedOwnerIds.length === owners.length && owners.length > 0 ? "Tout désélectionner" : "Tout sélectionner"}
+                  </button>
+                  <button
+                    onClick={() => window.print()}
+                    disabled={selectedOwnerIds.length === 0}
+                    className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+                    style={{ background: selectedOwnerIds.length ? C.orange : "#D8B48A", color: "#fff", cursor: selectedOwnerIds.length ? "pointer" : "not-allowed" }}
+                  >
+                    <Printer size={13} /> Générer la planche PDF ({TRANSPORTEUR_CARDS_PER_SHEET} cartes/feuille)
+                  </button>
+                  {(auth.role === "syndicat" || auth.role === "commission_mixte" || auth.role === "gare") && (
+                    <button onClick={() => setShowMemberFormFor(true)} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: C.green, color: "#fff" }}>
+                      <Plus size={16} /> Ajouter un transporteur
+                    </button>
+                  )}
+                </div>
+              </div>
               <div className="grid grid-cols-3 gap-4">
               {owners.map((o) => {
                 const ownedCount = vehicles.filter((v) => v.proprietaireId === o.id).length;
+                const isSelected = selectedOwnerIds.includes(o.id);
                 return (
-                  <div key={o.id} style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 18 }}>
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <AvatarUpload photo={o.photo} nom={o.nom} prenoms={o.prenoms} size={48} onUpload={(dataUrl) => updateOwnerPhoto(o.id, dataUrl)} />
-                        <div>
-                          <div className="font-semibold text-sm">{o.prenoms} {o.nom}</div>
-                          <div className="text-xs" style={{ color: C.slate }}>{ownedCount} véhicule{ownedCount > 1 ? "s" : ""}</div>
-                        </div>
+                  <div key={o.id} style={{ background: "#fff", border: `1.5px solid ${isSelected ? C.orange : C.border}`, borderRadius: 14, padding: 18, position: "relative" }}>
+                    <label className="flex items-center gap-1.5" style={{ position: "absolute", top: 14, right: 14, cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => setSelectedOwnerIds((s) => (isSelected ? s.filter((id) => id !== o.id) : [...s, o.id]))}
+                        style={{ width: 15, height: 15, accentColor: C.orange }}
+                      />
+                    </label>
+                    <div className="flex items-center gap-3 mb-3">
+                      <AvatarUpload photo={o.photo} nom={o.nom} prenoms={o.prenoms} size={48} onUpload={(dataUrl) => updateOwnerPhoto(o.id, dataUrl)} />
+                      <div>
+                        <div className="font-semibold text-sm">{o.prenoms} {o.nom}</div>
+                        <div className="text-xs" style={{ color: C.slate }}>{ownedCount} véhicule{ownedCount > 1 ? "s" : ""} · N° {o.carteTransporteurNumero || "—"}</div>
                       </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5 text-xs mb-3" style={{ color: C.slate }}>
+                      <div className="flex items-center gap-2"><BadgeCheck size={13} /> {o.cni}</div>
+                      <div className="flex items-center gap-2"><Phone size={13} /> {o.contact1}{o.contact2 ? " · " + o.contact2 : ""}</div>
+                      {o.email && <div className="flex items-center gap-2"><Mail size={13} /> {o.email}</div>}
+                      <div className="flex items-center gap-2"><MapPin size={13} /> {o.quartier}, {o.ville}</div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <button onClick={() => setCardOwner(o)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: C.greenLight, color: C.greenDark }}>
+                        <CreditCard size={13} /> Carte transporteur
+                      </button>
                       <div className="flex items-center gap-2">
                         <button onClick={() => setEditMember(o)} title="Modifier" style={{ color: C.slate }}><Pencil size={14} /></button>
                         <button
@@ -1914,12 +2089,6 @@ function Dashboard({ auth, onLogout }) {
                           <Trash2 size={14} />
                         </button>
                       </div>
-                    </div>
-                    <div className="flex flex-col gap-1.5 text-xs" style={{ color: C.slate }}>
-                      <div className="flex items-center gap-2"><BadgeCheck size={13} /> {o.cni}</div>
-                      <div className="flex items-center gap-2"><Phone size={13} /> {o.contact1}{o.contact2 ? " · " + o.contact2 : ""}</div>
-                      {o.email && <div className="flex items-center gap-2"><Mail size={13} /> {o.email}</div>}
-                      <div className="flex items-center gap-2"><MapPin size={13} /> {o.quartier}, {o.ville}</div>
                     </div>
                   </div>
                 );
@@ -2287,7 +2456,7 @@ function Dashboard({ auth, onLogout }) {
       </Modal>}
 
       {ficheVehicle && <Modal onClose={closeFiche} title="Fiche d'Identification du Transporteur" wide>
-        <FicheVehicule vehicle={ficheVehicle} owners={owners} drivers={drivers} onClose={closeFiche} />
+        <FicheVehicule vehicle={ficheVehicle} owners={owners} drivers={drivers} commissionsMixtes={commissionsMixtes} syndicats={syndicats} garesRoutieres={garesRoutieres} onClose={closeFiche} />
       </Modal>}
 
       {cardDriver && <Modal onClose={closeCard} title="Carte de membre">
@@ -2295,6 +2464,12 @@ function Dashboard({ auth, onLogout }) {
       </Modal>}
 
       <CardSheet drivers={drivers} vehicles={vehicles} selectedIds={selectedDriverIds} />
+
+      {cardOwner && <Modal onClose={() => setCardOwner(null)} title="Carte transporteur">
+        <TransporteurCard owner={cardOwner} headerEntity={getCreatorEntity(cardOwner, commissionsMixtes, syndicats, garesRoutieres)} />
+      </Modal>}
+
+      <TransporteurCardSheet owners={owners} commissionsMixtes={commissionsMixtes} syndicats={syndicats} garesRoutieres={garesRoutieres} selectedIds={selectedOwnerIds} />
 
       {showFuelForm && <Modal onClose={() => setShowFuelForm(false)} title="Enregistrer un achat de carburant" wide>
         <FuelPurchaseForm drivers={drivers} vehicles={vehicles} onCancel={() => setShowFuelForm(false)} onSave={async (payload) => { await addAchat(payload); setShowFuelForm(false); }} />
@@ -2665,7 +2840,6 @@ function MemberForm({ initialMember, onCancel, onSave }) {
   const [nom, setNom] = useState(initialMember?.nom || "");
   const [prenoms, setPrenoms] = useState(initialMember?.prenoms || "");
   const [cni, setCni] = useState(initialMember?.cni || "");
-  const [carteTransporteurNumero, setCarteTransporteurNumero] = useState(initialMember?.carteTransporteurNumero || "");
   const [numeroPermis, setNumeroPermis] = useState(initialMember?.numeroPermis || "");
   const [contact1, setContact1] = useState(initialMember?.contact1 || "");
   const [contact2, setContact2] = useState(initialMember?.contact2 || "");
@@ -2683,7 +2857,7 @@ function MemberForm({ initialMember, onCancel, onSave }) {
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, carteTransporteurNumero, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo });
+      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo });
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -2693,11 +2867,15 @@ function MemberForm({ initialMember, onCancel, onSave }) {
   return (
     <div className="flex flex-col gap-4">
       <PhotoUpload value={photo} onChange={setPhoto} label="Photo du transporteur" />
+      {isEdit && initialMember?.carteTransporteurNumero && (
+        <p className="font-body text-xs px-3 py-2.5 rounded-lg" style={{ background: C.cream, color: C.slate }}>
+          N° carte transporteur (généré automatiquement) : <strong className="font-mono">{initialMember.carteTransporteurNumero}</strong>
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
         <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
         <Field label="Numéro CNI"><TextInput value={cni} onChange={(e) => setCni(e.target.value)} /></Field>
-        <Field label="Numéro carte transporteur"><TextInput value={carteTransporteurNumero} onChange={(e) => setCarteTransporteurNumero(e.target.value)} /></Field>
         <Field label="Numéro permis de conduire"><TextInput value={numeroPermis} onChange={(e) => setNumeroPermis(e.target.value)} /></Field>
         <Field label="Adresse email"><TextInput value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
         <Field label="Contact 1"><TextInput value={contact1} onChange={(e) => setContact1(e.target.value)} /></Field>
