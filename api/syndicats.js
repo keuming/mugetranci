@@ -73,10 +73,11 @@ export default async function handler(req, res) {
   const auth = requireAuth(req, res);
   if (!auth) return;
 
-  async function assertOwnership() {
+  async function assertOwnership(allowSelfSyndicat) {
     if (auth.role === "admin") return true;
+    if (allowSelfSyndicat && auth.role === "syndicat" && auth.syndicatId === id) return true;
     if (auth.role !== "commission_mixte") {
-      res.status(403).json({ error: "Modification réservée à l'admin général ou à la commission mixte." });
+      res.status(403).json({ error: "Modification réservée à l'admin général, à la commission mixte, ou au syndicat pour son propre profil." });
       return false;
     }
     const [s] = await db.select().from(syndicats).where(eq(syndicats.id, id));
@@ -86,7 +87,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "PATCH") {
-    if (!(await assertOwnership())) return;
+    if (!(await assertOwnership(true))) return;
 
     const body = req.body || {};
     if (body.pinCode && !/^\d{4}$/.test(body.pinCode)) {

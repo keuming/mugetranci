@@ -62,10 +62,11 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Méthode non autorisée" });
   }
 
-  async function assertOwnership() {
+  async function assertOwnership(allowSelfGare) {
     if (auth.role === "admin") return true;
+    if (allowSelfGare && auth.role === "gare" && auth.gareRoutiereId === id) return true;
     if (auth.role !== "syndicat") {
-      res.status(403).json({ error: "Modification réservée à l'admin général ou au syndicat propriétaire." });
+      res.status(403).json({ error: "Modification réservée à l'admin général, au syndicat propriétaire, ou à la gare pour son propre profil." });
       return false;
     }
     const [g] = await db.select().from(garesRoutieres).where(eq(garesRoutieres.id, id));
@@ -75,7 +76,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "PATCH") {
-    if (!(await assertOwnership())) return;
+    if (!(await assertOwnership(true))) return;
     const body = req.body || {};
     if (body.pinCode && !/^\d{4}$/.test(body.pinCode)) {
       return res.status(400).json({ error: "Le code PIN doit comporter exactement 4 chiffres" });

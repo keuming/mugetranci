@@ -3,7 +3,7 @@ import { QRCodeSVG } from "qrcode.react";
 import {
   Car, User, Users, Bell, Plus, X, Check, AlertTriangle, CreditCard,
   Camera, Printer, Search, Home, FileText, Phone, Mail, MapPin,
-  BadgeCheck, Calendar, ChevronRight, ChevronLeft, RotateCw, Trash2, Building2, QrCode, Fuel, Pencil, LogOut
+  BadgeCheck, Calendar, ChevronRight, ChevronLeft, RotateCw, Trash2, Building2, QrCode, Fuel, Pencil, LogOut, Settings
 } from "lucide-react";
 
 /* ============================================================
@@ -1418,6 +1418,7 @@ function Dashboard({ auth, onLogout }) {
   const [editGareRoutiere, setEditGareRoutiere] = useState(null);
   const [showMemberFormFor, setShowMemberFormFor] = useState(false);
   const [editMember, setEditMember] = useState(null);
+  const [showProfileForm, setShowProfileForm] = useState(false);
   const [lignes, setLignes] = useState([]);
   const [affectations, setAffectations] = useState([]);
   const [showCommissionForm, setShowCommissionForm] = useState(false);
@@ -1649,9 +1650,9 @@ function Dashboard({ auth, onLogout }) {
   return (
     <div className="font-body" style={{ background: C.cream, minHeight: "100vh", color: C.ink }}>
       <style>{FONTS}</style>
-      <div className="flex" style={{ minHeight: "100vh" }}>
-        {/* SIDEBAR */}
-        <aside style={{ width: 232, background: C.greenDark, flexShrink: 0, display: "flex", flexDirection: "column" }}>
+      <div className="flex" style={{ height: "100vh", overflow: "hidden" }}>
+        {/* SIDEBAR — hauteur fixe, ne défile pas avec le contenu */}
+        <aside style={{ width: 232, background: C.greenDark, flexShrink: 0, display: "flex", flexDirection: "column", height: "100vh", overflowY: "auto" }}>
           <div className="px-5 py-6">
             <div className="flex items-center gap-2.5">
               <div style={{ width: 34, height: 34, borderRadius: 9, background: C.orange, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1684,17 +1685,22 @@ function Dashboard({ auth, onLogout }) {
                   {auth.role === "admin" ? "Administrateur général" : auth.role === "commission_mixte" ? "Commission Mixte" : "Syndicat"}
                 </div>
               </div>
-              <button onClick={onLogout} title="Déconnexion" style={{ color: "rgba(255,255,255,0.7)" }}>
-                <LogOut size={15} />
-              </button>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setShowProfileForm(true)} title="Mon profil" style={{ color: "rgba(255,255,255,0.7)" }}>
+                  <Settings size={15} />
+                </button>
+                <button onClick={onLogout} title="Déconnexion" style={{ color: "rgba(255,255,255,0.7)" }}>
+                  <LogOut size={15} />
+                </button>
+              </div>
             </div>
             <TricolorRule />
             <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, marginTop: 8 }}>Abidjan · Côte d'Ivoire</div>
           </div>
         </aside>
 
-        {/* MAIN */}
-        <main className="flex-1 p-8" style={{ maxWidth: 1180 }}>
+        {/* MAIN — défile indépendamment de la barre latérale */}
+        <main className="flex-1 p-8" style={{ maxWidth: 1180, height: "100vh", overflowY: "auto" }}>
           {/* TOP BAR */}
           <div className="flex items-center justify-between mb-7">
             <div>
@@ -2311,6 +2317,40 @@ function Dashboard({ auth, onLogout }) {
       {showMemberFormFor && <Modal onClose={() => setShowMemberFormFor(false)} title="Ajouter un transporteur" wide>
         <MemberForm onCancel={() => setShowMemberFormFor(false)} onSave={async (payload) => { await addOwner(payload); setShowMemberFormFor(false); }} />
       </Modal>}
+
+      {showProfileForm && (
+        <Modal onClose={() => setShowProfileForm(false)} title="Mon profil" wide>
+          {auth.role === "admin" ? (
+            <div className="font-body text-sm flex flex-col gap-3" style={{ color: C.slate }}>
+              <p>Les identifiants de l'administrateur général (identifiant et code PIN) sont définis via les variables d'environnement <code>ADMIN_LOGIN</code> et <code>ADMIN_PIN</code> sur Vercel — ils ne se modifient pas depuis cette interface.</p>
+              <p>Pour les changer : Vercel → Settings → Environment Variables → modifiez <code>ADMIN_LOGIN</code> / <code>ADMIN_PIN</code>, puis redéployez.</p>
+              <div className="flex justify-end pt-2">
+                <button onClick={() => setShowProfileForm(false)} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ background: C.green, color: "#fff" }}>Fermer</button>
+              </div>
+            </div>
+          ) : auth.role === "commission_mixte" ? (
+            <CommissionMixteForm
+              initialCommission={commissionsMixtes.find((c) => c.id === auth.commissionMixteId)}
+              onCancel={() => setShowProfileForm(false)}
+              onSave={async (payload) => { await updateCommission(auth.commissionMixteId, payload); setShowProfileForm(false); }}
+            />
+          ) : auth.role === "syndicat" ? (
+            <SyndicatForm
+              commission={commissionsMixtes.find((c) => c.id === auth.commissionMixteId)}
+              initialSyndicat={syndicats.find((s) => s.id === auth.syndicatId)}
+              onCancel={() => setShowProfileForm(false)}
+              onSave={async (payload) => { await updateSyndicat(auth.syndicatId, payload); setShowProfileForm(false); }}
+            />
+          ) : (
+            <GareRoutiereForm
+              syndicat={syndicats.find((s) => s.id === auth.syndicatId) || { nom: "" }}
+              initialGare={garesRoutieres.find((g) => g.id === auth.gareRoutiereId)}
+              onCancel={() => setShowProfileForm(false)}
+              onSave={async (payload) => { await updateGareRoutiere(auth.gareRoutiereId, payload); setShowProfileForm(false); }}
+            />
+          )}
+        </Modal>
+      )}
 
       {editMember && <Modal onClose={() => setEditMember(null)} title={`Modifier — ${editMember.prenoms} ${editMember.nom}`} wide>
         <MemberForm initialMember={editMember} onCancel={() => setEditMember(null)} onSave={async (payload) => { await updateOwner(editMember.id, payload); setEditMember(null); }} />

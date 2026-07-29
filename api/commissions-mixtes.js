@@ -70,8 +70,12 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Méthode non autorisée" });
   }
 
-  const auth = requireAdmin(req, res);
+  const auth = requireAuth(req, res);
   if (!auth) return;
+  const isSelfEdit = auth.role === "commission_mixte" && auth.commissionMixteId === id;
+  if (auth.role !== "admin" && !isSelfEdit) {
+    return res.status(403).json({ error: "Réservé à l'administrateur général (ou à la commission mixte pour son propre profil)." });
+  }
 
   if (req.method === "PATCH") {
     const body = req.body || {};
@@ -111,6 +115,9 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "DELETE") {
+    if (auth.role !== "admin") {
+      return res.status(403).json({ error: "Seul l'administrateur général peut supprimer une commission mixte." });
+    }
     const existingSyndicats = await db.select().from(syndicats).where(eq(syndicats.commissionMixteId, id));
     if (existingSyndicats.length > 0) {
       return res.status(400).json({ error: `Impossible de supprimer : ${existingSyndicats.length} syndicat(s) y sont rattachés. Supprimez-les d'abord.` });
