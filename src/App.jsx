@@ -3,7 +3,7 @@ import { QRCodeSVG } from "qrcode.react";
 import {
   Car, User, Users, Bell, Plus, X, Check, AlertTriangle, CreditCard,
   Camera, Printer, Search, Home, FileText, Phone, Mail, MapPin,
-  BadgeCheck, Calendar, ChevronRight, ChevronLeft, RotateCw, Trash2, Building2, QrCode, Fuel, Pencil, LogOut, Settings
+  BadgeCheck, Calendar, ChevronRight, ChevronLeft, RotateCw, Trash2, Building2, QrCode, Fuel, Pencil, LogOut, Settings, Route
 } from "lucide-react";
 
 /* ============================================================
@@ -1773,22 +1773,28 @@ function Dashboard({ auth, onLogout }) {
                 />
               )}
 
-              <div className="flex gap-4">
-                {auth.role === "admin" ? (
-                  <>
-                    <StatCard icon={<MapPin size={17} />} label="Commissions mixtes" value={commissionsMixtes.length} accent={C.orange} />
-                    <StatCard icon={<Building2 size={17} />} label="Syndicats" value={syndicats.length} accent={C.green} />
-                    <StatCard icon={<User size={17} />} label="Membres (transporteurs)" value={owners.length} accent={C.greenDark} />
-                    <StatCard icon={<AlertTriangle size={17} />} label="Documents à traiter (≤ 30 j)" value={critical.length} accent={C.red} />
-                  </>
-                ) : (
-                  <>
-                    <StatCard icon={<Car size={17} />} label="Véhicules enregistrés" value={vehicles.length} accent={C.green} />
-                    <StatCard icon={<User size={17} />} label="Transporteurs" value={owners.length} accent={C.orange} />
-                    <StatCard icon={<Users size={17} />} label="Chauffeurs" value={drivers.length} accent={C.greenDark} />
-                    <StatCard icon={<AlertTriangle size={17} />} label="Documents à traiter (≤ 30 j)" value={critical.length} accent={C.red} />
-                  </>
-                )}
+              <div className="flex flex-col gap-4">
+                <div className="flex gap-4">
+                  {auth.role === "admin" ? (
+                    <>
+                      <StatCard icon={<MapPin size={17} />} label="Commissions mixtes" value={commissionsMixtes.length} accent={C.orange} />
+                      <StatCard icon={<Building2 size={17} />} label="Syndicats" value={syndicats.length} accent={C.green} />
+                      <StatCard icon={<User size={17} />} label="Membres (transporteurs)" value={owners.length} accent={C.greenDark} />
+                      <StatCard icon={<AlertTriangle size={17} />} label="Documents à traiter (≤ 30 j)" value={critical.length} accent={C.red} />
+                    </>
+                  ) : (
+                    <>
+                      <StatCard icon={<Car size={17} />} label="Véhicules enregistrés" value={vehicles.length} accent={C.green} />
+                      <StatCard icon={<User size={17} />} label="Transporteurs" value={owners.length} accent={C.orange} />
+                      <StatCard icon={<Users size={17} />} label="Chauffeurs" value={drivers.length} accent={C.greenDark} />
+                      <StatCard icon={<AlertTriangle size={17} />} label="Documents à traiter (≤ 30 j)" value={critical.length} accent={C.red} />
+                    </>
+                  )}
+                </div>
+                <div className="flex gap-4">
+                  <StatCard icon={<MapPin size={17} />} label="Gares routières" value={garesRoutieres.length} accent={C.orangeDark} />
+                  <StatCard icon={<Route size={17} />} label="Lignes" value={lignes.length} accent={C.green} />
+                </div>
               </div>
 
               {auth.role === "admin" ? (
