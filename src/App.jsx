@@ -51,7 +51,7 @@ const FONTS = `
   .card-sheet-page { break-after: page; page-break-after: always; }
   .card-sheet-page:last-child { break-after: auto; page-break-after: auto; }
   .no-print { display: none !important; }
-  @page { margin: 14mm; }
+  @page { margin: 8mm; }
 }
 `;
 
@@ -968,7 +968,7 @@ function MembershipCard({ driver, vehicle, initialFace = "recto" }) {
       </div>
 
       {/* Rendu recto + verso côte à côte, uniquement visible à l'impression */}
-      <div className="print-area print-card-duo flex items-center gap-6">
+      <div className="print-area print-card-duo flex items-center justify-center flex-wrap gap-4">
         <CardFace driver={driver} vehicle={vehicle} side="recto" />
         <CardFace driver={driver} vehicle={vehicle} side="verso" />
       </div>
@@ -1131,7 +1131,7 @@ function TransporteurCard({ owner, commission, syndicat, initialFace = "recto" }
       <div className="no-print">
         <TransporteurCardFace owner={owner} commission={commission} syndicat={syndicat} side={flipped ? "verso" : "recto"} />
       </div>
-      <div className="print-area print-card-duo flex items-center gap-6">
+      <div className="print-area print-card-duo flex items-center justify-center flex-wrap gap-4">
         <TransporteurCardFace owner={owner} commission={commission} syndicat={syndicat} side="recto" />
         <TransporteurCardFace owner={owner} commission={commission} syndicat={syndicat} side="verso" />
       </div>
