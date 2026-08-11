@@ -1089,23 +1089,23 @@ function TransporteurCardFace({ owner, commission, syndicat, side, scale = 1 }) 
               <div className="font-mono" style={{ fontWeight: 700, fontSize: 13, color: C.orangeDark }}>{owner.carteTransporteurNumero || "—"}</div>
             </div>
             <div style={{ background: "#fff", borderRadius: 6, padding: 3, border: `1px solid ${C.border}` }}>
-              <QRCodeSVG value={transporteurFicheUrl(owner.id)} size={54} bgColor="#ffffff" fgColor={C.ink} level="M" />
+              <QRCodeSVG value={transporteurFicheUrl(owner.id)} size={72} bgColor="#ffffff" fgColor={C.ink} level="M" />
             </div>
           </div>
         </div>
       ) : (
-        <div className="flex flex-col h-full items-center justify-center gap-2" style={{ padding: "16px 18px", background: C.cream }}>
-          <div className="font-body font-semibold text-center" style={{ fontSize: 9.5, color: C.greenDark }}>Paiement Mobile Money</div>
+        <div className="flex flex-col h-full items-center justify-center gap-1.5" style={{ padding: "12px 18px", background: C.cream }}>
+          <div className="font-body font-semibold text-center" style={{ fontSize: 9, color: C.greenDark }}>Paiement Mobile Money</div>
           {owner.qrPaiement ? (
-            <div style={{ background: "#fff", borderRadius: 10, padding: 8, border: `1px solid ${C.border}` }}>
-              <img src={owner.qrPaiement} alt="QR Mobile Money" style={{ width: 148, height: 148, objectFit: "contain" }} />
+            <div style={{ background: "#fff", borderRadius: 10, padding: 6, border: `1px solid ${C.border}` }}>
+              <img src={owner.qrPaiement} alt="QR Mobile Money" style={{ width: 158, height: 158, objectFit: "contain" }} />
             </div>
           ) : (
-            <div className="flex items-center justify-center font-body text-center" style={{ width: 148, height: 148, background: "#fff", borderRadius: 10, border: `1px dashed ${C.border}`, color: C.slate, fontSize: 9, padding: 10 }}>
+            <div className="flex items-center justify-center font-body text-center" style={{ width: 158, height: 158, background: "#fff", borderRadius: 10, border: `1px dashed ${C.border}`, color: C.slate, fontSize: 9, padding: 10 }}>
               QR Mobile Money non renseigné
             </div>
           )}
-          <div className="font-body text-center" style={{ fontSize: 9, color: C.slate }}>
+          <div className="font-body text-center" style={{ fontSize: 8, color: C.slate }}>
             Scannez pour payer <strong style={{ color: C.ink }}>{owner.prenoms} {owner.nom}</strong>
           </div>
         </div>
