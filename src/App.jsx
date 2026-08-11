@@ -1106,7 +1106,7 @@ function TransporteurCardFace({ owner, commission, syndicat, side, scale = 1 }) 
             </div>
           )}
           <div className="font-body text-center" style={{ fontSize: 8, color: C.slate }}>
-            Scannez pour payer <strong style={{ color: C.ink }}>{owner.prenoms} {owner.nom}</strong>
+            Scannez et Payez par Mobile-Pay — <strong style={{ color: C.ink }}>{owner.prenoms} {owner.nom}</strong>
           </div>
         </div>
       )}
