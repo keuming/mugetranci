@@ -4,12 +4,12 @@ import { proprietaires, syndicats, garesRoutieres, vehicules, historiquePropriet
 import { requireAuth } from "../lib/auth.js";
 
 function toApi(row) {
-  const { photoUrl, ...rest } = row;
-  return { ...rest, photo: photoUrl };
+  const { photoUrl, qrPaiementUrl, ...rest } = row;
+  return { ...rest, photo: photoUrl, qrPaiement: qrPaiementUrl };
 }
 function toDb(body) {
-  const { photo, carteTransporteurNumero, ...rest } = body; // le numéro de carte est généré côté serveur, jamais fourni par le client
-  return { ...rest, photoUrl: photo ?? null };
+  const { photo, qrPaiement, carteTransporteurNumero, ...rest } = body; // le numéro de carte est généré côté serveur, jamais fourni par le client
+  return { ...rest, photoUrl: photo ?? null, qrPaiementUrl: qrPaiement ?? null };
 }
 
 // Numéro de carte transporteur : JJ + NNN (rang du transporteur, à partir de
@@ -108,6 +108,7 @@ export default async function handler(req, res) {
     const body = req.body || {};
     const patch = {};
     if ("photo" in body) patch.photoUrl = body.photo;
+    if ("qrPaiement" in body) patch.qrPaiementUrl = body.qrPaiement;
     if ("nom" in body) patch.nom = body.nom;
     if ("prenoms" in body) patch.prenoms = body.prenoms;
     if ("numeroPermis" in body) patch.numeroPermis = body.numeroPermis;

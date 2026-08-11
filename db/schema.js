@@ -56,6 +56,10 @@ export const proprietaires = pgTable("proprietaires", {
   ville: varchar("ville", { length: 80 }),
   quartier: varchar("quartier", { length: 120 }),
   photoUrl: text("photo_url"),
+  // QR code du compte marchand Mobile Money : image fournie par le
+  // transporteur (capture depuis son opérateur), affichée en grand au
+  // verso de la carte de membre pour permettre l'encaissement des clients.
+  qrPaiementUrl: text("qr_paiement_url"),
   syndicatId: uuid("syndicat_id"),
   creatorType: varchar("creator_type", { length: 20 }), // admin | commission_mixte | syndicat | gare — détermine l'entête de la fiche
   creatorId: uuid("creator_id"), // id de la commission mixte, du syndicat ou de la gare qui a créé ce transporteur
