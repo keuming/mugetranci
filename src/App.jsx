@@ -1044,68 +1044,67 @@ function TransporteurCardFace({ owner, commission, syndicat, side, scale = 1 }) 
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 8, background: `linear-gradient(90deg, ${C.orange} 0%, ${C.green} 55%, ${C.green} 100%)` }} />
 
       {isRecto ? (
-        <div className="flex flex-col h-full justify-between" style={{ padding: "16px 18px" }}>
+        <div className="flex flex-col h-full justify-between" style={{ padding: "11px 18px 13px" }}>
           {/* Double logo : commission mixte + syndicat/mutuelle rattaché(e) */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5" style={{ maxWidth: "46%" }}>
-              <div style={{ width: 30, height: 30, borderRadius: 8, overflow: "hidden", background: C.cream, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                {commission?.logoUrl ? <img src={commission.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Building2 size={15} color={C.green} />}
+            <div className="flex items-center gap-1.5" style={{ maxWidth: "48%" }}>
+              <div style={{ width: 28, height: 28, borderRadius: 7, overflow: "hidden", background: C.cream, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                {commission?.logoUrl ? <img src={commission.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Building2 size={14} color={C.green} />}
               </div>
-              <div className="font-display" style={{ fontSize: 8.5, fontWeight: 700, color: C.greenDark, lineHeight: 1.15 }}>{commission ? (commission.sigle || commission.nom) : "COMIX-CI"}</div>
+              <div className="font-display" style={{ fontSize: 7.3, fontWeight: 700, color: C.greenDark, lineHeight: 1.05 }}>{commission ? (commission.sigle || commission.nom) : "COMIX-CI"}</div>
             </div>
-            <div style={{ width: 1, height: 26, background: C.border }} />
-            <div className="flex items-center gap-1.5 flex-row-reverse" style={{ maxWidth: "46%" }}>
-              <div style={{ width: 30, height: 30, borderRadius: 8, overflow: "hidden", background: C.cream, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                {syndicat?.logoUrl ? <img src={syndicat.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Building2 size={15} color={C.orangeDark} />}
+            <div style={{ width: 1, height: 22, background: C.border }} />
+            <div className="flex items-center gap-1.5 flex-row-reverse" style={{ maxWidth: "48%" }}>
+              <div style={{ width: 28, height: 28, borderRadius: 7, overflow: "hidden", background: C.cream, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                {syndicat?.logoUrl ? <img src={syndicat.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Building2 size={14} color={C.orangeDark} />}
               </div>
-              <div className="font-display text-right" style={{ fontSize: 8.5, fontWeight: 700, color: C.orangeDark, lineHeight: 1.15 }}>{syndicat ? (syndicat.sigle || syndicat.nom) : "—"}</div>
+              <div className="font-display text-right" style={{ fontSize: 7.3, fontWeight: 700, color: C.orangeDark, lineHeight: 1.05 }}>{syndicat ? (syndicat.sigle || syndicat.nom) : "—"}</div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div style={{ width: 50, height: 50, borderRadius: 999, overflow: "hidden", background: C.cream, border: `2px solid ${C.border}`, flexShrink: 0 }}>
+          <div className="flex items-center gap-2.5">
+            <div style={{ width: 42, height: 42, borderRadius: 999, overflow: "hidden", background: C.cream, border: `2px solid ${C.border}`, flexShrink: 0 }}>
               {owner.photo ? <img src={owner.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-bold text-sm" style={{ color: C.slate }}>{initials(owner.nom, owner.prenoms)}</div>}
             </div>
             <div className="font-body">
-              <div style={{ fontSize: 14.5, fontWeight: 700, color: C.ink }}>{owner.prenoms} {owner.nom}</div>
-              <div style={{ fontSize: 10, color: C.slate }}>Transporteur agréé</div>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink, lineHeight: 1.15 }}>{owner.prenoms} {owner.nom}</div>
+              <div style={{ fontSize: 9, color: C.slate }}>Transporteur agréé</div>
             </div>
           </div>
 
-          <div className="font-body flex items-center gap-4" style={{ fontSize: 8.5, color: C.slate }}>
+          <div className="font-body flex items-center gap-4" style={{ fontSize: 8, color: C.slate }}>
             <div>
-              <span style={{ fontSize: 7.5 }}>N° Permis</span>
-              <div className="font-mono" style={{ fontSize: 9.5, color: C.ink, fontWeight: 600 }}>{owner.numeroPermis || "—"}</div>
+              <span style={{ fontSize: 7 }}>N° Permis</span>
+              <div className="font-mono" style={{ fontSize: 9, color: C.ink, fontWeight: 600, lineHeight: 1.2 }}>{owner.numeroPermis || "—"}</div>
             </div>
             <div>
-              <span style={{ fontSize: 7.5 }}>Téléphone</span>
-              <div className="font-mono" style={{ fontSize: 9.5, color: C.ink, fontWeight: 600 }}>{owner.contact1 || "—"}</div>
+              <span style={{ fontSize: 7 }}>Téléphone</span>
+              <div className="font-mono" style={{ fontSize: 9, color: C.ink, fontWeight: 600, lineHeight: 1.2 }}>{owner.contact1 || "—"}</div>
             </div>
           </div>
 
           <div className="flex items-end justify-between">
             <div className="font-body">
-              <div style={{ fontSize: 8, color: C.slate }}>N° Carte transporteur</div>
-              <div className="font-mono" style={{ fontWeight: 700, fontSize: 13, color: C.orangeDark }}>{owner.carteTransporteurNumero || "—"}</div>
+              <div style={{ fontSize: 7.5, color: C.slate }}>N° Carte transporteur</div>
+              <div className="font-mono" style={{ fontWeight: 700, fontSize: 12, color: C.orangeDark }}>{owner.carteTransporteurNumero || "—"}</div>
             </div>
-            <div style={{ background: "#fff", borderRadius: 6, padding: 3, border: `1px solid ${C.border}` }}>
-              <QRCodeSVG value={transporteurFicheUrl(owner.id)} size={72} bgColor="#ffffff" fgColor={C.ink} level="M" />
+            <div style={{ background: "#fff", borderRadius: 6, padding: 3, border: `1px solid ${C.border}`, flexShrink: 0 }}>
+              <QRCodeSVG value={transporteurFicheUrl(owner.id)} size={68} bgColor="#ffffff" fgColor={C.ink} level="M" />
             </div>
           </div>
         </div>
       ) : (
-        <div className="flex flex-col h-full items-center justify-center gap-1.5" style={{ padding: "12px 18px", background: C.cream }}>
-          <div className="font-body font-semibold text-center" style={{ fontSize: 9, color: C.greenDark }}>Paiement Mobile Money</div>
+        <div className="flex flex-col h-full items-center justify-center gap-2" style={{ padding: "11px 18px 13px", background: C.cream }}>
           {owner.qrPaiement ? (
             <div style={{ background: "#fff", borderRadius: 10, padding: 6, border: `1px solid ${C.border}` }}>
-              <img src={owner.qrPaiement} alt="QR Mobile Money" style={{ width: 158, height: 158, objectFit: "contain" }} />
+              <img src={owner.qrPaiement} alt="QR Mobile Money" style={{ width: 150, height: 150, objectFit: "contain" }} />
             </div>
           ) : (
-            <div className="flex items-center justify-center font-body text-center" style={{ width: 158, height: 158, background: "#fff", borderRadius: 10, border: `1px dashed ${C.border}`, color: C.slate, fontSize: 9, padding: 10 }}>
+            <div className="flex items-center justify-center font-body text-center" style={{ width: 150, height: 150, background: "#fff", borderRadius: 10, border: `1px dashed ${C.border}`, color: C.slate, fontSize: 9, padding: 10 }}>
               QR Mobile Money non renseigné
             </div>
           )}
-          <div className="font-body text-center" style={{ fontSize: 8, color: C.slate }}>
+          <div className="font-body text-center" style={{ fontSize: 8.5, color: C.slate, lineHeight: 1.3 }}>
             Scannez et Payez par Mobile-Pay — <strong style={{ color: C.ink }}>{owner.prenoms} {owner.nom}</strong>
           </div>
         </div>
