@@ -87,6 +87,9 @@ function initials(nom, prenoms) {
 function ficheUrl(vehicleId) {
   return `${window.location.origin}${window.location.pathname}?vehicule=${vehicleId}`;
 }
+function transporteurFicheUrl(ownerId) {
+  return `${window.location.origin}${window.location.pathname}?transporteur=${ownerId}`;
+}
 // Résout l'entité (commission mixte, syndicat ou gare routière) qui a créé
 // un transporteur donné — utilisé pour personnaliser l'entête de la fiche
 // et de la carte transporteur.
@@ -1086,7 +1089,7 @@ function TransporteurCardFace({ owner, commission, syndicat, side, scale = 1 }) 
               <div className="font-mono" style={{ fontWeight: 700, fontSize: 13, color: C.orangeDark }}>{owner.carteTransporteurNumero || "—"}</div>
             </div>
             <div style={{ background: "#fff", borderRadius: 6, padding: 3, border: `1px solid ${C.border}` }}>
-              <QRCodeSVG value={`transporteur:${owner.id}`} size={54} bgColor="#ffffff" fgColor={C.ink} level="M" />
+              <QRCodeSVG value={transporteurFicheUrl(owner.id)} size={54} bgColor="#ffffff" fgColor={C.ink} level="M" />
             </div>
           </div>
         </div>
@@ -1643,6 +1646,14 @@ function Dashboard({ auth, onLogout }) {
         const vehiculeId = params.get("vehicule");
         if (vehiculeId) {
           const match = v.find((vv) => vv.id === vehiculeId);
+          if (match) setFicheVehicle(match);
+        }
+
+        // Ouvre automatiquement la fiche du véhicule d'un transporteur si
+        // l'URL contient ?transporteur=ID (QR du recto de la carte membre).
+        const transporteurId = params.get("transporteur");
+        if (transporteurId) {
+          const match = v.find((vv) => vv.proprietaireId === transporteurId);
           if (match) setFicheVehicle(match);
         }
 
