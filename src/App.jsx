@@ -1069,6 +1069,17 @@ function TransporteurCardFace({ owner, commission, syndicat, side, scale = 1 }) 
             </div>
           </div>
 
+          <div className="font-body flex items-center gap-4" style={{ fontSize: 8.5, color: C.slate }}>
+            <div>
+              <span style={{ fontSize: 7.5 }}>N° Permis</span>
+              <div className="font-mono" style={{ fontSize: 9.5, color: C.ink, fontWeight: 600 }}>{owner.numeroPermis || "—"}</div>
+            </div>
+            <div>
+              <span style={{ fontSize: 7.5 }}>Téléphone</span>
+              <div className="font-mono" style={{ fontSize: 9.5, color: C.ink, fontWeight: 600 }}>{owner.contact1 || "—"}</div>
+            </div>
+          </div>
+
           <div className="flex items-end justify-between">
             <div className="font-body">
               <div style={{ fontSize: 8, color: C.slate }}>N° Carte transporteur</div>
