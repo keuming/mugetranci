@@ -954,10 +954,10 @@ function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles) {
     const vehicule = vehicles.find((v) => v.chauffeurIds.includes(member.id));
     return {
       logo1, logo2,
-      numero: member.numeroCarte,
-      ficheValue: fuelQrData(member.id, vehicule?.carteGrise), // QR de pointage carburant en station
+      numero: member.numeroCarte, // sert aussi d'identifiant unique pour la consommation carburant (lu/saisi tel quel, pas de QR dédié)
+      ficheValue: vehicule ? ficheUrl(vehicule.id) : `chauffeur:${member.id}`, // QR d'accès à la fiche du transporteur
       infoFields: [{ label: "N° Permis", value: member.permisNumero }, { label: "Téléphone", value: member.contact1 }],
-      versoQr: true, // + QR Mobile Money au verso = 2 QR au total pour le chauffeur
+      versoQr: true, // + QR marchand Mobile Money au verso = 2 QR au total (fiche + marchand)
     };
   }
   // element
