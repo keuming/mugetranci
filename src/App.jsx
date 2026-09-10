@@ -1548,6 +1548,8 @@ function Dashboard({ auth, onLogout }) {
   const [selectedElementIds, setSelectedElementIds] = useState([]);
   const [elements, setElements] = useState([]);
   const [showElementFormFor, setShowElementFormFor] = useState(false);
+  const [showDriverFormFor, setShowDriverFormFor] = useState(false);
+  const [editDriver, setEditDriver] = useState(null);
   const [editElement, setEditElement] = useState(null);
   const [cardFace, setCardFace] = useState("recto");
   const [selectedDriverIds, setSelectedDriverIds] = useState([]);
@@ -1675,6 +1677,15 @@ function Dashboard({ auth, onLogout }) {
   const updateDriverQr = async (driverId, qrDataUrl) => {
     const updated = await apiPatch(`/api/chauffeurs?id=${driverId}`, { qrPaiement: qrDataUrl });
     setDrivers((s) => s.map((d) => (d.id === driverId ? updated : d)));
+  };
+  const updateDriver = async (driverId, payload) => {
+    const updated = await apiPatch(`/api/chauffeurs?id=${driverId}`, payload);
+    setDrivers((s) => s.map((d) => (d.id === driverId ? updated : d)));
+    return updated;
+  };
+  const deleteDriver = async (driverId) => {
+    await apiDelete(`/api/chauffeurs?id=${driverId}`);
+    setDrivers((s) => s.filter((d) => d.id !== driverId));
   };
   const updateOwnerPhoto = async (ownerId, photoDataUrl) => {
     const updated = await apiPatch(`/api/proprietaires?id=${ownerId}`, { photo: photoDataUrl });
@@ -2326,6 +2337,9 @@ function Dashboard({ auth, onLogout }) {
                   >
                     <Printer size={13} /> Générer la planche PDF ({MEMBER_CARDS_PER_SHEET} cartes/feuille)
                   </button>
+                  <button onClick={() => setShowDriverFormFor(true)} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: C.green, color: "#fff" }}>
+                    <Plus size={16} /> Ajouter un chauffeur
+                  </button>
                 </div>
               </div>
 
@@ -2362,6 +2376,17 @@ function Dashboard({ auth, onLogout }) {
                         />
                         <button onClick={() => openCard(d)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: C.greenLight, color: C.greenDark }}>
                           <CreditCard size={13} /> Carte membre
+                        </button>
+                        <button onClick={() => setEditDriver(d)} title="Modifier" style={{ color: C.slate }}><Pencil size={14} /></button>
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm(`Supprimer le chauffeur "${d.prenoms} ${d.nom}" ?`)) return;
+                            try { await deleteDriver(d.id); } catch (err) { alert(err.message || "Suppression impossible."); }
+                          }}
+                          title="Supprimer"
+                          style={{ color: C.red }}
+                        >
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </div>
@@ -2775,6 +2800,14 @@ function Dashboard({ auth, onLogout }) {
 
       {editMember && <Modal onClose={() => setEditMember(null)} title={`Modifier — ${editMember.prenoms} ${editMember.nom}`} wide>
         <MemberForm initialMember={editMember} commissionsMixtes={commissionsMixtes} syndicats={syndicats} onCancel={() => setEditMember(null)} onSave={async (payload) => { await updateOwner(editMember.id, payload); setEditMember(null); }} />
+      </Modal>}
+
+      {showDriverFormFor && <Modal onClose={() => setShowDriverFormFor(false)} title="Ajouter un chauffeur" wide>
+        <DriverForm commissionsMixtes={commissionsMixtes} syndicats={syndicats} onCancel={() => setShowDriverFormFor(false)} onSave={async (payload) => { await addDriver(payload); setShowDriverFormFor(false); }} />
+      </Modal>}
+
+      {editDriver && <Modal onClose={() => setEditDriver(null)} title={`Modifier — ${editDriver.prenoms} ${editDriver.nom}`} wide>
+        <DriverForm initialDriver={editDriver} commissionsMixtes={commissionsMixtes} syndicats={syndicats} onCancel={() => setEditDriver(null)} onSave={async (payload) => { await updateDriver(editDriver.id, payload); setEditDriver(null); }} />
       </Modal>}
 
       {showElementFormFor && <Modal onClose={() => setShowElementFormFor(false)} title="Ajouter un élément" wide>
@@ -3193,6 +3226,81 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, onCancel, onS
    transporteurs ou des chauffeurs), avec sa propre carte violette
    ... non, orange/vert (palette CI) et sa propre codification (E...).
    ============================================================ */
+/* ============================================================
+   CHAUFFEUR — formulaire d'ajout/modification autonome, sans passer
+   par la création d'un véhicule.
+   ============================================================ */
+function DriverForm({ initialDriver, commissionsMixtes, syndicats, onCancel, onSave }) {
+  const isEdit = !!initialDriver;
+  const [nom, setNom] = useState(initialDriver?.nom || "");
+  const [prenoms, setPrenoms] = useState(initialDriver?.prenoms || "");
+  const [cni, setCni] = useState(initialDriver?.cni || "");
+  const [permisNumero, setPermisNumero] = useState(initialDriver?.permisNumero || "");
+  const [permisDateFin, setPermisDateFin] = useState(initialDriver?.permisDateFin || "");
+  const [contact1, setContact1] = useState(initialDriver?.contact1 || "");
+  const [contact2, setContact2] = useState(initialDriver?.contact2 || "");
+  const [contact3, setContact3] = useState(initialDriver?.contact3 || "");
+  const [email, setEmail] = useState(initialDriver?.email || "");
+  const [photo, setPhoto] = useState(initialDriver?.photo || null);
+  const [qrPaiement, setQrPaiement] = useState(initialDriver?.qrPaiement || null);
+  const [logo1Type, setLogo1Type] = useState(initialDriver?.logo1Type || "");
+  const [logo1Id, setLogo1Id] = useState(initialDriver?.logo1Id || "");
+  const [logo2Type, setLogo2Type] = useState(initialDriver?.logo2Type || "");
+  const [logo2Id, setLogo2Id] = useState(initialDriver?.logo2Id || "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const canSave = nom && prenoms && cni && permisNumero && permisDateFin && !saving;
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave({ nom, prenoms, cni, permisNumero, permisDateFin, contact1, contact2, contact3, email, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id });
+    } catch (err) {
+      setError(err.message || "Erreur lors de l'enregistrement.");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-4">
+        <PhotoUpload value={photo} onChange={setPhoto} label="Photo du chauffeur" />
+        <PhotoUpload value={qrPaiement} onChange={setQrPaiement} label="QR code Mobile Money (compte marchand)" shape="square" />
+      </div>
+      {isEdit && initialDriver?.numeroCarte && (
+        <p className="font-body text-xs px-3 py-2.5 rounded-lg" style={{ background: C.cream, color: C.slate }}>
+          N° carte chauffeur (généré automatiquement) : <strong className="font-mono">{initialDriver.numeroCarte}</strong>
+        </p>
+      )}
+      <div className="grid grid-cols-2 gap-4">
+        <LogoSelector label="Premier collectif (logo en haut à droite)" type={logo1Type} id={logo1Id} onChange={(t, i) => { setLogo1Type(t); setLogo1Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} />
+        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={logo2Type} id={logo2Id} onChange={(t, i) => { setLogo2Type(t); setLogo2Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
+        <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
+        <Field label="Numéro CNI"><TextInput value={cni} onChange={(e) => setCni(e.target.value)} /></Field>
+        <Field label="Numéro permis de conduire"><TextInput value={permisNumero} onChange={(e) => setPermisNumero(e.target.value)} /></Field>
+        <Field label="Fin de validité du permis"><DateInput value={permisDateFin} onChange={(e) => setPermisDateFin(e.target.value)} /></Field>
+        <Field label="Adresse email"><TextInput value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
+        <Field label="Contact 1"><TextInput value={contact1} onChange={(e) => setContact1(e.target.value)} /></Field>
+        <Field label="Contact 2"><TextInput value={contact2} onChange={(e) => setContact2(e.target.value)} /></Field>
+        <Field label="Contact 3"><TextInput value={contact3} onChange={(e) => setContact3(e.target.value)} /></Field>
+      </div>
+
+      <div className="flex items-center justify-end gap-3 pt-2">
+        {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
+        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
+        <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
+          <Check size={16} /> {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Enregistrer le chauffeur"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ElementForm({ initialElement, commissionsMixtes, syndicats, onCancel, onSave }) {
   const isEdit = !!initialElement;
   const [nom, setNom] = useState(initialElement?.nom || "");
