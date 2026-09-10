@@ -3123,27 +3123,38 @@ function SyndicatForm({ commission, initialSyndicat, onCancel, onSave }) {
    ============================================================ */
 function LogoSelector({ label, type, id, onChange, commissionsMixtes, syndicats }) {
   const value = type && id ? `${type}:${id}` : "";
+  const entity = resolveLogoEntity(type, id, commissionsMixtes, syndicats);
   return (
     <Field label={label}>
-      <select
-        style={inputStyle}
-        className="font-body"
-        value={value}
-        onChange={(e) => {
-          const v = e.target.value;
-          if (!v) return onChange("", "");
-          const [t, i] = v.split(":");
-          onChange(t, i);
-        }}
-      >
-        <option value="">— Déduit automatiquement —</option>
-        <optgroup label="Commissions mixtes">
-          {commissionsMixtes.map((c) => <option key={c.id} value={`commission_mixte:${c.id}`}>{c.sigle || c.nom}</option>)}
-        </optgroup>
-        <optgroup label="Syndicats">
-          {syndicats.map((s) => <option key={s.id} value={`syndicat:${s.id}`}>{s.sigle || s.nom}</option>)}
-        </optgroup>
-      </select>
+      <div className="flex items-center gap-2">
+        <div style={{ width: 34, height: 34, borderRadius: 8, overflow: "hidden", background: C.cream, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          {entity?.logoUrl ? <img src={entity.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Building2 size={16} color={C.slate} />}
+        </div>
+        <select
+          style={inputStyle}
+          className="font-body"
+          value={value}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (!v) return onChange("", "");
+            const [t, i] = v.split(":");
+            onChange(t, i);
+          }}
+        >
+          <option value="">— Déduit automatiquement —</option>
+          <optgroup label="Commissions mixtes">
+            {commissionsMixtes.map((c) => <option key={c.id} value={`commission_mixte:${c.id}`}>{c.sigle || c.nom}</option>)}
+          </optgroup>
+          <optgroup label="Syndicats">
+            {syndicats.map((s) => <option key={s.id} value={`syndicat:${s.id}`}>{s.sigle || s.nom}</option>)}
+          </optgroup>
+        </select>
+      </div>
+      {value && !entity?.logoUrl && (
+        <p className="font-body text-xs mt-1" style={{ color: C.amber }}>
+          Ce collectif n'a pas encore de logo enregistré — ajoutez-le depuis sa page (Commissions Mixtes / Syndicats → Modifier) ou "Mon profil".
+        </p>
+      )}
     </Field>
   );
 }
