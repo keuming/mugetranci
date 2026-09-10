@@ -1,7 +1,7 @@
 import { eq, desc } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
-  proprietaires, chauffeurs, vehicules, historiqueProprietaires, vehiculeChauffeurs,
+  proprietaires, chauffeurs, elements, vehicules, historiqueProprietaires, vehiculeChauffeurs,
   achatsCarburant, commissionsMixtes, syndicats, garesRoutieres, lignes, affectations,
 } from "../db/schema.js";
 import { requireAuth } from "../lib/auth.js";
@@ -49,6 +49,10 @@ function toApiGareRoutiere(row) {
   const { pinCode, ...rest } = row;
   return { ...rest, pinConfigure: !!pinCode };
 }
+function toApiElement(row) {
+  const { photoUrl, qrPaiementUrl, ...rest } = row;
+  return { ...rest, photo: photoUrl, qrPaiement: qrPaiementUrl };
+}
 function toApiAchat(row, chauffeur, vehicule) {
   return {
     id: row.id,
@@ -75,11 +79,12 @@ export default async function handler(req, res) {
   if (!auth) return;
 
   const [
-    allOwners, allDrivers, allVehicules, junctions, historiques,
+    allOwners, allDrivers, allElements, allVehicules, junctions, historiques,
     allAchats, allCommissions, allSyndicats, allGares, allLignes, allAffectations,
   ] = await Promise.all([
     db.select().from(proprietaires),
     db.select().from(chauffeurs),
+    db.select().from(elements),
     db.select().from(vehicules),
     db.select().from(vehiculeChauffeurs).where(eq(vehiculeChauffeurs.actif, true)),
     db.select().from(historiqueProprietaires),
@@ -116,10 +121,18 @@ export default async function handler(req, res) {
   const visibleDrivers = isSyndicat
     ? allDrivers.filter((d) => d.syndicatId === auth.syndicatId)
     : isCommission
-      ? allDrivers.filter((d) => mySyndicatIds.has(d.syndicatId))
+      ? allDrivers.filter((d) => mySyndicatIds.has(d.syndicatId) || (d.creatorType === "commission_mixte" && d.creatorId === auth.commissionMixteId))
       : isGare
-        ? []
+        ? allDrivers.filter((d) => d.creatorType === "gare" && d.creatorId === auth.gareRoutiereId)
         : allDrivers;
+
+  const visibleElements = isSyndicat
+    ? allElements.filter((e) => e.syndicatId === auth.syndicatId)
+    : isCommission
+      ? allElements.filter((e) => mySyndicatIds.has(e.syndicatId) || (e.creatorType === "commission_mixte" && e.creatorId === auth.commissionMixteId))
+      : isGare
+        ? allElements.filter((e) => e.creatorType === "gare" && e.creatorId === auth.gareRoutiereId)
+        : allElements;
 
   const visibleAffectations = isCommission
     ? allAffectations.filter((a) => a.commissionMixteId === auth.commissionMixteId)
@@ -171,6 +184,7 @@ export default async function handler(req, res) {
       allDrivers.find((c) => c.id === r.chauffeurId),
       allVehicules.find((v) => v.id === r.vehiculeId)
     )),
+    elements: visibleElements.map(toApiElement),
     commissionsMixtes: allCommissions.map(toApiCommission), // lecture ouverte à tous les rôles authentifiés
     syndicats: visibleSyndicats.map(toApiSyndicat),
     garesRoutieres: visibleGares.map(toApiGareRoutiere),

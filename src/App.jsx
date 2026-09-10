@@ -51,7 +51,7 @@ const FONTS = `
   .card-sheet-page { break-after: page; page-break-after: always; }
   .card-sheet-page:last-child { break-after: auto; page-break-after: auto; }
   .no-print { display: none !important; }
-  @page { margin: 14mm; }
+  @page { margin: 8mm; }
 }
 `;
 
@@ -86,6 +86,9 @@ function initials(nom, prenoms) {
 }
 function ficheUrl(vehicleId) {
   return `${window.location.origin}${window.location.pathname}?vehicule=${vehicleId}`;
+}
+function transporteurFicheUrl(ownerId) {
+  return `${window.location.origin}${window.location.pathname}?transporteur=${ownerId}`;
 }
 // Résout l'entité (commission mixte, syndicat ou gare routière) qui a créé
 // un transporteur donné — utilisé pour personnaliser l'entête de la fiche
@@ -375,9 +378,9 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
   const [ownerId, setOwnerId] = useState(owners[0]?.id || "");
   const [newOwner, setNewOwner] = useState({ nom: "", prenoms: "", cni: "", numeroPermis: "", contact1: "", contact2: "", contact3: "", email: "", ville: "", quartier: "", photo: null, qrPaiement: null });
 
-  const [driverRows, setDriverRows] = useState([{ mode: drivers.length ? "existing" : "new", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null } }]);
+  const [driverRows, setDriverRows] = useState([{ mode: drivers.length ? "existing" : "new", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
 
-  const addDriverRow = () => setDriverRows((r) => r.length >= 3 ? r : [...r, { mode: "existing", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null } }]);
+  const addDriverRow = () => setDriverRows((r) => r.length >= 3 ? r : [...r, { mode: "existing", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
   const removeDriverRow = (i) => setDriverRows((r) => r.filter((_, idx) => idx !== i));
   const updateDriverRow = (i, patch) => setDriverRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
   const updateDriverDraft = (i, patch) => setDriverRows((r) => r.map((row, idx) => (idx === i ? { ...row, draft: { ...row.draft, ...patch } } : row)));
@@ -585,6 +588,10 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
                       <div className="flex gap-6">
                         <PhotoUpload value={row.draft.photo} onChange={(v) => updateDriverDraft(i, { photo: v })} label="Photo du chauffeur" />
                         <PhotoUpload value={row.draft.qrPaiement} onChange={(v) => updateDriverDraft(i, { qrPaiement: v })} label="QR code de paiement (wallet Mobile Money)" shape="square" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <LogoSelector label="Premier collectif (logo en haut à droite)" type={row.draft.logo1Type} id={row.draft.logo1Id} onChange={(t, iId) => updateDriverDraft(i, { logo1Type: t, logo1Id: iId })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} />
+                        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={row.draft.logo2Type} id={row.draft.logo2Id} onChange={(t, iId) => updateDriverDraft(i, { logo2Type: t, logo2Id: iId })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <Field label="Nom"><TextInput value={row.draft.nom} onChange={(e) => updateDriverDraft(i, { nom: e.target.value })} /></Field>
@@ -884,150 +891,85 @@ function fuelQrData(driverId, carteGrise) {
   return `carte=${driverId}&carteGrise=${encodeURIComponent(carteGrise || "")}`;
 }
 
-function CardFace({ driver, vehicle, side, scale = 1 }) {
-  const isRecto = side === "recto";
-  const card = (
-    <div
-      style={{
-        width: 340, height: 214, borderRadius: 16, position: "relative", flexShrink: 0,
-        background: isRecto ? "#fff" : `linear-gradient(135deg, ${C.green} 0%, ${C.green} 60%, ${C.orange} 130%)`,
-        border: isRecto ? `1px solid ${C.border}` : "none",
-        color: isRecto ? C.ink : "#fff", padding: 18, boxShadow: scale === 1 ? "0 12px 28px rgba(11,110,79,0.28)" : "none",
-      }}
-    >
-      {isRecto ? (
-        // Recto (fond blanc) : QR de pointage carburant en station, généré par l'application.
-        <div className="flex flex-col h-full items-center justify-center gap-2">
-          <div style={{ background: "#fff", borderRadius: 8, padding: 6, border: `1px solid ${C.border}` }}>
-            <QRCodeSVG value={fuelQrData(driver.id, vehicle?.carteGrise)} size={130} bgColor="#ffffff" fgColor={C.ink} level="M" />
-          </div>
-          <div className="font-body text-center" style={{ fontSize: 9.5, color: C.slate }}>
-            Pointage carburant en station · Carte n° {driver.id.slice(0, 8)}
-            <br />En cas de perte, contactez la Mutuelle.
-          </div>
-        </div>
-      ) : (
-        // Verso : identité du chauffeur + QR de paiement Mobile Money (image
-        // importée depuis son wallet, pas générée par l'application).
-        <div className="flex flex-col h-full justify-between">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="font-display" style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.3 }}>COMIX-CI</div>
-              <div className="font-body" style={{ fontSize: 9.5, opacity: 0.85 }}>COMMISSIONS MIXTES DE CÔTE D'IVOIRE</div>
-            </div>
-            <BadgeCheck size={22} />
-          </div>
-          <div className="flex items-center gap-3">
-            <div style={{ width: 52, height: 52, borderRadius: 999, overflow: "hidden", background: "rgba(255,255,255,0.2)", border: "2px solid rgba(255,255,255,0.6)", flexShrink: 0 }}>
-              {driver.photo ? <img src={driver.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-bold text-sm">{initials(driver.nom, driver.prenoms)}</div>}
-            </div>
-            <div className="font-body">
-              <div style={{ fontSize: 14, fontWeight: 700 }}>{driver.prenoms} {driver.nom}</div>
-              <div style={{ fontSize: 10.5, opacity: 0.9 }}>Chauffeur agréé</div>
-            </div>
-          </div>
-          <div className="flex items-end justify-between">
-            <div className="font-body" style={{ fontSize: 10 }}>
-              <div style={{ opacity: 0.75 }}>Véhicule</div>
-              <div className="font-mono" style={{ fontWeight: 600, fontSize: 12 }}>{vehicle?.immatriculation || "—"}</div>
-              <div style={{ opacity: 0.75, marginTop: 4 }}>{driver.contact1}{driver.contact2 ? " · " + driver.contact2 : ""}</div>
-            </div>
-            <div style={{ background: "#fff", borderRadius: 6, padding: 3, width: 54, height: 54, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-              {driver.qrPaiement ? (
-                <img src={driver.qrPaiement} alt="QR paiement" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-              ) : (
-                <span className="font-body" style={{ fontSize: 6.5, color: C.slate, textAlign: "center", lineHeight: 1.15 }}>QR MobilePay<br />non importé</span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  if (scale === 1) return card;
-  return (
-    <div style={{ width: 340 * scale, height: 214 * scale, overflow: "hidden", flexShrink: 0 }}>
-      <div style={{ width: 340, height: 214, transform: `scale(${scale})`, transformOrigin: "top left" }}>
-        {card}
-      </div>
-    </div>
-  );
-}
-
-function MembershipCard({ driver, vehicle, initialFace = "recto" }) {
-  const [flipped, setFlipped] = useState(initialFace === "verso");
-  if (!driver) return null;
-  return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="no-print">
-        <CardFace driver={driver} vehicle={vehicle} side={flipped ? "verso" : "recto"} />
-      </div>
-
-      {/* Rendu recto + verso côte à côte, uniquement visible à l'impression */}
-      <div className="print-area print-card-duo flex items-center gap-6">
-        <CardFace driver={driver} vehicle={vehicle} side="recto" />
-        <CardFace driver={driver} vehicle={vehicle} side="verso" />
-      </div>
-
-      <div className="no-print flex items-center gap-2">
-        <button onClick={() => setFlipped((f) => !f)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ border: `1px solid ${C.border}`, color: C.ink }}>
-          <RotateCw size={13} /> {flipped ? "Voir le recto" : "Voir le verso"}
-        </button>
-        <button onClick={() => window.print()} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ border: `1px solid ${C.border}`, color: C.ink }}>
-          <Printer size={13} /> Imprimer (recto + verso)
-        </button>
-      </div>
-    </div>
-  );
-}
-
 /* ============================================================
-   PLANCHE D'IMPRESSION GROUPÉE (pour l'imprimerie)
-   6 chauffeurs par feuille, recto + verso côte à côte par ligne
+   CARTE DE MEMBRE UNIFIÉE — Transporteur / Chauffeur / Élément
+   Recto : double logo (collectif 1 en haut à droite, collectif 2 en
+   haut à gauche — sélection explicite depuis le formulaire), photo,
+   nom complet, infos secondaires, n° de carte + QR vers la fiche.
+   Verso : grand QR code du compte marchand Mobile Money.
+   Couleurs 100% palette CI (orange/vert/blanc) — l'orientation des
+   bandeaux et la couleur d'accent du n° de carte diffèrent par
+   catégorie pour permettre une identification visuelle rapide.
    ============================================================ */
-const CARDS_PER_SHEET = 6;
-const SHEET_CARD_SCALE = 254 / 340; // ~0.747 — réduit la carte pour que 6 lignes tiennent sur une page A4
+const MEMBER_CARD_THEMES = {
+  transporteur: {
+    barTop: `linear-gradient(90deg, ${C.green} 0%, ${C.green} 55%, ${C.orange} 100%)`,
+    barBottom: `linear-gradient(90deg, ${C.orange} 0%, ${C.green} 55%, ${C.green} 100%)`,
+    numColor: C.orangeDark,
+    label: "Transporteur agréé",
+  },
+  chauffeur: {
+    barTop: `linear-gradient(90deg, ${C.orange} 0%, ${C.orange} 55%, ${C.green} 100%)`,
+    barBottom: `linear-gradient(90deg, ${C.green} 0%, ${C.orange} 55%, ${C.orange} 100%)`,
+    numColor: C.greenDark,
+    label: "Chauffeur agréé",
+  },
+  element: {
+    barTop: `linear-gradient(90deg, ${C.green} 0%, ${C.orange} 50%, ${C.green} 100%)`,
+    barBottom: `linear-gradient(90deg, ${C.orange} 0%, ${C.green} 50%, ${C.orange} 100%)`,
+    numColor: C.ink,
+    label: "Élément agréé",
+  },
+};
 
-function CardSheet({ drivers, vehicles, selectedIds }) {
-  const selected = drivers.filter((d) => selectedIds.includes(d.id));
-  if (!selected.length) return null;
-
-  const groups = [];
-  for (let i = 0; i < selected.length; i += CARDS_PER_SHEET) groups.push(selected.slice(i, i + CARDS_PER_SHEET));
-
-  return (
-    <div className="print-area print-card-sheet">
-      {groups.map((group, gi) => (
-        <div key={gi} className="card-sheet-page" style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: gi === 0 ? 0 : 10 }}>
-          {gi === 0 && (
-            <div className="font-body" style={{ fontSize: 11, color: C.slate, marginBottom: 4 }}>
-              COMIX-CI — Planche de production, cartes de membre chauffeurs ({selected.length} carte{selected.length > 1 ? "s" : ""}) — recto/verso par ligne, {CARDS_PER_SHEET} cartes/feuille.
-              Planche de référence pour impression ; l'imprimerie ajuste l'échelle exacte selon le support (CR80, 85,6 × 54 mm).
-            </div>
-          )}
-          {group.map((d) => {
-            const v = vehicles.find((vv) => vv.chauffeurIds.includes(d.id));
-            return (
-              <div key={d.id} className="flex items-center gap-4" style={{ borderBottom: `1px dashed ${C.border}`, paddingBottom: 8 }}>
-                <CardFace driver={d} vehicle={v} side="recto" scale={SHEET_CARD_SCALE} />
-                <CardFace driver={d} vehicle={v} side="verso" scale={SHEET_CARD_SCALE} />
-                <div className="font-body" style={{ fontSize: 10, color: C.slate }}>{d.prenoms} {d.nom}</div>
-              </div>
-            );
-          })}
-        </div>
-      ))}
-    </div>
-  );
+// Résout l'entité logo (commission mixte ou syndicat) à partir du type/id
+// explicitement choisis dans le formulaire du membre.
+function resolveLogoEntity(type, id, commissionsMixtes, syndicats) {
+  if (!type || !id) return null;
+  if (type === "commission_mixte") return commissionsMixtes.find((c) => c.id === id) || null;
+  if (type === "syndicat") return syndicats.find((s) => s.id === id) || null;
+  return null;
 }
 
-/* ============================================================
-   CARTE TRANSPORTEUR — recto/verso, entête personnalisé selon
-   l'entité créatrice (commission mixte / syndicat / gare routière)
-   ============================================================ */
-function TransporteurCardFace({ owner, commission, syndicat, side, scale = 1 }) {
+// Prépare tout ce dont MemberCardFace a besoin pour un membre donné :
+// résolution des deux logos (sélection explicite du formulaire, avec repli
+// sur la hiérarchie syndicat/commission si non renseignée), numéro de
+// carte, valeur du QR (vers la fiche pour transporteur/chauffeur, référence
+// d'identité pour un élément qui n'a pas de véhicule), et champs d'info.
+function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles) {
+  const { syndicat: autoSyndicat, commission: autoCommission } = getMemberHierarchy(member, commissionsMixtes, syndicats);
+  const logo1 = resolveLogoEntity(member.logo1Type, member.logo1Id, commissionsMixtes, syndicats) || autoSyndicat;
+  const logo2 = resolveLogoEntity(member.logo2Type, member.logo2Id, commissionsMixtes, syndicats) || autoCommission;
+
+  if (category === "transporteur") {
+    return {
+      logo1, logo2,
+      numero: member.carteTransporteurNumero,
+      ficheValue: transporteurFicheUrl(member.id),
+      infoFields: [{ label: "N° Permis", value: member.numeroPermis }, { label: "Téléphone", value: member.contact1 }],
+    };
+  }
+  if (category === "chauffeur") {
+    const vehicule = vehicles.find((v) => v.chauffeurIds.includes(member.id));
+    return {
+      logo1, logo2,
+      numero: member.numeroCarte,
+      ficheValue: vehicule ? ficheUrl(vehicule.id) : `chauffeur:${member.id}`,
+      infoFields: [{ label: "N° Permis", value: member.permisNumero }, { label: "Téléphone", value: member.contact1 }],
+    };
+  }
+  // element
+  return {
+    logo1, logo2,
+    numero: member.numeroCarte,
+    ficheValue: `element:${member.id}`,
+    infoFields: [{ label: "Fonction", value: member.fonction }, { label: "Téléphone", value: member.contact1 }],
+  };
+}
+
+function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, infoFields = [], side, scale = 1 }) {
   const isRecto = side === "recto";
+  const theme = MEMBER_CARD_THEMES[category];
   const card = (
     <div
       style={{
@@ -1036,63 +978,70 @@ function TransporteurCardFace({ owner, commission, syndicat, side, scale = 1 }) 
         boxShadow: scale === 1 ? "0 12px 28px rgba(11,110,79,0.2)" : "none",
       }}
     >
-      {/* Bandeau vert/orange, aux couleurs du collectif — identique recto/verso */}
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 8, background: `linear-gradient(90deg, ${C.green} 0%, ${C.green} 55%, ${C.orange} 100%)` }} />
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 8, background: `linear-gradient(90deg, ${C.orange} 0%, ${C.green} 55%, ${C.green} 100%)` }} />
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 8, background: theme.barTop }} />
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 8, background: theme.barBottom }} />
 
       {isRecto ? (
-        <div className="flex flex-col h-full justify-between" style={{ padding: "16px 18px" }}>
-          {/* Double logo : commission mixte + syndicat/mutuelle rattaché(e) */}
+        <div className="flex flex-col h-full justify-between" style={{ padding: "11px 18px 13px" }}>
+          {/* Double logo : collectif 1 (droite) + collectif 2 (gauche), choisis explicitement */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5" style={{ maxWidth: "46%" }}>
-              <div style={{ width: 30, height: 30, borderRadius: 8, overflow: "hidden", background: C.cream, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                {commission?.logoUrl ? <img src={commission.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Building2 size={15} color={C.green} />}
+            <div className="flex items-center gap-1.5" style={{ maxWidth: "48%" }}>
+              <div style={{ width: 28, height: 28, borderRadius: 7, overflow: "hidden", background: C.cream, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                {logo2?.logoUrl ? <img src={logo2.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Building2 size={14} color={C.green} />}
               </div>
-              <div className="font-display" style={{ fontSize: 8.5, fontWeight: 700, color: C.greenDark, lineHeight: 1.15 }}>{commission ? (commission.sigle || commission.nom) : "COMIX-CI"}</div>
+              <div className="font-display" style={{ fontSize: 7.3, fontWeight: 700, color: C.greenDark, lineHeight: 1.05 }}>{logo2 ? (logo2.sigle || logo2.nom) : "COMIX-CI"}</div>
             </div>
-            <div style={{ width: 1, height: 26, background: C.border }} />
-            <div className="flex items-center gap-1.5 flex-row-reverse" style={{ maxWidth: "46%" }}>
-              <div style={{ width: 30, height: 30, borderRadius: 8, overflow: "hidden", background: C.cream, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                {syndicat?.logoUrl ? <img src={syndicat.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Building2 size={15} color={C.orangeDark} />}
+            <div style={{ width: 1, height: 22, background: C.border }} />
+            <div className="flex items-center gap-1.5 flex-row-reverse" style={{ maxWidth: "48%" }}>
+              <div style={{ width: 28, height: 28, borderRadius: 7, overflow: "hidden", background: C.cream, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                {logo1?.logoUrl ? <img src={logo1.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Building2 size={14} color={C.orangeDark} />}
               </div>
-              <div className="font-display text-right" style={{ fontSize: 8.5, fontWeight: 700, color: C.orangeDark, lineHeight: 1.15 }}>{syndicat ? (syndicat.sigle || syndicat.nom) : "—"}</div>
+              <div className="font-display text-right" style={{ fontSize: 7.3, fontWeight: 700, color: C.orangeDark, lineHeight: 1.05 }}>{logo1 ? (logo1.sigle || logo1.nom) : "—"}</div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div style={{ width: 50, height: 50, borderRadius: 999, overflow: "hidden", background: C.cream, border: `2px solid ${C.border}`, flexShrink: 0 }}>
-              {owner.photo ? <img src={owner.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-bold text-sm" style={{ color: C.slate }}>{initials(owner.nom, owner.prenoms)}</div>}
+          <div className="flex items-center gap-2.5">
+            <div style={{ width: 42, height: 42, borderRadius: 999, overflow: "hidden", background: C.cream, border: `2px solid ${C.border}`, flexShrink: 0 }}>
+              {member.photo ? <img src={member.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-bold text-sm" style={{ color: C.slate }}>{initials(member.nom, member.prenoms)}</div>}
             </div>
             <div className="font-body">
-              <div style={{ fontSize: 14.5, fontWeight: 700, color: C.ink }}>{owner.prenoms} {owner.nom}</div>
-              <div style={{ fontSize: 10, color: C.slate }}>Transporteur agréé</div>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink, lineHeight: 1.15 }}>{member.prenoms} {member.nom}</div>
+              <div style={{ fontSize: 9, color: C.slate }}>{theme.label}</div>
             </div>
+          </div>
+
+          <div className="font-body flex items-center gap-4" style={{ fontSize: 8, color: C.slate }}>
+            {infoFields.map((f, i) => (
+              <div key={i}>
+                <span style={{ fontSize: 7 }}>{f.label}</span>
+                <div className="font-mono" style={{ fontSize: 9, color: C.ink, fontWeight: 600, lineHeight: 1.2 }}>{f.value || "—"}</div>
+              </div>
+            ))}
           </div>
 
           <div className="flex items-end justify-between">
             <div className="font-body">
-              <div style={{ fontSize: 8, color: C.slate }}>N° Carte transporteur</div>
-              <div className="font-mono" style={{ fontWeight: 700, fontSize: 13, color: C.orangeDark }}>{owner.carteTransporteurNumero || "—"}</div>
+              <div style={{ fontSize: 7.5, color: C.slate }}>N° Carte</div>
+              <div className="font-mono" style={{ fontWeight: 700, fontSize: 12, color: theme.numColor }}>{numero || "—"}</div>
             </div>
-            <div style={{ background: "#fff", borderRadius: 6, padding: 3, border: `1px solid ${C.border}` }}>
-              <QRCodeSVG value={`transporteur:${owner.id}`} size={54} bgColor="#ffffff" fgColor={C.ink} level="M" />
+            <div style={{ background: "#fff", borderRadius: 6, padding: 3, border: `1px solid ${C.border}`, flexShrink: 0 }}>
+              <QRCodeSVG value={ficheValue} size={68} bgColor="#ffffff" fgColor={C.ink} level="M" />
             </div>
           </div>
         </div>
       ) : (
-        <div className="flex flex-col h-full items-center justify-center gap-2" style={{ padding: "16px 18px", background: C.cream }}>
-          <div className="font-body font-semibold text-center" style={{ fontSize: 9.5, color: C.greenDark }}>Paiement Mobile Money</div>
-          {owner.qrPaiement ? (
-            <div style={{ background: "#fff", borderRadius: 10, padding: 8, border: `1px solid ${C.border}` }}>
-              <img src={owner.qrPaiement} alt="QR Mobile Money" style={{ width: 148, height: 148, objectFit: "contain" }} />
+        <div className="flex flex-col h-full items-center justify-center gap-2" style={{ padding: "11px 18px 13px", background: C.cream }}>
+          {member.qrPaiement ? (
+            <div style={{ background: "#fff", borderRadius: 10, padding: 6, border: `1px solid ${C.border}` }}>
+              <img src={member.qrPaiement} alt="QR Mobile Money" style={{ width: 150, height: 150, objectFit: "contain" }} />
             </div>
           ) : (
-            <div className="flex items-center justify-center font-body text-center" style={{ width: 148, height: 148, background: "#fff", borderRadius: 10, border: `1px dashed ${C.border}`, color: C.slate, fontSize: 9, padding: 10 }}>
+            <div className="flex items-center justify-center font-body text-center" style={{ width: 150, height: 150, background: "#fff", borderRadius: 10, border: `1px dashed ${C.border}`, color: C.slate, fontSize: 9, padding: 10 }}>
               QR Mobile Money non renseigné
             </div>
           )}
-          <div className="font-body text-center" style={{ fontSize: 9, color: C.slate }}>
-            Scannez pour payer <strong style={{ color: C.ink }}>{owner.prenoms} {owner.nom}</strong>
+          <div className="font-body text-center" style={{ fontSize: 8.5, color: C.slate, lineHeight: 1.3 }}>
+            Scannez et Payez par Mobile-Pay — <strong style={{ color: C.ink }}>{member.prenoms} {member.nom}</strong>
           </div>
         </div>
       )}
@@ -1109,17 +1058,18 @@ function TransporteurCardFace({ owner, commission, syndicat, side, scale = 1 }) 
   );
 }
 
-function TransporteurCard({ owner, commission, syndicat, initialFace = "recto" }) {
+function MemberCard({ member, category, logo1, logo2, numero, ficheValue, infoFields, initialFace = "recto" }) {
   const [flipped, setFlipped] = useState(initialFace === "verso");
-  if (!owner) return null;
+  if (!member) return null;
+  const props = { member, category, logo1, logo2, numero, ficheValue, infoFields };
   return (
     <div className="flex flex-col items-center gap-3">
       <div className="no-print">
-        <TransporteurCardFace owner={owner} commission={commission} syndicat={syndicat} side={flipped ? "verso" : "recto"} />
+        <MemberCardFace {...props} side={flipped ? "verso" : "recto"} />
       </div>
-      <div className="print-area print-card-duo flex items-center gap-6">
-        <TransporteurCardFace owner={owner} commission={commission} syndicat={syndicat} side="recto" />
-        <TransporteurCardFace owner={owner} commission={commission} syndicat={syndicat} side="verso" />
+      <div className="print-area print-card-duo flex items-center justify-center flex-wrap gap-4">
+        <MemberCardFace {...props} side="recto" />
+        <MemberCardFace {...props} side="verso" />
       </div>
       <div className="no-print flex items-center gap-2">
         <button onClick={() => setFlipped((f) => !f)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ border: `1px solid ${C.border}`, color: C.ink }}>
@@ -1133,15 +1083,15 @@ function TransporteurCard({ owner, commission, syndicat, initialFace = "recto" }
   );
 }
 
-const TRANSPORTEUR_CARDS_PER_SHEET = 6;
-const TRANSPORTEUR_SHEET_SCALE = 254 / 340;
+const MEMBER_CARDS_PER_SHEET = 6;
+const MEMBER_SHEET_SCALE = 254 / 340;
 
-function TransporteurCardSheet({ owners, commissionsMixtes, syndicats, selectedIds }) {
-  const selected = owners.filter((o) => selectedIds.includes(o.id));
-  if (!selected.length) return null;
-
+// `items` : tableau pré-calculé par l'appelant, un élément par carte à
+// imprimer : { key, name, member, category, logo1, logo2, numero, ficheValue, infoFields }
+function MemberCardSheet({ items, title }) {
+  if (!items.length) return null;
   const groups = [];
-  for (let i = 0; i < selected.length; i += TRANSPORTEUR_CARDS_PER_SHEET) groups.push(selected.slice(i, i + TRANSPORTEUR_CARDS_PER_SHEET));
+  for (let i = 0; i < items.length; i += MEMBER_CARDS_PER_SHEET) groups.push(items.slice(i, i + MEMBER_CARDS_PER_SHEET));
 
   return (
     <div className="print-area print-card-sheet">
@@ -1149,19 +1099,16 @@ function TransporteurCardSheet({ owners, commissionsMixtes, syndicats, selectedI
         <div key={gi} className="card-sheet-page" style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: gi === 0 ? 0 : 10 }}>
           {gi === 0 && (
             <div className="font-body" style={{ fontSize: 11, color: C.slate, marginBottom: 4 }}>
-              Planche de production, cartes transporteurs ({selected.length} carte{selected.length > 1 ? "s" : ""}) — recto/verso par ligne, {TRANSPORTEUR_CARDS_PER_SHEET} cartes/feuille.
+              COMIX-CI — {title} ({items.length} carte{items.length > 1 ? "s" : ""}) — recto/verso par ligne, {MEMBER_CARDS_PER_SHEET} cartes/feuille.
             </div>
           )}
-          {group.map((o) => {
-            const { syndicat, commission } = getMemberHierarchy(o, commissionsMixtes, syndicats);
-            return (
-              <div key={o.id} className="flex items-center gap-4" style={{ borderBottom: `1px dashed ${C.border}`, paddingBottom: 8 }}>
-                <TransporteurCardFace owner={o} commission={commission} syndicat={syndicat} side="recto" scale={TRANSPORTEUR_SHEET_SCALE} />
-                <TransporteurCardFace owner={o} commission={commission} syndicat={syndicat} side="verso" scale={TRANSPORTEUR_SHEET_SCALE} />
-                <div className="font-body" style={{ fontSize: 10, color: C.slate }}>{o.prenoms} {o.nom}</div>
-              </div>
-            );
-          })}
+          {group.map((it) => (
+            <div key={it.key} className="flex items-center gap-4" style={{ borderBottom: `1px dashed ${C.border}`, paddingBottom: 8 }}>
+              <MemberCardFace member={it.member} category={it.category} logo1={it.logo1} logo2={it.logo2} numero={it.numero} ficheValue={it.ficheValue} infoFields={it.infoFields} side="recto" scale={MEMBER_SHEET_SCALE} />
+              <MemberCardFace member={it.member} category={it.category} logo1={it.logo1} logo2={it.logo2} numero={it.numero} ficheValue={it.ficheValue} infoFields={it.infoFields} side="verso" scale={MEMBER_SHEET_SCALE} />
+              <div className="font-body" style={{ fontSize: 10, color: C.slate }}>{it.name}</div>
+            </div>
+          ))}
         </div>
       ))}
     </div>
@@ -1582,6 +1529,11 @@ function Dashboard({ auth, onLogout }) {
   const [cardDriver, setCardDriver] = useState(null);
   const [cardOwner, setCardOwner] = useState(null);
   const [selectedOwnerIds, setSelectedOwnerIds] = useState([]);
+  const [cardElement, setCardElement] = useState(null);
+  const [selectedElementIds, setSelectedElementIds] = useState([]);
+  const [elements, setElements] = useState([]);
+  const [showElementFormFor, setShowElementFormFor] = useState(false);
+  const [editElement, setEditElement] = useState(null);
   const [cardFace, setCardFace] = useState("recto");
   const [selectedDriverIds, setSelectedDriverIds] = useState([]);
   const [achats, setAchats] = useState([]);
@@ -1614,9 +1566,10 @@ function Dashboard({ auth, onLogout }) {
       try {
         const data = await apiGet("/api/bootstrap");
         if (cancelled) return;
-        const { proprietaires: o, chauffeurs: d, vehicules: v, carburant: ac, commissionsMixtes: cm, syndicats: sy, garesRoutieres: gr, lignes: li, affectations: af } = data;
+        const { proprietaires: o, chauffeurs: d, elements: el, vehicules: v, carburant: ac, commissionsMixtes: cm, syndicats: sy, garesRoutieres: gr, lignes: li, affectations: af } = data;
         setOwners(o);
         setDrivers(d);
+        setElements(el);
         setVehicles(v);
         setAchats(ac);
         setCommissionsMixtes(cm);
@@ -1632,6 +1585,14 @@ function Dashboard({ auth, onLogout }) {
         const vehiculeId = params.get("vehicule");
         if (vehiculeId) {
           const match = v.find((vv) => vv.id === vehiculeId);
+          if (match) setFicheVehicle(match);
+        }
+
+        // Ouvre automatiquement la fiche du véhicule d'un transporteur si
+        // l'URL contient ?transporteur=ID (QR du recto de la carte membre).
+        const transporteurId = params.get("transporteur");
+        if (transporteurId) {
+          const match = v.find((vv) => vv.proprietaireId === transporteurId);
           if (match) setFicheVehicle(match);
         }
 
@@ -1712,6 +1673,20 @@ function Dashboard({ auth, onLogout }) {
   const deleteOwner = async (ownerId) => {
     await apiDelete(`/api/proprietaires?id=${ownerId}`);
     setOwners((s) => s.filter((o) => o.id !== ownerId));
+  };
+  const addElement = async (payload) => {
+    const created = await apiPost("/api/elements", payload);
+    setElements((s) => [...s, created]);
+    return created;
+  };
+  const updateElement = async (elementId, payload) => {
+    const updated = await apiPatch(`/api/elements?id=${elementId}`, payload);
+    setElements((s) => s.map((e) => (e.id === elementId ? updated : e)));
+    return updated;
+  };
+  const deleteElement = async (elementId) => {
+    await apiDelete(`/api/elements?id=${elementId}`);
+    setElements((s) => s.filter((e) => e.id !== elementId));
   };
   const updateVehiclePhoto = async (vehiculeId, photoDataUrl) => {
     const updated = await apiPatch(`/api/vehicules?id=${vehiculeId}`, { photo: photoDataUrl });
@@ -1841,6 +1816,7 @@ function Dashboard({ auth, onLogout }) {
     { key: "vehicles", label: "Véhicules", icon: <Car size={17} /> },
     { key: "owners", label: "Transporteurs", icon: <User size={17} /> },
     { key: "drivers", label: "Chauffeurs", icon: <Users size={17} /> },
+    { key: "elements", label: "Éléments", icon: <BadgeCheck size={17} /> },
     ...(auth.role === "admin" ? [{ key: "commissions", label: "Commissions Mixtes", icon: <MapPin size={17} /> }] : []),
     ...(auth.role === "admin" || auth.role === "commission_mixte" ? [{ key: "syndicats", label: "Syndicats", icon: <Building2 size={17} /> }] : []),
     ...(auth.role === "syndicat" ? [{ key: "garesroutieres", label: "Gares Routières", icon: <MapPin size={17} /> }] : []),
@@ -1906,7 +1882,7 @@ function Dashboard({ auth, onLogout }) {
           <div className="flex items-center justify-between mb-7">
             <div>
               <h1 className="font-display" style={{ fontSize: 24, fontWeight: 700 }}>
-                {{ dashboard: "Tableau de bord", vehicles: "Véhicules", owners: "Transporteurs", drivers: "Chauffeurs", commissions: "Commissions Mixtes", syndicats: "Syndicats", carburant: "Carburant", alerts: "Alertes documents" }[page]}
+                {{ dashboard: "Tableau de bord", vehicles: "Véhicules", owners: "Transporteurs", drivers: "Chauffeurs", elements: "Éléments", commissions: "Commissions Mixtes", syndicats: "Syndicats", garesroutieres: "Gares Routières", carburant: "Carburant", alerts: "Alertes documents" }[page]}
               </h1>
               <p className="text-sm" style={{ color: C.slate }}>Registre unifié véhicules · transporteurs · chauffeurs</p>
             </div>
@@ -2168,7 +2144,7 @@ function Dashboard({ auth, onLogout }) {
                     className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
                     style={{ background: selectedOwnerIds.length ? C.orange : "#D8B48A", color: "#fff", cursor: selectedOwnerIds.length ? "pointer" : "not-allowed" }}
                   >
-                    <Printer size={13} /> Générer la planche PDF ({TRANSPORTEUR_CARDS_PER_SHEET} cartes/feuille)
+                    <Printer size={13} /> Générer la planche PDF ({MEMBER_CARDS_PER_SHEET} cartes/feuille)
                   </button>
                   {(auth.role === "syndicat" || auth.role === "commission_mixte" || auth.role === "gare") && (
                     <button onClick={() => setShowMemberFormFor(true)} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: C.green, color: "#fff" }}>
@@ -2229,6 +2205,90 @@ function Dashboard({ auth, onLogout }) {
             </div>
           )}
 
+          {page === "elements" && (
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between px-4 py-3 rounded-lg" style={{ background: "#fff", border: `1px solid ${C.border}` }}>
+                <div className="font-body text-sm" style={{ color: C.slate }}>
+                  {selectedElementIds.length > 0 ? `${selectedElementIds.length} élément${selectedElementIds.length > 1 ? "s" : ""} sélectionné${selectedElementIds.length > 1 ? "s" : ""}` : "Sélectionnez des éléments pour générer une planche de cartes à imprimer"}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setSelectedElementIds(selectedElementIds.length === elements.length ? [] : elements.map((e) => e.id))}
+                    className="font-body text-xs font-semibold px-3 py-1.5 rounded-full"
+                    style={{ border: `1px solid ${C.border}`, color: C.ink }}
+                  >
+                    {selectedElementIds.length === elements.length && elements.length > 0 ? "Tout désélectionner" : "Tout sélectionner"}
+                  </button>
+                  <button
+                    onClick={() => window.print()}
+                    disabled={selectedElementIds.length === 0}
+                    className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+                    style={{ background: selectedElementIds.length ? C.orange : "#D8B48A", color: "#fff", cursor: selectedElementIds.length ? "pointer" : "not-allowed" }}
+                  >
+                    <Printer size={13} /> Générer la planche PDF ({MEMBER_CARDS_PER_SHEET} cartes/feuille)
+                  </button>
+                  {(auth.role === "syndicat" || auth.role === "commission_mixte" || auth.role === "gare") && (
+                    <button onClick={() => setShowElementFormFor(true)} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: C.green, color: "#fff" }}>
+                      <Plus size={16} /> Ajouter un élément
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+              {elements.map((e) => {
+                const isSelected = selectedElementIds.includes(e.id);
+                return (
+                  <div key={e.id} style={{ background: "#fff", border: `1.5px solid ${isSelected ? C.orange : C.border}`, borderRadius: 14, padding: 18, position: "relative" }}>
+                    <label className="flex items-center gap-1.5" style={{ position: "absolute", top: 14, right: 14, cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => setSelectedElementIds((s) => (isSelected ? s.filter((id) => id !== e.id) : [...s, e.id]))}
+                        style={{ width: 15, height: 15, accentColor: C.orange }}
+                      />
+                    </label>
+                    <div className="flex items-center gap-3 mb-3">
+                      <AvatarUpload photo={e.photo} nom={e.nom} prenoms={e.prenoms} size={48} onUpload={async (dataUrl) => { await updateElement(e.id, { photo: dataUrl }); }} />
+                      <div>
+                        <div className="font-semibold text-sm">{e.prenoms} {e.nom}</div>
+                        <div className="text-xs" style={{ color: C.slate }}>{e.fonction || "—"} · N° {e.numeroCarte || "—"}</div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5 text-xs mb-3" style={{ color: C.slate }}>
+                      <div className="flex items-center gap-2"><BadgeCheck size={13} /> {e.cni}</div>
+                      <div className="flex items-center gap-2"><Phone size={13} /> {e.contact1}{e.contact2 ? " · " + e.contact2 : ""}</div>
+                      {e.email && <div className="flex items-center gap-2"><Mail size={13} /> {e.email}</div>}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <button onClick={() => setCardElement(e)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: C.greenLight, color: C.greenDark }}>
+                        <CreditCard size={13} /> Carte élément
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setEditElement(e)} title="Modifier" style={{ color: C.slate }}><Pencil size={14} /></button>
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm(`Supprimer l'élément "${e.prenoms} ${e.nom}" ?`)) return;
+                            try { await deleteElement(e.id); } catch (err) { alert(err.message || "Suppression impossible."); }
+                          }}
+                          title="Supprimer"
+                          style={{ color: C.red }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {elements.length === 0 && (
+                <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 24 }} className="font-body text-sm text-center col-span-3">
+                  <span style={{ color: C.slate }}>Aucun élément enregistré.</span>
+                </div>
+              )}
+            </div>
+            </div>
+          )}
+
           {page === "drivers" && (
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between px-4 py-3 rounded-lg" style={{ background: "#fff", border: `1px solid ${C.border}` }}>
@@ -2249,7 +2309,7 @@ function Dashboard({ auth, onLogout }) {
                     className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
                     style={{ background: selectedDriverIds.length ? C.orange : "#D8B48A", color: "#fff", cursor: selectedDriverIds.length ? "pointer" : "not-allowed" }}
                   >
-                    <Printer size={13} /> Générer la planche PDF ({CARDS_PER_SHEET} cartes/feuille)
+                    <Printer size={13} /> Générer la planche PDF ({MEMBER_CARDS_PER_SHEET} cartes/feuille)
                   </button>
                 </div>
               </div>
@@ -2591,20 +2651,50 @@ function Dashboard({ auth, onLogout }) {
         <FicheVehicule vehicle={ficheVehicle} owners={owners} drivers={drivers} commissionsMixtes={commissionsMixtes} syndicats={syndicats} garesRoutieres={garesRoutieres} onClose={closeFiche} />
       </Modal>}
 
-      {cardDriver && <Modal onClose={closeCard} title="Carte de membre">
-        <MembershipCard driver={cardDriver} vehicle={vehicles.find((v) => v.chauffeurIds.includes(cardDriver.id))} initialFace={cardFace} />
-      </Modal>}
-
-      <CardSheet drivers={drivers} vehicles={vehicles} selectedIds={selectedDriverIds} />
-
-      {cardOwner && <Modal onClose={() => setCardOwner(null)} title="Carte transporteur">
+      {cardDriver && <Modal onClose={closeCard} title="Carte de membre — Chauffeur">
         {(() => {
-          const { syndicat, commission } = getMemberHierarchy(cardOwner, commissionsMixtes, syndicats);
-          return <TransporteurCard owner={cardOwner} commission={commission} syndicat={syndicat} />;
+          const data = cardDataFor(cardDriver, "chauffeur", commissionsMixtes, syndicats, vehicles);
+          return <MemberCard member={cardDriver} category="chauffeur" initialFace={cardFace} {...data} />;
         })()}
       </Modal>}
 
-      <TransporteurCardSheet owners={owners} commissionsMixtes={commissionsMixtes} syndicats={syndicats} selectedIds={selectedOwnerIds} />
+      <MemberCardSheet
+        title="Planche de production, cartes de membre chauffeurs"
+        items={drivers.filter((d) => selectedDriverIds.includes(d.id)).map((d) => ({
+          key: d.id, name: `${d.prenoms} ${d.nom}`, member: d, category: "chauffeur",
+          ...cardDataFor(d, "chauffeur", commissionsMixtes, syndicats, vehicles),
+        }))}
+      />
+
+      {cardOwner && <Modal onClose={() => setCardOwner(null)} title="Carte de membre — Transporteur">
+        {(() => {
+          const data = cardDataFor(cardOwner, "transporteur", commissionsMixtes, syndicats, vehicles);
+          return <MemberCard member={cardOwner} category="transporteur" {...data} />;
+        })()}
+      </Modal>}
+
+      <MemberCardSheet
+        title="Planche de production, cartes transporteurs"
+        items={owners.filter((o) => selectedOwnerIds.includes(o.id)).map((o) => ({
+          key: o.id, name: `${o.prenoms} ${o.nom}`, member: o, category: "transporteur",
+          ...cardDataFor(o, "transporteur", commissionsMixtes, syndicats, vehicles),
+        }))}
+      />
+
+      {cardElement && <Modal onClose={() => setCardElement(null)} title="Carte de membre — Élément">
+        {(() => {
+          const data = cardDataFor(cardElement, "element", commissionsMixtes, syndicats, vehicles);
+          return <MemberCard member={cardElement} category="element" {...data} />;
+        })()}
+      </Modal>}
+
+      <MemberCardSheet
+        title="Planche de production, cartes éléments"
+        items={elements.filter((e) => selectedElementIds.includes(e.id)).map((e) => ({
+          key: e.id, name: `${e.prenoms} ${e.nom}`, member: e, category: "element",
+          ...cardDataFor(e, "element", commissionsMixtes, syndicats, vehicles),
+        }))}
+      />
 
       {showFuelForm && <Modal onClose={() => setShowFuelForm(false)} title="Enregistrer un achat de carburant" wide>
         <FuelPurchaseForm drivers={drivers} vehicles={vehicles} onCancel={() => setShowFuelForm(false)} onSave={async (payload) => { await addAchat(payload); setShowFuelForm(false); }} />
@@ -2631,7 +2721,7 @@ function Dashboard({ auth, onLogout }) {
       </Modal>}
 
       {showMemberFormFor && <Modal onClose={() => setShowMemberFormFor(false)} title="Ajouter un transporteur" wide>
-        <MemberForm onCancel={() => setShowMemberFormFor(false)} onSave={async (payload) => { await addOwner(payload); setShowMemberFormFor(false); }} />
+        <MemberForm commissionsMixtes={commissionsMixtes} syndicats={syndicats} onCancel={() => setShowMemberFormFor(false)} onSave={async (payload) => { await addOwner(payload); setShowMemberFormFor(false); }} />
       </Modal>}
 
       {showProfileForm && (
@@ -2669,7 +2759,15 @@ function Dashboard({ auth, onLogout }) {
       )}
 
       {editMember && <Modal onClose={() => setEditMember(null)} title={`Modifier — ${editMember.prenoms} ${editMember.nom}`} wide>
-        <MemberForm initialMember={editMember} onCancel={() => setEditMember(null)} onSave={async (payload) => { await updateOwner(editMember.id, payload); setEditMember(null); }} />
+        <MemberForm initialMember={editMember} commissionsMixtes={commissionsMixtes} syndicats={syndicats} onCancel={() => setEditMember(null)} onSave={async (payload) => { await updateOwner(editMember.id, payload); setEditMember(null); }} />
+      </Modal>}
+
+      {showElementFormFor && <Modal onClose={() => setShowElementFormFor(false)} title="Ajouter un élément" wide>
+        <ElementForm commissionsMixtes={commissionsMixtes} syndicats={syndicats} onCancel={() => setShowElementFormFor(false)} onSave={async (payload) => { await addElement(payload); setShowElementFormFor(false); }} />
+      </Modal>}
+
+      {editElement && <Modal onClose={() => setEditElement(null)} title={`Modifier — ${editElement.prenoms} ${editElement.nom}`} wide>
+        <ElementForm initialElement={editElement} commissionsMixtes={commissionsMixtes} syndicats={syndicats} onCancel={() => setEditElement(null)} onSave={async (payload) => { await updateElement(editElement.id, payload); setEditElement(null); }} />
       </Modal>}
 
       {editGareRoutiere && <Modal onClose={() => setEditGareRoutiere(null)} title={`Modifier — ${editGareRoutiere.nom}`} wide>
@@ -2970,7 +3068,39 @@ function SyndicatForm({ commission, initialSyndicat, onCancel, onSave }) {
    MEMBRE (Transporteur) — ajout autonome depuis le dashboard syndicat,
    sans passer par la création d'un véhicule.
    ============================================================ */
-function MemberForm({ initialMember, onCancel, onSave }) {
+/* ============================================================
+   SÉLECTEUR DE LOGO — pour choisir le "premier collectif" (droite)
+   et le "deuxième collectif" (gauche) affichés sur une carte de membre.
+   Liste combinée Commissions Mixtes + Syndicats.
+   ============================================================ */
+function LogoSelector({ label, type, id, onChange, commissionsMixtes, syndicats }) {
+  const value = type && id ? `${type}:${id}` : "";
+  return (
+    <Field label={label}>
+      <select
+        style={inputStyle}
+        className="font-body"
+        value={value}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (!v) return onChange("", "");
+          const [t, i] = v.split(":");
+          onChange(t, i);
+        }}
+      >
+        <option value="">— Déduit automatiquement —</option>
+        <optgroup label="Commissions mixtes">
+          {commissionsMixtes.map((c) => <option key={c.id} value={`commission_mixte:${c.id}`}>{c.sigle || c.nom}</option>)}
+        </optgroup>
+        <optgroup label="Syndicats">
+          {syndicats.map((s) => <option key={s.id} value={`syndicat:${s.id}`}>{s.sigle || s.nom}</option>)}
+        </optgroup>
+      </select>
+    </Field>
+  );
+}
+
+function MemberForm({ initialMember, commissionsMixtes, syndicats, onCancel, onSave }) {
   const isEdit = !!initialMember;
   const [nom, setNom] = useState(initialMember?.nom || "");
   const [prenoms, setPrenoms] = useState(initialMember?.prenoms || "");
@@ -2984,6 +3114,10 @@ function MemberForm({ initialMember, onCancel, onSave }) {
   const [quartier, setQuartier] = useState(initialMember?.quartier || "");
   const [photo, setPhoto] = useState(initialMember?.photo || null);
   const [qrPaiement, setQrPaiement] = useState(initialMember?.qrPaiement || null);
+  const [logo1Type, setLogo1Type] = useState(initialMember?.logo1Type || "");
+  const [logo1Id, setLogo1Id] = useState(initialMember?.logo1Id || "");
+  const [logo2Type, setLogo2Type] = useState(initialMember?.logo2Type || "");
+  const [logo2Id, setLogo2Id] = useState(initialMember?.logo2Id || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
@@ -2993,7 +3127,7 @@ function MemberForm({ initialMember, onCancel, onSave }) {
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo, qrPaiement });
+      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id });
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -3012,6 +3146,10 @@ function MemberForm({ initialMember, onCancel, onSave }) {
         </p>
       )}
       <div className="grid grid-cols-2 gap-4">
+        <LogoSelector label="Premier collectif (logo en haut à droite)" type={logo1Type} id={logo1Id} onChange={(t, i) => { setLogo1Type(t); setLogo1Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} />
+        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={logo2Type} id={logo2Id} onChange={(t, i) => { setLogo2Type(t); setLogo2Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
         <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
         <Field label="Numéro CNI"><TextInput value={cni} onChange={(e) => setCni(e.target.value)} /></Field>
@@ -3029,6 +3167,80 @@ function MemberForm({ initialMember, onCancel, onSave }) {
         <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
         <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
           <Check size={16} /> {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Enregistrer le transporteur"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   ÉLÉMENT — 3e catégorie de membre (employé du collectif des
+   transporteurs ou des chauffeurs), avec sa propre carte violette
+   ... non, orange/vert (palette CI) et sa propre codification (E...).
+   ============================================================ */
+function ElementForm({ initialElement, commissionsMixtes, syndicats, onCancel, onSave }) {
+  const isEdit = !!initialElement;
+  const [nom, setNom] = useState(initialElement?.nom || "");
+  const [prenoms, setPrenoms] = useState(initialElement?.prenoms || "");
+  const [cni, setCni] = useState(initialElement?.cni || "");
+  const [fonction, setFonction] = useState(initialElement?.fonction || "");
+  const [contact1, setContact1] = useState(initialElement?.contact1 || "");
+  const [contact2, setContact2] = useState(initialElement?.contact2 || "");
+  const [contact3, setContact3] = useState(initialElement?.contact3 || "");
+  const [email, setEmail] = useState(initialElement?.email || "");
+  const [photo, setPhoto] = useState(initialElement?.photo || null);
+  const [qrPaiement, setQrPaiement] = useState(initialElement?.qrPaiement || null);
+  const [logo1Type, setLogo1Type] = useState(initialElement?.logo1Type || "");
+  const [logo1Id, setLogo1Id] = useState(initialElement?.logo1Id || "");
+  const [logo2Type, setLogo2Type] = useState(initialElement?.logo2Type || "");
+  const [logo2Id, setLogo2Id] = useState(initialElement?.logo2Id || "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const canSave = nom && prenoms && cni && !saving;
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave({ nom, prenoms, cni, fonction, contact1, contact2, contact3, email, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id });
+    } catch (err) {
+      setError(err.message || "Erreur lors de l'enregistrement.");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-4">
+        <PhotoUpload value={photo} onChange={setPhoto} label="Photo de l'élément" />
+        <PhotoUpload value={qrPaiement} onChange={setQrPaiement} label="QR code Mobile Money (compte marchand)" shape="square" />
+      </div>
+      {isEdit && initialElement?.numeroCarte && (
+        <p className="font-body text-xs px-3 py-2.5 rounded-lg" style={{ background: C.cream, color: C.slate }}>
+          N° carte élément (généré automatiquement) : <strong className="font-mono">{initialElement.numeroCarte}</strong>
+        </p>
+      )}
+      <div className="grid grid-cols-2 gap-4">
+        <LogoSelector label="Premier collectif (logo en haut à droite)" type={logo1Type} id={logo1Id} onChange={(t, i) => { setLogo1Type(t); setLogo1Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} />
+        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={logo2Type} id={logo2Id} onChange={(t, i) => { setLogo2Type(t); setLogo2Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
+        <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
+        <Field label="Numéro CNI"><TextInput value={cni} onChange={(e) => setCni(e.target.value)} /></Field>
+        <Field label="Fonction / Poste"><TextInput value={fonction} onChange={(e) => setFonction(e.target.value)} placeholder="Agent recenseur, Secrétaire…" /></Field>
+        <Field label="Adresse email"><TextInput value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
+        <Field label="Contact 1"><TextInput value={contact1} onChange={(e) => setContact1(e.target.value)} /></Field>
+        <Field label="Contact 2"><TextInput value={contact2} onChange={(e) => setContact2(e.target.value)} /></Field>
+        <Field label="Contact 3"><TextInput value={contact3} onChange={(e) => setContact3(e.target.value)} /></Field>
+      </div>
+
+      <div className="flex items-center justify-end gap-3 pt-2">
+        {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
+        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
+        <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
+          <Check size={16} /> {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Enregistrer l'élément"}
         </button>
       </div>
     </div>

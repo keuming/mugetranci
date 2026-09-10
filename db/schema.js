@@ -61,8 +61,16 @@ export const proprietaires = pgTable("proprietaires", {
   // verso de la carte de membre pour permettre l'encaissement des clients.
   qrPaiementUrl: text("qr_paiement_url"),
   syndicatId: uuid("syndicat_id"),
-  creatorType: varchar("creator_type", { length: 20 }), // admin | commission_mixte | syndicat | gare — détermine l'entête de la fiche
-  creatorId: uuid("creator_id"), // id de la commission mixte, du syndicat ou de la gare qui a créé ce transporteur
+  creatorType: varchar("creator_type", { length: 20 }), // admin | commission_mixte | syndicat | gare
+  creatorId: uuid("creator_id"),
+  // Sélection explicite des deux collectifs affichés sur la carte (logo
+  // en haut à droite = "premier collectif", logo en haut à gauche =
+  // "deuxième collectif"), choisis dans le formulaire — indépendamment
+  // du rattachement administratif du membre.
+  logo1Type: varchar("logo1_type", { length: 20 }), // commission_mixte | syndicat
+  logo1Id: uuid("logo1_id"),
+  logo2Type: varchar("logo2_type", { length: 20 }),
+  logo2Id: uuid("logo2_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -80,7 +88,40 @@ export const chauffeurs = pgTable("chauffeurs", {
   email: varchar("email", { length: 160 }),
   photoUrl: text("photo_url"),
   qrPaiementUrl: text("qr_paiement_url"),
+  numeroCarte: varchar("numero_carte", { length: 20 }), // généré automatiquement, préfixe C
   syndicatId: uuid("syndicat_id"),
+  creatorType: varchar("creator_type", { length: 20 }),
+  creatorId: uuid("creator_id"),
+  logo1Type: varchar("logo1_type", { length: 20 }),
+  logo1Id: uuid("logo1_id"),
+  logo2Type: varchar("logo2_type", { length: 20 }),
+  logo2Id: uuid("logo2_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+/* ---------- Éléments (employés du collectif : transporteurs ou
+   chauffeurs) — 3e catégorie de détenteur de carte, distincte des
+   transporteurs et des chauffeurs. ---------- */
+export const elements = pgTable("elements", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  nom: varchar("nom", { length: 120 }).notNull(),
+  prenoms: varchar("prenoms", { length: 120 }).notNull(),
+  cni: varchar("cni", { length: 40 }).notNull(),
+  fonction: varchar("fonction", { length: 120 }), // poste occupé (ex. Chef gare, Secrétaire, Agent recenseur…)
+  contact1: varchar("contact1", { length: 30 }),
+  contact2: varchar("contact2", { length: 30 }),
+  contact3: varchar("contact3", { length: 30 }),
+  email: varchar("email", { length: 160 }),
+  photoUrl: text("photo_url"),
+  qrPaiementUrl: text("qr_paiement_url"),
+  numeroCarte: varchar("numero_carte", { length: 20 }), // généré automatiquement, préfixe E
+  syndicatId: uuid("syndicat_id"),
+  creatorType: varchar("creator_type", { length: 20 }),
+  creatorId: uuid("creator_id"),
+  logo1Type: varchar("logo1_type", { length: 20 }),
+  logo1Id: uuid("logo1_id"),
+  logo2Type: varchar("logo2_type", { length: 20 }),
+  logo2Id: uuid("logo2_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
