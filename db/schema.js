@@ -61,6 +61,7 @@ export const proprietaires = pgTable("proprietaires", {
   // verso de la carte de membre pour permettre l'encaissement des clients.
   qrPaiementUrl: text("qr_paiement_url"),
   syndicatId: uuid("syndicat_id"),
+  gareRoutiereId: uuid("gare_routiere_id"), // gare routière de rattachement du membre
   creatorType: varchar("creator_type", { length: 20 }), // admin | commission_mixte | syndicat | gare
   creatorId: uuid("creator_id"),
   // Sélection explicite des deux collectifs affichés sur la carte (logo
@@ -90,6 +91,7 @@ export const chauffeurs = pgTable("chauffeurs", {
   qrPaiementUrl: text("qr_paiement_url"),
   numeroCarte: varchar("numero_carte", { length: 20 }), // généré automatiquement, préfixe C
   syndicatId: uuid("syndicat_id"),
+  gareRoutiereId: uuid("gare_routiere_id"),
   creatorType: varchar("creator_type", { length: 20 }),
   creatorId: uuid("creator_id"),
   logo1Type: varchar("logo1_type", { length: 20 }),
@@ -116,6 +118,8 @@ export const elements = pgTable("elements", {
   qrPaiementUrl: text("qr_paiement_url"),
   numeroCarte: varchar("numero_carte", { length: 20 }), // généré automatiquement, préfixe E
   syndicatId: uuid("syndicat_id"),
+  gareRoutiereId: uuid("gare_routiere_id"),
+  ligneId: uuid("ligne_id"),
   creatorType: varchar("creator_type", { length: 20 }),
   creatorId: uuid("creator_id"),
   logo1Type: varchar("logo1_type", { length: 20 }),

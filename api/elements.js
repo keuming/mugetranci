@@ -43,6 +43,8 @@ export default async function handler(req, res) {
       values.numeroCarte = await genererNumeroCarte(elements, "E");
       if ("logo1Type" in body) { values.logo1Type = body.logo1Type || null; values.logo1Id = body.logo1Id || null; }
       if ("logo2Type" in body) { values.logo2Type = body.logo2Type || null; values.logo2Id = body.logo2Id || null; }
+      if ("gareRoutiereId" in body) values.gareRoutiereId = body.gareRoutiereId || null;
+      if ("ligneId" in body) values.ligneId = body.ligneId || null;
 
       if (auth.role === "syndicat") {
         values.syndicatId = auth.syndicatId;
@@ -103,6 +105,8 @@ export default async function handler(req, res) {
     if ("email" in body) patch.email = body.email;
     if ("logo1Type" in body) { patch.logo1Type = body.logo1Type || null; patch.logo1Id = body.logo1Id || null; }
     if ("logo2Type" in body) { patch.logo2Type = body.logo2Type || null; patch.logo2Id = body.logo2Id || null; }
+    if ("gareRoutiereId" in body) patch.gareRoutiereId = body.gareRoutiereId || null;
+    if ("ligneId" in body) patch.ligneId = body.ligneId || null;
 
     if (Object.keys(patch).length === 0) {
       return res.status(400).json({ error: "Aucun champ à mettre à jour" });
