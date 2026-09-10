@@ -947,6 +947,7 @@ function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles) {
       numero: member.carteTransporteurNumero,
       ficheValue: transporteurFicheUrl(member.id),
       infoFields: [{ label: "N° Permis", value: member.numeroPermis }, { label: "Téléphone", value: member.contact1 }],
+      versoQr: false, // pas de QR au verso — seulement l'accès à la fiche, au recto
     };
   }
   if (category === "chauffeur") {
@@ -954,8 +955,9 @@ function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles) {
     return {
       logo1, logo2,
       numero: member.numeroCarte,
-      ficheValue: vehicule ? ficheUrl(vehicule.id) : `chauffeur:${member.id}`,
+      ficheValue: fuelQrData(member.id, vehicule?.carteGrise), // QR de pointage carburant en station
       infoFields: [{ label: "N° Permis", value: member.permisNumero }, { label: "Téléphone", value: member.contact1 }],
+      versoQr: true, // + QR Mobile Money au verso = 2 QR au total pour le chauffeur
     };
   }
   // element
@@ -964,10 +966,11 @@ function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles) {
     numero: member.numeroCarte,
     ficheValue: `element:${member.id}`,
     infoFields: [{ label: "Fonction", value: member.fonction }, { label: "Téléphone", value: member.contact1 }],
+    versoQr: false,
   };
 }
 
-function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, infoFields = [], side, scale = 1 }) {
+function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, infoFields = [], versoQr = true, side, scale = 1 }) {
   const isRecto = side === "recto";
   const theme = MEMBER_CARD_THEMES[category];
   const card = (
@@ -1031,18 +1034,30 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
         </div>
       ) : (
         <div className="flex flex-col h-full items-center justify-center gap-2" style={{ padding: "11px 18px 13px", background: C.cream }}>
-          {member.qrPaiement ? (
-            <div style={{ background: "#fff", borderRadius: 10, padding: 6, border: `1px solid ${C.border}` }}>
-              <img src={member.qrPaiement} alt="QR Mobile Money" style={{ width: 150, height: 150, objectFit: "contain" }} />
-            </div>
+          {versoQr ? (
+            <>
+              {member.qrPaiement ? (
+                <div style={{ background: "#fff", borderRadius: 10, padding: 6, border: `1px solid ${C.border}` }}>
+                  <img src={member.qrPaiement} alt="QR Mobile Money" style={{ width: 150, height: 150, objectFit: "contain" }} />
+                </div>
+              ) : (
+                <div className="flex items-center justify-center font-body text-center" style={{ width: 150, height: 150, background: "#fff", borderRadius: 10, border: `1px dashed ${C.border}`, color: C.slate, fontSize: 9, padding: 10 }}>
+                  QR Mobile Money non renseigné
+                </div>
+              )}
+              <div className="font-body text-center" style={{ fontSize: 8.5, color: C.slate, lineHeight: 1.3 }}>
+                Scannez et Payez par Mobile-Pay — <strong style={{ color: C.ink }}>{member.prenoms} {member.nom}</strong>
+              </div>
+            </>
           ) : (
-            <div className="flex items-center justify-center font-body text-center" style={{ width: 150, height: 150, background: "#fff", borderRadius: 10, border: `1px dashed ${C.border}`, color: C.slate, fontSize: 9, padding: 10 }}>
-              QR Mobile Money non renseigné
+            <div className="flex flex-col items-center gap-3">
+              <div style={{ width: 62, height: 62, borderRadius: 999, overflow: "hidden", background: "#fff", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {logo2?.logoUrl || logo1?.logoUrl ? <img src={(logo2 || logo1).logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Building2 size={28} color={C.greenDark} />}
+              </div>
+              <div className="font-display text-center" style={{ fontSize: 11, fontWeight: 700, color: C.greenDark }}>{(logo2 || logo1) ? (logo2 || logo1).nom : "COMIX-CI"}</div>
+              <div className="font-body text-center" style={{ fontSize: 8, color: C.slate }}>Carte {theme.label.toLowerCase()} — n° {numero || "—"}</div>
             </div>
           )}
-          <div className="font-body text-center" style={{ fontSize: 8.5, color: C.slate, lineHeight: 1.3 }}>
-            Scannez et Payez par Mobile-Pay — <strong style={{ color: C.ink }}>{member.prenoms} {member.nom}</strong>
-          </div>
         </div>
       )}
     </div>
@@ -1058,10 +1073,10 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
   );
 }
 
-function MemberCard({ member, category, logo1, logo2, numero, ficheValue, infoFields, initialFace = "recto" }) {
+function MemberCard({ member, category, logo1, logo2, numero, ficheValue, infoFields, versoQr, initialFace = "recto" }) {
   const [flipped, setFlipped] = useState(initialFace === "verso");
   if (!member) return null;
-  const props = { member, category, logo1, logo2, numero, ficheValue, infoFields };
+  const props = { member, category, logo1, logo2, numero, ficheValue, infoFields, versoQr };
   return (
     <div className="flex flex-col items-center gap-3">
       <div className="no-print">
@@ -1104,8 +1119,8 @@ function MemberCardSheet({ items, title }) {
           )}
           {group.map((it) => (
             <div key={it.key} className="flex items-center gap-4" style={{ borderBottom: `1px dashed ${C.border}`, paddingBottom: 8 }}>
-              <MemberCardFace member={it.member} category={it.category} logo1={it.logo1} logo2={it.logo2} numero={it.numero} ficheValue={it.ficheValue} infoFields={it.infoFields} side="recto" scale={MEMBER_SHEET_SCALE} />
-              <MemberCardFace member={it.member} category={it.category} logo1={it.logo1} logo2={it.logo2} numero={it.numero} ficheValue={it.ficheValue} infoFields={it.infoFields} side="verso" scale={MEMBER_SHEET_SCALE} />
+              <MemberCardFace member={it.member} category={it.category} logo1={it.logo1} logo2={it.logo2} numero={it.numero} ficheValue={it.ficheValue} infoFields={it.infoFields} versoQr={it.versoQr} side="recto" scale={MEMBER_SHEET_SCALE} />
+              <MemberCardFace member={it.member} category={it.category} logo1={it.logo1} logo2={it.logo2} numero={it.numero} ficheValue={it.ficheValue} infoFields={it.infoFields} versoQr={it.versoQr} side="verso" scale={MEMBER_SHEET_SCALE} />
               <div className="font-body" style={{ fontSize: 10, color: C.slate }}>{it.name}</div>
             </div>
           ))}
