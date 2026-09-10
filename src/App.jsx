@@ -376,7 +376,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
 
   const [ownerMode, setOwnerMode] = useState(owners.length ? "existing" : "new"); // existing | new
   const [ownerId, setOwnerId] = useState(owners[0]?.id || "");
-  const [newOwner, setNewOwner] = useState({ nom: "", prenoms: "", cni: "", numeroPermis: "", contact1: "", contact2: "", contact3: "", email: "", ville: "", quartier: "", photo: null, qrPaiement: null });
+  const [newOwner, setNewOwner] = useState({ nom: "", prenoms: "", cni: "", numeroPermis: "", contact1: "", contact2: "", contact3: "", email: "", ville: "", quartier: "", photo: null, qrPaiement: null, logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" });
 
   const [driverRows, setDriverRows] = useState([{ mode: drivers.length ? "existing" : "new", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
 
@@ -525,6 +525,10 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
                 <div className="grid grid-cols-2 gap-4">
                   <PhotoUpload value={newOwner.photo} onChange={(v) => setNewOwner({ ...newOwner, photo: v })} label="Photo du propriétaire" />
                   <PhotoUpload value={newOwner.qrPaiement} onChange={(v) => setNewOwner({ ...newOwner, qrPaiement: v })} label="QR code Mobile Money (compte marchand)" shape="square" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <LogoSelector label="Premier collectif (logo en haut à droite)" type={newOwner.logo1Type} id={newOwner.logo1Id} onChange={(t, i) => setNewOwner({ ...newOwner, logo1Type: t, logo1Id: i })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} />
+                  <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={newOwner.logo2Type} id={newOwner.logo2Id} onChange={(t, i) => setNewOwner({ ...newOwner, logo2Type: t, logo2Id: i })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Field label="Nom"><TextInput value={newOwner.nom} onChange={(e) => setNewOwner({ ...newOwner, nom: e.target.value })} /></Field>
@@ -1033,19 +1037,19 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
           </div>
         </div>
       ) : (
-        <div className="flex flex-col h-full items-center justify-center gap-2" style={{ padding: "11px 18px 13px", background: C.cream }}>
+        <div className="flex flex-col h-full items-center justify-center gap-1.5" style={{ padding: "9px 18px 11px", background: C.cream }}>
           {versoQr ? (
             <>
               {member.qrPaiement ? (
-                <div style={{ background: "#fff", borderRadius: 10, padding: 6, border: `1px solid ${C.border}` }}>
-                  <img src={member.qrPaiement} alt="QR Mobile Money" style={{ width: 150, height: 150, objectFit: "contain" }} />
+                <div style={{ background: "#fff", borderRadius: 10, padding: 5, border: `1px solid ${C.border}` }}>
+                  <img src={member.qrPaiement} alt="QR Mobile Money" style={{ width: 142, height: 142, objectFit: "contain" }} />
                 </div>
               ) : (
-                <div className="flex items-center justify-center font-body text-center" style={{ width: 150, height: 150, background: "#fff", borderRadius: 10, border: `1px dashed ${C.border}`, color: C.slate, fontSize: 9, padding: 10 }}>
+                <div className="flex items-center justify-center font-body text-center" style={{ width: 142, height: 142, background: "#fff", borderRadius: 10, border: `1px dashed ${C.border}`, color: C.slate, fontSize: 9, padding: 10 }}>
                   QR Mobile Money non renseigné
                 </div>
               )}
-              <div className="font-body text-center" style={{ fontSize: 8.5, color: C.slate, lineHeight: 1.3 }}>
+              <div className="font-body text-center" style={{ fontSize: 8.5, color: C.slate, lineHeight: 1.25 }}>
                 Scannez et Payez par Mobile-Pay — <strong style={{ color: C.ink }}>{member.prenoms} {member.nom}</strong>
               </div>
             </>
