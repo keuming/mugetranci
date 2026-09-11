@@ -75,8 +75,17 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Méthode non autorisée" });
   }
 
-  const auth = requireAuth(req, res);
+  let auth = requireAuth(req, res);
   if (!auth) return;
+
+  // Un agent enrôleur hérite exactement du périmètre de visibilité de son
+  // entité de rattachement — on réutilise donc telle quelle toute la
+  // logique de portée ci-dessous en substituant son rôle "virtuel".
+  if (auth.role === "agent") {
+    if (auth.parentType === "syndicat") auth = { role: "syndicat", syndicatId: auth.parentId };
+    else if (auth.parentType === "commission_mixte") auth = { role: "commission_mixte", commissionMixteId: auth.parentId };
+    else auth = { role: "admin" };
+  }
 
   const [
     allOwners, allDrivers, allElements, allVehicules, junctions, historiques,

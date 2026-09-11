@@ -1499,7 +1499,8 @@ function LoginScreen({ onLogin }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Connexion impossible.");
-      onLogin(data.token, { role: data.role, commissionMixteId: data.commissionMixteId || null, syndicatId: data.syndicatId || null, nom: data.nom });
+      const { token: _t, ...authInfo } = data; // tout ce que le serveur renvoie sert de contexte d'authentification
+      onLogin(data.token, authInfo);
     } catch (err) {
       setError(err.message || "Connexion impossible.");
     } finally {
@@ -1592,6 +1593,10 @@ function Dashboard({ auth, onLogout }) {
   const [selectedElementIds, setSelectedElementIds] = useState([]);
   const [elements, setElements] = useState([]);
   const [showElementFormFor, setShowElementFormFor] = useState(false);
+  const [agentsList, setAgentsList] = useState([]);
+  const [agentsLoaded, setAgentsLoaded] = useState(false);
+  const [showAgentFormFor, setShowAgentFormFor] = useState(false);
+  const [editAgent, setEditAgent] = useState(null);
   const [showDriverFormFor, setShowDriverFormFor] = useState(false);
   const [editDriver, setEditDriver] = useState(null);
   const [editElement, setEditElement] = useState(null);
@@ -1676,6 +1681,12 @@ function Dashboard({ auth, onLogout }) {
     return () => { cancelled = true; };
   }, []);
 
+  React.useEffect(() => {
+    if (page === "agents" && !agentsLoaded && (auth.role === "admin" || auth.role === "commission_mixte" || auth.role === "syndicat")) {
+      loadAgents().catch((err) => console.error("loadAgents:", err));
+    }
+  }, [page, agentsLoaded]);
+
   const openFiche = (v) => {
     setFicheVehicle(v);
     window.history.pushState({}, "", `?vehicule=${v.id}`);
@@ -1758,6 +1769,25 @@ function Dashboard({ auth, onLogout }) {
     await apiDelete(`/api/elements?id=${elementId}`);
     setElements((s) => s.filter((e) => e.id !== elementId));
   };
+  const loadAgents = async () => {
+    const rows = await apiGet("/api/agents");
+    setAgentsList(rows);
+    setAgentsLoaded(true);
+  };
+  const addAgent = async (payload) => {
+    const created = await apiPost("/api/agents", payload);
+    setAgentsList((s) => [...s, created]);
+    return created;
+  };
+  const updateAgent = async (agentId, payload) => {
+    const updated = await apiPatch(`/api/agents?id=${agentId}`, payload);
+    setAgentsList((s) => s.map((a) => (a.id === agentId ? updated : a)));
+    return updated;
+  };
+  const deleteAgent = async (agentId) => {
+    await apiDelete(`/api/agents?id=${agentId}`);
+    setAgentsList((s) => s.filter((a) => a.id !== agentId));
+  };
   const updateVehiclePhoto = async (vehiculeId, photoDataUrl) => {
     const updated = await apiPatch(`/api/vehicules?id=${vehiculeId}`, { photo: photoDataUrl });
     // La route renvoie une forme "plate" (sans documents/chauffeurIds imbriqués) :
@@ -1776,7 +1806,7 @@ function Dashboard({ auth, onLogout }) {
     setVehicles((s) => s.filter((v) => v.id !== vehiculeId));
   };
   const addAchat = async (payload) => {
-    const created = await apiPost("/api/carburant", payload);
+    const created = await apiPost("/api/vehicules?resource=carburant", payload);
     setAchats((s) => [created, ...s]);
     return created;
   };
@@ -1881,18 +1911,28 @@ function Dashboard({ auth, onLogout }) {
   });
   const searchResults = searchQuery ? vehicles.filter((v) => vehicleMatchesSearch(v, searchQuery)) : [];
 
-  const nav = [
-    { key: "dashboard", label: "Tableau de bord", icon: <Home size={17} /> },
-    { key: "vehicles", label: "Véhicules", icon: <Car size={17} /> },
-    { key: "owners", label: "Transporteurs", icon: <User size={17} /> },
-    { key: "drivers", label: "Chauffeurs", icon: <Users size={17} /> },
-    { key: "elements", label: "Éléments", icon: <BadgeCheck size={17} /> },
-    ...(auth.role === "admin" ? [{ key: "commissions", label: "Commissions Mixtes", icon: <MapPin size={17} /> }] : []),
-    ...(auth.role === "admin" || auth.role === "commission_mixte" ? [{ key: "syndicats", label: "Collectifs (Syndicats)", icon: <Building2 size={17} /> }] : []),
-    ...(auth.role === "syndicat" ? [{ key: "garesroutieres", label: "Gares Routières", icon: <MapPin size={17} /> }] : []),
-    { key: "carburant", label: "Carburant", icon: <Fuel size={17} /> },
-    { key: "alerts", label: "Alertes documents", icon: <Bell size={17} />, count: critical.length },
-  ];
+  const isAgent = auth.role === "agent";
+  const nav = isAgent
+    ? [
+        { key: "dashboard", label: "Tableau de bord", icon: <Home size={17} /> },
+        { key: "vehicles", label: "Véhicules", icon: <Car size={17} /> },
+        { key: "owners", label: "Transporteurs", icon: <User size={17} /> },
+        { key: "drivers", label: "Chauffeurs", icon: <Users size={17} /> },
+        { key: "elements", label: "Éléments", icon: <BadgeCheck size={17} /> },
+      ]
+    : [
+        { key: "dashboard", label: "Tableau de bord", icon: <Home size={17} /> },
+        { key: "vehicles", label: "Véhicules", icon: <Car size={17} /> },
+        { key: "owners", label: "Transporteurs", icon: <User size={17} /> },
+        { key: "drivers", label: "Chauffeurs", icon: <Users size={17} /> },
+        { key: "elements", label: "Éléments", icon: <BadgeCheck size={17} /> },
+        ...(auth.role === "admin" ? [{ key: "commissions", label: "Commissions Mixtes", icon: <MapPin size={17} /> }] : []),
+        ...(auth.role === "admin" || auth.role === "commission_mixte" ? [{ key: "syndicats", label: "Collectifs (Syndicats)", icon: <Building2 size={17} /> }] : []),
+        ...(auth.role === "syndicat" ? [{ key: "garesroutieres", label: "Gares Routières", icon: <MapPin size={17} /> }] : []),
+        ...(auth.role === "admin" || auth.role === "commission_mixte" || auth.role === "syndicat" ? [{ key: "agents", label: "Agents enrôleurs", icon: <BadgeCheck size={17} /> }] : []),
+        { key: "carburant", label: "Carburant", icon: <Fuel size={17} /> },
+        { key: "alerts", label: "Alertes documents", icon: <Bell size={17} />, count: critical.length },
+      ];
 
   return (
     <div className="font-body" style={{ background: C.cream, minHeight: "100vh", color: C.ink }}>
@@ -1929,7 +1969,7 @@ function Dashboard({ auth, onLogout }) {
               <div>
                 <div className="font-body" style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>{auth.nom}</div>
                 <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 10 }}>
-                  {auth.role === "admin" ? "Administrateur général" : auth.role === "commission_mixte" ? "Commission Mixte" : "Collectif (Syndicat)"}
+                  {auth.role === "admin" ? "Administrateur général" : auth.role === "commission_mixte" ? "Commission Mixte" : auth.role === "syndicat" ? "Collectif (Syndicat)" : auth.role === "gare" ? "Gare Routière" : "Agent enrôleur"}
                 </div>
               </div>
               <div className="flex items-center gap-1">
@@ -2356,6 +2396,62 @@ function Dashboard({ auth, onLogout }) {
                 </div>
               )}
             </div>
+            </div>
+          )}
+
+          {page === "agents" && (
+            <div className="flex flex-col gap-4">
+              <div className="flex justify-end">
+                <button onClick={() => setShowAgentFormFor(true)} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: C.orange, color: "#fff" }}>
+                  <Plus size={16} /> Ajouter un agent
+                </button>
+              </div>
+              <p className="font-body text-xs px-3 py-2.5 rounded-lg" style={{ color: C.slate, background: C.cream }}>
+                💡 Un agent enrôleur peut créer des dossiers (véhicule, transporteur, chauffeur) et des éléments, et générer leurs cartes de membre — il n'a accès à aucune autre fonctionnalité d'administration.
+              </p>
+              <div className="grid grid-cols-3 gap-4">
+                {agentsList.map((a) => (
+                  <div key={a.id} style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 18 }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <div className="font-semibold text-sm">{a.prenoms} {a.nom}</div>
+                        <div className="text-xs" style={{ color: C.slate }}>{a.login}</div>
+                      </div>
+                      <span className="font-body text-xs font-semibold px-2 py-1 rounded-full" style={{ background: a.actif ? C.greenLight : C.redLight, color: a.actif ? C.greenDark : C.red }}>
+                        {a.actif ? "Actif" : "Désactivé"}
+                      </span>
+                    </div>
+                    {a.contact1 && <div className="flex items-center gap-2 font-body text-xs mb-3" style={{ color: C.slate }}><Phone size={13} /> {a.contact1}</div>}
+                    <div className="flex items-center justify-between">
+                      <button
+                        onClick={() => updateAgent(a.id, { actif: !a.actif })}
+                        className="font-body text-xs font-semibold px-3 py-1.5 rounded-lg"
+                        style={{ background: a.actif ? C.redLight : C.greenLight, color: a.actif ? C.red : C.greenDark }}
+                      >
+                        {a.actif ? "Désactiver" : "Réactiver"}
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setEditAgent(a)} title="Modifier" style={{ color: C.slate }}><Pencil size={14} /></button>
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm(`Supprimer l'agent "${a.prenoms} ${a.nom}" ?`)) return;
+                            try { await deleteAgent(a.id); } catch (err) { alert(err.message || "Suppression impossible."); }
+                          }}
+                          title="Supprimer"
+                          style={{ color: C.red }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {agentsLoaded && agentsList.length === 0 && (
+                  <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 24 }} className="font-body text-sm text-center col-span-3">
+                    <span style={{ color: C.slate }}>Aucun agent enrôleur pour l'instant.</span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -2831,13 +2927,20 @@ function Dashboard({ auth, onLogout }) {
               onCancel={() => setShowProfileForm(false)}
               onSave={async (payload) => { await updateSyndicat(auth.syndicatId, payload); setShowProfileForm(false); }}
             />
-          ) : (
+          ) : auth.role === "gare" ? (
             <GareRoutiereForm
               syndicat={syndicats.find((s) => s.id === auth.syndicatId) || { nom: "" }}
               initialGare={garesRoutieres.find((g) => g.id === auth.gareRoutiereId)}
               onCancel={() => setShowProfileForm(false)}
               onSave={async (payload) => { await updateGareRoutiere(auth.gareRoutiereId, payload); setShowProfileForm(false); }}
             />
+          ) : (
+            <div className="font-body text-sm flex flex-col gap-3" style={{ color: C.slate }}>
+              <p>Vos informations (identifiant, code PIN) sont gérées par votre structure de rattachement — contactez-la pour toute modification.</p>
+              <div className="flex justify-end pt-2">
+                <button onClick={() => setShowProfileForm(false)} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ background: C.green, color: "#fff" }}>Fermer</button>
+              </div>
+            </div>
           )}
         </Modal>
       )}
@@ -2852,6 +2955,14 @@ function Dashboard({ auth, onLogout }) {
 
       {editDriver && <Modal onClose={() => setEditDriver(null)} title={`Modifier — ${editDriver.prenoms} ${editDriver.nom}`} wide>
         <DriverForm initialDriver={editDriver} commissionsMixtes={commissionsMixtes} syndicats={syndicats} onCancel={() => setEditDriver(null)} onSave={async (payload) => { await updateDriver(editDriver.id, payload); setEditDriver(null); }} />
+      </Modal>}
+
+      {showAgentFormFor && <Modal onClose={() => setShowAgentFormFor(false)} title="Ajouter un agent enrôleur">
+        <AgentForm onCancel={() => setShowAgentFormFor(false)} onSave={async (payload) => { await addAgent(payload); setShowAgentFormFor(false); }} />
+      </Modal>}
+
+      {editAgent && <Modal onClose={() => setEditAgent(null)} title={`Modifier — ${editAgent.prenoms} ${editAgent.nom}`}>
+        <AgentForm initialAgent={editAgent} onCancel={() => setEditAgent(null)} onSave={async (payload) => { await updateAgent(editAgent.id, payload); setEditAgent(null); }} />
       </Modal>}
 
       {showElementFormFor && <Modal onClose={() => setShowElementFormFor(false)} title="Ajouter un élément" wide>
@@ -2900,7 +3011,7 @@ function Dashboard({ auth, onLogout }) {
    pompiste : sélection du chauffeur → carte grise + contact affichés
    automatiquement → saisie du volume et du montant)
    ============================================================ */
-const FUEL_COMMISSION_RATE = 0.02; // doit rester cohérent avec api/carburant.js
+const FUEL_COMMISSION_RATE = 0.02; // doit rester cohérent avec handleCarburant dans api/vehicules.js
 
 function FuelPurchaseForm({ drivers, vehicles, onCancel, onSave }) {
   const [chauffeurId, setChauffeurId] = useState(drivers[0]?.id || "");
@@ -3439,6 +3550,59 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, garesRoutie
         <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
         <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
           <Check size={16} /> {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Enregistrer l'élément"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   AGENT ENRÔLEUR — compte individuel créé depuis une commission
+   mixte, un collectif (syndicat), ou l'admin général. Rôle unique :
+   enrôler des membres et générer leurs cartes.
+   ============================================================ */
+function AgentForm({ initialAgent, onCancel, onSave }) {
+  const isEdit = !!initialAgent;
+  const [nom, setNom] = useState(initialAgent?.nom || "");
+  const [prenoms, setPrenoms] = useState(initialAgent?.prenoms || "");
+  const [contact1, setContact1] = useState(initialAgent?.contact1 || "");
+  const [login, setLogin] = useState(initialAgent?.login || "");
+  const [pinCode, setPinCode] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const canSave = nom && prenoms && login && (isEdit ? true : pinCode.length === 4) && !saving;
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const payload = { nom, prenoms, contact1, login };
+      if (pinCode) payload.pinCode = pinCode;
+      await onSave(payload);
+    } catch (err) {
+      setError(err.message || "Erreur lors de l'enregistrement.");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
+        <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
+        <Field label="Contact"><TextInput value={contact1} onChange={(e) => setContact1(e.target.value)} /></Field>
+        <Field label="Identifiant de connexion"><TextInput value={login} onChange={(e) => setLogin(e.target.value)} placeholder="ex. numéro de téléphone" /></Field>
+        <Field label={isEdit ? "Nouveau code PIN (laisser vide pour ne pas changer)" : "Code PIN (4 chiffres)"}>
+          <TextInput value={pinCode} onChange={(e) => setPinCode(e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="••••" />
+        </Field>
+      </div>
+
+      <div className="flex items-center justify-end gap-3 pt-2">
+        {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
+        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
+        <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
+          <Check size={16} /> {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Créer l'agent"}
         </button>
       </div>
     </div>

@@ -59,6 +59,11 @@ export default async function handler(req, res) {
         values.creatorId = auth.gareRoutiereId;
         const [gare] = await db.select().from(garesRoutieres).where(eq(garesRoutieres.id, auth.gareRoutiereId));
         if (gare) values.syndicatId = gare.syndicatId; // compte aussi dans les effectifs du syndicat parent
+      } else if (auth.role === "agent") {
+        // Un agent enrôleur agit au nom de son entité de rattachement.
+        values.creatorType = auth.parentType;
+        values.creatorId = auth.parentId;
+        if (auth.parentType === "syndicat") values.syndicatId = auth.parentId;
       } else {
         values.creatorType = "admin";
       }

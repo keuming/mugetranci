@@ -56,6 +56,10 @@ export default async function handler(req, res) {
         values.creatorId = auth.gareRoutiereId;
         const [gare] = await db.select().from(garesRoutieres).where(eq(garesRoutieres.id, auth.gareRoutiereId));
         if (gare) values.syndicatId = gare.syndicatId;
+      } else if (auth.role === "agent") {
+        values.creatorType = auth.parentType;
+        values.creatorId = auth.parentId;
+        if (auth.parentType === "syndicat") values.syndicatId = auth.parentId;
       } else {
         values.creatorType = "admin";
       }

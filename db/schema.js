@@ -210,6 +210,25 @@ export const garesRoutieres = pgTable("gares_routieres", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+/* ---------- Agents enrôleurs (application mobile) ----------
+   Comptes individuels créés par un dashboard (commission mixte,
+   syndicat, admin général) ou par un super admin mobile. Rôle unique :
+   enrôler des membres (transporteur/chauffeur/élément) et générer
+   leurs cartes — aucun droit d'administration. */
+export const agents = pgTable("agents", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  nom: varchar("nom", { length: 120 }).notNull(),
+  prenoms: varchar("prenoms", { length: 120 }).notNull(),
+  contact1: varchar("contact1", { length: 30 }),
+  login: varchar("login", { length: 20 }).notNull().unique(),
+  pinCode: varchar("pin_code", { length: 4 }).notNull(),
+  // Entité de rattachement — détermine le périmètre d'enrôlement de l'agent.
+  parentType: varchar("parent_type", { length: 20 }).notNull(), // commission_mixte | syndicat | admin
+  parentId: uuid("parent_id"), // id de la commission/du syndicat — null si parentType = admin
+  actif: boolean("actif").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const affectations = pgTable("affectations", {
   id: uuid("id").defaultRandom().primaryKey(),
   vehiculeId: uuid("vehicule_id").references(() => vehicules.id).notNull(),
