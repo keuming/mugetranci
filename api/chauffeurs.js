@@ -108,6 +108,10 @@ export default async function handler(req, res) {
     if ("permisDateFin" in body) patch.permisDateFin = body.permisDateFin;
     if ("logo1Type" in body) { patch.logo1Type = body.logo1Type || null; patch.logo1Id = body.logo1Id || null; }
     if ("logo2Type" in body) { patch.logo2Type = body.logo2Type || null; patch.logo2Id = body.logo2Id || null; }
+    if ("carteImprimee" in body) {
+      patch.carteImprimee = !!body.carteImprimee;
+      patch.carteImprimeeAt = body.carteImprimee ? new Date() : null;
+    }
 
     if (Object.keys(patch).length === 0) {
       return res.status(400).json({ error: "Aucun champ à mettre à jour" });

@@ -48,6 +48,8 @@ export const proprietaires = pgTable("proprietaires", {
   prenoms: varchar("prenoms", { length: 120 }).notNull(),
   cni: varchar("cni", { length: 40 }).notNull(),
   carteTransporteurNumero: varchar("carte_transporteur_numero", { length: 60 }),
+  carteImprimee: boolean("carte_imprimee").default(false).notNull(), // archivage — carte deja imprimee, masquee de la file des nouvelles cartes
+  carteImprimeeAt: timestamp("carte_imprimee_at"),
   numeroPermis: varchar("numero_permis", { length: 60 }),
   contact1: varchar("contact1", { length: 30 }),
   contact2: varchar("contact2", { length: 30 }),
@@ -90,6 +92,8 @@ export const chauffeurs = pgTable("chauffeurs", {
   photoUrl: text("photo_url"),
   qrPaiementUrl: text("qr_paiement_url"),
   numeroCarte: varchar("numero_carte", { length: 20 }), // généré automatiquement, préfixe C
+  carteImprimee: boolean("carte_imprimee").default(false).notNull(),
+  carteImprimeeAt: timestamp("carte_imprimee_at"),
   syndicatId: uuid("syndicat_id"),
   gareRoutiereId: uuid("gare_routiere_id"),
   creatorType: varchar("creator_type", { length: 20 }),
@@ -117,6 +121,8 @@ export const elements = pgTable("elements", {
   photoUrl: text("photo_url"),
   qrPaiementUrl: text("qr_paiement_url"),
   numeroCarte: varchar("numero_carte", { length: 20 }), // généré automatiquement, préfixe E
+  carteImprimee: boolean("carte_imprimee").default(false).notNull(),
+  carteImprimeeAt: timestamp("carte_imprimee_at"),
   syndicatId: uuid("syndicat_id"),
   gareRoutiereId: uuid("gare_routiere_id"),
   ligneId: uuid("ligne_id"),

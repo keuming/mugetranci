@@ -109,6 +109,10 @@ export default async function handler(req, res) {
     if ("email" in body) patch.email = body.email;
     if ("logo1Type" in body) { patch.logo1Type = body.logo1Type || null; patch.logo1Id = body.logo1Id || null; }
     if ("logo2Type" in body) { patch.logo2Type = body.logo2Type || null; patch.logo2Id = body.logo2Id || null; }
+    if ("carteImprimee" in body) {
+      patch.carteImprimee = !!body.carteImprimee;
+      patch.carteImprimeeAt = body.carteImprimee ? new Date() : null;
+    }
     if ("gareRoutiereId" in body) patch.gareRoutiereId = body.gareRoutiereId || null;
     if ("ligneId" in body) patch.ligneId = body.ligneId || null;
 

@@ -1596,6 +1596,9 @@ function Dashboard({ auth, onLogout }) {
   const [agentsList, setAgentsList] = useState([]);
   const [agentsLoaded, setAgentsLoaded] = useState(false);
   const [showAgentFormFor, setShowAgentFormFor] = useState(false);
+  const [showOwnersArchive, setShowOwnersArchive] = useState(false);
+  const [showDriversArchive, setShowDriversArchive] = useState(false);
+  const [showElementsArchive, setShowElementsArchive] = useState(false);
   const [editAgent, setEditAgent] = useState(null);
   const [showDriverFormFor, setShowDriverFormFor] = useState(false);
   const [editDriver, setEditDriver] = useState(null);
@@ -2234,19 +2237,29 @@ function Dashboard({ auth, onLogout }) {
             </SectionCard>
           )}
 
-          {page === "owners" && (
+          {page === "owners" && (() => {
+            const visibleOwners = owners.filter((o) => !!o.carteImprimee === showOwnersArchive);
+            return (
             <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <button onClick={() => { setShowOwnersArchive(false); setSelectedOwnerIds([]); }} className="font-body text-xs font-semibold px-3.5 py-2 rounded-full" style={{ background: !showOwnersArchive ? C.orangeLight : "transparent", color: !showOwnersArchive ? C.orangeDark : C.slate, border: `1px solid ${!showOwnersArchive ? C.orange : C.border}` }}>
+                  Nouvelles cartes ({owners.filter((o) => !o.carteImprimee).length})
+                </button>
+                <button onClick={() => { setShowOwnersArchive(true); setSelectedOwnerIds([]); }} className="font-body text-xs font-semibold px-3.5 py-2 rounded-full" style={{ background: showOwnersArchive ? C.orangeLight : "transparent", color: showOwnersArchive ? C.orangeDark : C.slate, border: `1px solid ${showOwnersArchive ? C.orange : C.border}` }}>
+                  Archives — cartes imprimées ({owners.filter((o) => o.carteImprimee).length})
+                </button>
+              </div>
               <div className="flex items-center justify-between px-4 py-3 rounded-lg" style={{ background: "#fff", border: `1px solid ${C.border}` }}>
                 <div className="font-body text-sm" style={{ color: C.slate }}>
                   {selectedOwnerIds.length > 0 ? `${selectedOwnerIds.length} transporteur${selectedOwnerIds.length > 1 ? "s" : ""} sélectionné${selectedOwnerIds.length > 1 ? "s" : ""}` : "Sélectionnez des transporteurs pour générer une planche de cartes à imprimer"}
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setSelectedOwnerIds(selectedOwnerIds.length === owners.length ? [] : owners.map((o) => o.id))}
+                    onClick={() => setSelectedOwnerIds(selectedOwnerIds.length === visibleOwners.length ? [] : visibleOwners.map((o) => o.id))}
                     className="font-body text-xs font-semibold px-3 py-1.5 rounded-full"
                     style={{ border: `1px solid ${C.border}`, color: C.ink }}
                   >
-                    {selectedOwnerIds.length === owners.length && owners.length > 0 ? "Tout désélectionner" : "Tout sélectionner"}
+                    {selectedOwnerIds.length === visibleOwners.length && visibleOwners.length > 0 ? "Tout désélectionner" : "Tout sélectionner"}
                   </button>
                   <button
                     onClick={() => window.print()}
@@ -2264,7 +2277,7 @@ function Dashboard({ auth, onLogout }) {
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-4">
-              {owners.map((o) => {
+              {visibleOwners.map((o) => {
                 const ownedCount = vehicles.filter((v) => v.proprietaireId === o.id).length;
                 const isSelected = selectedOwnerIds.includes(o.id);
                 return (
@@ -2292,9 +2305,16 @@ function Dashboard({ auth, onLogout }) {
                     </div>
                     <div className="flex items-center justify-between">
                       <button onClick={() => setCardOwner(o)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: C.greenLight, color: C.greenDark }}>
-                        <CreditCard size={13} /> Carte transporteur
+                        <CreditCard size={13} /> {showOwnersArchive ? "Réimprimer (duplicata)" : "Carte transporteur"}
                       </button>
                       <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => updateOwner(o.id, { carteImprimee: !showOwnersArchive })}
+                          title={showOwnersArchive ? "Restaurer parmi les nouvelles cartes" : "Archiver — carte imprimée"}
+                          style={{ color: showOwnersArchive ? C.greenDark : C.slate }}
+                        >
+                          {showOwnersArchive ? <RotateCw size={14} /> : <FileText size={14} />}
+                        </button>
                         <button onClick={() => setEditMember(o)} title="Modifier" style={{ color: C.slate }}><Pencil size={14} /></button>
                         <button
                           onClick={async () => {
@@ -2311,23 +2331,39 @@ function Dashboard({ auth, onLogout }) {
                   </div>
                 );
               })}
+              {visibleOwners.length === 0 && (
+                <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 24 }} className="font-body text-sm text-center col-span-3">
+                  <span style={{ color: C.slate }}>{showOwnersArchive ? "Aucune carte archivée." : "Aucune nouvelle carte à imprimer."}</span>
+                </div>
+              )}
             </div>
             </div>
-          )}
+            );
+          })()}
 
-          {page === "elements" && (
+          {page === "elements" && (() => {
+            const visibleElements = elements.filter((e) => !!e.carteImprimee === showElementsArchive);
+            return (
             <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <button onClick={() => { setShowElementsArchive(false); setSelectedElementIds([]); }} className="font-body text-xs font-semibold px-3.5 py-2 rounded-full" style={{ background: !showElementsArchive ? C.orangeLight : "transparent", color: !showElementsArchive ? C.orangeDark : C.slate, border: `1px solid ${!showElementsArchive ? C.orange : C.border}` }}>
+                  Nouvelles cartes ({elements.filter((e) => !e.carteImprimee).length})
+                </button>
+                <button onClick={() => { setShowElementsArchive(true); setSelectedElementIds([]); }} className="font-body text-xs font-semibold px-3.5 py-2 rounded-full" style={{ background: showElementsArchive ? C.orangeLight : "transparent", color: showElementsArchive ? C.orangeDark : C.slate, border: `1px solid ${showElementsArchive ? C.orange : C.border}` }}>
+                  Archives — cartes imprimées ({elements.filter((e) => e.carteImprimee).length})
+                </button>
+              </div>
               <div className="flex items-center justify-between px-4 py-3 rounded-lg" style={{ background: "#fff", border: `1px solid ${C.border}` }}>
                 <div className="font-body text-sm" style={{ color: C.slate }}>
                   {selectedElementIds.length > 0 ? `${selectedElementIds.length} élément${selectedElementIds.length > 1 ? "s" : ""} sélectionné${selectedElementIds.length > 1 ? "s" : ""}` : "Sélectionnez des éléments pour générer une planche de cartes à imprimer"}
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setSelectedElementIds(selectedElementIds.length === elements.length ? [] : elements.map((e) => e.id))}
+                    onClick={() => setSelectedElementIds(selectedElementIds.length === visibleElements.length ? [] : visibleElements.map((e) => e.id))}
                     className="font-body text-xs font-semibold px-3 py-1.5 rounded-full"
                     style={{ border: `1px solid ${C.border}`, color: C.ink }}
                   >
-                    {selectedElementIds.length === elements.length && elements.length > 0 ? "Tout désélectionner" : "Tout sélectionner"}
+                    {selectedElementIds.length === visibleElements.length && visibleElements.length > 0 ? "Tout désélectionner" : "Tout sélectionner"}
                   </button>
                   <button
                     onClick={() => window.print()}
@@ -2345,7 +2381,7 @@ function Dashboard({ auth, onLogout }) {
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-4">
-              {elements.map((e) => {
+              {visibleElements.map((e) => {
                 const isSelected = selectedElementIds.includes(e.id);
                 return (
                   <div key={e.id} style={{ background: "#fff", border: `1.5px solid ${isSelected ? C.orange : C.border}`, borderRadius: 14, padding: 18, position: "relative" }}>
@@ -2371,9 +2407,16 @@ function Dashboard({ auth, onLogout }) {
                     </div>
                     <div className="flex items-center justify-between">
                       <button onClick={() => setCardElement(e)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: C.greenLight, color: C.greenDark }}>
-                        <CreditCard size={13} /> Carte élément
+                        <CreditCard size={13} /> {showElementsArchive ? "Réimprimer (duplicata)" : "Carte élément"}
                       </button>
                       <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => updateElement(e.id, { carteImprimee: !showElementsArchive })}
+                          title={showElementsArchive ? "Restaurer parmi les nouvelles cartes" : "Archiver — carte imprimée"}
+                          style={{ color: showElementsArchive ? C.greenDark : C.slate }}
+                        >
+                          {showElementsArchive ? <RotateCw size={14} /> : <FileText size={14} />}
+                        </button>
                         <button onClick={() => setEditElement(e)} title="Modifier" style={{ color: C.slate }}><Pencil size={14} /></button>
                         <button
                           onClick={async () => {
@@ -2390,14 +2433,15 @@ function Dashboard({ auth, onLogout }) {
                   </div>
                 );
               })}
-              {elements.length === 0 && (
+              {visibleElements.length === 0 && (
                 <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 24 }} className="font-body text-sm text-center col-span-3">
-                  <span style={{ color: C.slate }}>Aucun élément enregistré.</span>
+                  <span style={{ color: C.slate }}>{showElementsArchive ? "Aucune carte archivée." : "Aucune nouvelle carte à imprimer."}</span>
                 </div>
               )}
             </div>
             </div>
-          )}
+            );
+          })()}
 
           {page === "agents" && (
             <div className="flex flex-col gap-4">
@@ -2455,19 +2499,29 @@ function Dashboard({ auth, onLogout }) {
             </div>
           )}
 
-          {page === "drivers" && (
+          {page === "drivers" && (() => {
+            const visibleDrivers = drivers.filter((d) => !!d.carteImprimee === showDriversArchive);
+            return (
             <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <button onClick={() => { setShowDriversArchive(false); setSelectedDriverIds([]); }} className="font-body text-xs font-semibold px-3.5 py-2 rounded-full" style={{ background: !showDriversArchive ? C.orangeLight : "transparent", color: !showDriversArchive ? C.orangeDark : C.slate, border: `1px solid ${!showDriversArchive ? C.orange : C.border}` }}>
+                  Nouvelles cartes ({drivers.filter((d) => !d.carteImprimee).length})
+                </button>
+                <button onClick={() => { setShowDriversArchive(true); setSelectedDriverIds([]); }} className="font-body text-xs font-semibold px-3.5 py-2 rounded-full" style={{ background: showDriversArchive ? C.orangeLight : "transparent", color: showDriversArchive ? C.orangeDark : C.slate, border: `1px solid ${showDriversArchive ? C.orange : C.border}` }}>
+                  Archives — cartes imprimées ({drivers.filter((d) => d.carteImprimee).length})
+                </button>
+              </div>
               <div className="flex items-center justify-between px-4 py-3 rounded-lg" style={{ background: "#fff", border: `1px solid ${C.border}` }}>
                 <div className="font-body text-sm" style={{ color: C.slate }}>
                   {selectedDriverIds.length > 0 ? `${selectedDriverIds.length} chauffeur${selectedDriverIds.length > 1 ? "s" : ""} sélectionné${selectedDriverIds.length > 1 ? "s" : ""}` : "Sélectionnez des chauffeurs pour générer une planche de cartes à imprimer"}
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setSelectedDriverIds(selectedDriverIds.length === drivers.length ? [] : drivers.map((d) => d.id))}
+                    onClick={() => setSelectedDriverIds(selectedDriverIds.length === visibleDrivers.length ? [] : visibleDrivers.map((d) => d.id))}
                     className="font-body text-xs font-semibold px-3 py-1.5 rounded-full"
                     style={{ border: `1px solid ${C.border}`, color: C.ink }}
                   >
-                    {selectedDriverIds.length === drivers.length && drivers.length > 0 ? "Tout désélectionner" : "Tout sélectionner"}
+                    {selectedDriverIds.length === visibleDrivers.length && visibleDrivers.length > 0 ? "Tout désélectionner" : "Tout sélectionner"}
                   </button>
                   <button
                     onClick={() => window.print()}
@@ -2484,7 +2538,7 @@ function Dashboard({ auth, onLogout }) {
               </div>
 
               <div className="grid grid-cols-3 gap-4">
-              {drivers.map((d) => {
+              {visibleDrivers.map((d) => {
                 const veh = vehicles.find((v) => v.chauffeurIds.includes(d.id));
                 const s = statusOf(d.permisDateFin);
                 const isSelected = selectedDriverIds.includes(d.id);
@@ -2515,7 +2569,14 @@ function Dashboard({ auth, onLogout }) {
                           style={{ background: d.qrPaiement ? C.greenLight : C.amberLight, color: d.qrPaiement ? C.greenDark : C.amber }}
                         />
                         <button onClick={() => openCard(d)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: C.greenLight, color: C.greenDark }}>
-                          <CreditCard size={13} /> Carte membre
+                          <CreditCard size={13} /> {showDriversArchive ? "Réimprimer (duplicata)" : "Carte membre"}
+                        </button>
+                        <button
+                          onClick={() => updateDriver(d.id, { carteImprimee: !showDriversArchive })}
+                          title={showDriversArchive ? "Restaurer parmi les nouvelles cartes" : "Archiver — carte imprimée"}
+                          style={{ color: showDriversArchive ? C.greenDark : C.slate }}
+                        >
+                          {showDriversArchive ? <RotateCw size={14} /> : <FileText size={14} />}
                         </button>
                         <button onClick={() => setEditDriver(d)} title="Modifier" style={{ color: C.slate }}><Pencil size={14} /></button>
                         <button
@@ -2533,9 +2594,15 @@ function Dashboard({ auth, onLogout }) {
                   </div>
                 );
               })}
+              {visibleDrivers.length === 0 && (
+                <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 24 }} className="font-body text-sm text-center col-span-3">
+                  <span style={{ color: C.slate }}>{showDriversArchive ? "Aucune carte archivée." : "Aucune nouvelle carte à imprimer."}</span>
+                </div>
+              )}
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {page === "commissions" && (
             <div className="flex flex-col gap-4">
