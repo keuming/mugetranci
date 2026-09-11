@@ -2901,7 +2901,7 @@ function Dashboard({ auth, onLogout }) {
       </Modal>}
 
       {showMemberFormFor && <Modal onClose={() => setShowMemberFormFor(false)} title="Ajouter un transporteur" wide>
-        <MemberForm commissionsMixtes={commissionsMixtes} syndicats={syndicats} onCancel={() => setShowMemberFormFor(false)} onSave={async (payload) => { await addOwner(payload); setShowMemberFormFor(false); }} />
+        <MemberForm commissionsMixtes={commissionsMixtes} syndicats={syndicats} vehicles={vehicles} onCancel={() => setShowMemberFormFor(false)} onSave={async (payload, vehId) => { const created = await addOwner(payload); if (vehId) await updateVehicle(vehId, { proprietaireId: created.id }); setShowMemberFormFor(false); }} />
       </Modal>}
 
       {showProfileForm && (
@@ -2950,7 +2950,14 @@ function Dashboard({ auth, onLogout }) {
       </Modal>}
 
       {showDriverFormFor && <Modal onClose={() => setShowDriverFormFor(false)} title="Ajouter un chauffeur" wide>
-        <DriverForm commissionsMixtes={commissionsMixtes} syndicats={syndicats} onCancel={() => setShowDriverFormFor(false)} onSave={async (payload) => { await addDriver(payload); setShowDriverFormFor(false); }} />
+        <DriverForm commissionsMixtes={commissionsMixtes} syndicats={syndicats} vehicles={vehicles} onCancel={() => setShowDriverFormFor(false)} onSave={async (payload, vehId) => {
+          const created = await addDriver(payload);
+          if (vehId) {
+            await updateVehicle(vehId, { addChauffeurId: created.id });
+            setVehicles((s) => s.map((v) => (v.id === vehId ? { ...v, chauffeurIds: [...v.chauffeurIds, created.id] } : v)));
+          }
+          setShowDriverFormFor(false);
+        }} />
       </Modal>}
 
       {editDriver && <Modal onClose={() => setEditDriver(null)} title={`Modifier — ${editDriver.prenoms} ${editDriver.nom}`} wide>
@@ -3314,7 +3321,7 @@ function LogoSelector({ label, type, id, onChange, commissionsMixtes, syndicats 
   );
 }
 
-function MemberForm({ initialMember, commissionsMixtes, syndicats, onCancel, onSave }) {
+function MemberForm({ initialMember, commissionsMixtes, syndicats, vehicles, onCancel, onSave }) {
   const isEdit = !!initialMember;
   const [nom, setNom] = useState(initialMember?.nom || "");
   const [prenoms, setPrenoms] = useState(initialMember?.prenoms || "");
@@ -3332,16 +3339,18 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, onCancel, onS
   const [logo1Id, setLogo1Id] = useState(initialMember?.logo1Id || "");
   const [logo2Type, setLogo2Type] = useState(initialMember?.logo2Type || "");
   const [logo2Id, setLogo2Id] = useState(initialMember?.logo2Id || "");
+  const [vehiculeId, setVehiculeId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
+  const vehiculesSansProprietaire = (vehicles || []).filter((v) => !v.proprietaireId);
   const canSave = nom && prenoms && cni && !saving;
 
   const handleSave = async () => {
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id });
+      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id }, vehiculeId || null);
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -3354,6 +3363,15 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, onCancel, onS
         <PhotoUpload value={photo} onChange={setPhoto} label="Photo du transporteur" />
         <PhotoUpload value={qrPaiement} onChange={setQrPaiement} label="QR code Mobile Money (compte marchand)" shape="square" />
       </div>
+      {!isEdit && vehicles && (
+        <Field label="Véhicule à rattacher (optionnel)" hint="Le dossier peut aussi être complété plus tard depuis la fiche du véhicule.">
+          <select style={inputStyle} className="font-body" value={vehiculeId} onChange={(e) => setVehiculeId(e.target.value)}>
+            <option value="">— Aucun pour l'instant —</option>
+            {vehiculesSansProprietaire.map((v) => <option key={v.id} value={v.id}>{v.immatriculation} — {v.carteGrise}</option>)}
+          </select>
+          {vehiculesSansProprietaire.length === 0 && <p className="font-body text-xs mt-1" style={{ color: C.slate }}>Aucun véhicule sans transporteur disponible pour l'instant.</p>}
+        </Field>
+      )}
       {isEdit && initialMember?.carteTransporteurNumero && (
         <p className="font-body text-xs px-3 py-2.5 rounded-lg" style={{ background: C.cream, color: C.slate }}>
           N° carte transporteur (généré automatiquement) : <strong className="font-mono">{initialMember.carteTransporteurNumero}</strong>
@@ -3396,7 +3414,7 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, onCancel, onS
    CHAUFFEUR — formulaire d'ajout/modification autonome, sans passer
    par la création d'un véhicule.
    ============================================================ */
-function DriverForm({ initialDriver, commissionsMixtes, syndicats, onCancel, onSave }) {
+function DriverForm({ initialDriver, commissionsMixtes, syndicats, vehicles, onCancel, onSave }) {
   const isEdit = !!initialDriver;
   const [nom, setNom] = useState(initialDriver?.nom || "");
   const [prenoms, setPrenoms] = useState(initialDriver?.prenoms || "");
@@ -3413,6 +3431,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, onCancel, onS
   const [logo1Id, setLogo1Id] = useState(initialDriver?.logo1Id || "");
   const [logo2Type, setLogo2Type] = useState(initialDriver?.logo2Type || "");
   const [logo2Id, setLogo2Id] = useState(initialDriver?.logo2Id || "");
+  const [vehiculeId, setVehiculeId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
@@ -3422,7 +3441,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, onCancel, onS
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, permisNumero, permisDateFin, contact1, contact2, contact3, email, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id });
+      await onSave({ nom, prenoms, cni, permisNumero, permisDateFin, contact1, contact2, contact3, email, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id }, vehiculeId || null);
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -3435,6 +3454,14 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, onCancel, onS
         <PhotoUpload value={photo} onChange={setPhoto} label="Photo du chauffeur" />
         <PhotoUpload value={qrPaiement} onChange={setQrPaiement} label="QR code Mobile Money (compte marchand)" shape="square" />
       </div>
+      {!isEdit && vehicles && (
+        <Field label="Véhicule à rattacher (optionnel)" hint="Un véhicule peut avoir jusqu'à 3 chauffeurs — le dossier peut aussi être complété plus tard.">
+          <select style={inputStyle} className="font-body" value={vehiculeId} onChange={(e) => setVehiculeId(e.target.value)}>
+            <option value="">— Aucun pour l'instant —</option>
+            {vehicles.map((v) => <option key={v.id} value={v.id}>{v.immatriculation} — {v.carteGrise}</option>)}
+          </select>
+        </Field>
+      )}
       {isEdit && initialDriver?.numeroCarte && (
         <p className="font-body text-xs px-3 py-2.5 rounded-lg" style={{ background: C.cream, color: C.slate }}>
           N° carte chauffeur (généré automatiquement) : <strong className="font-mono">{initialDriver.numeroCarte}</strong>

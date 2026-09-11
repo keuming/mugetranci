@@ -235,18 +235,38 @@ export default async function handler(req, res) {
     if ("categorie" in body) patch.categorie = body.categorie;
     if ("immatriculation" in body) patch.immatriculation = body.immatriculation;
     if ("dateMiseCirculation" in body) patch.dateMiseCirculation = body.dateMiseCirculation || null;
+    if ("proprietaireId" in body) patch.proprietaireId = body.proprietaireId || null;
     if ("visiteTechnique" in documents) patch.visiteTechniqueDateFin = documents.visiteTechnique || null;
     if ("assuranceAuto" in documents) patch.assuranceAutoDateFin = documents.assuranceAuto || null;
     if ("vignette" in documents) patch.vignetteDateFin = documents.vignette || null;
     if ("carteStationnement" in documents) patch.carteStationnementDateFin = documents.carteStationnement || null;
 
-    if (Object.keys(patch).length === 0) {
+    if (Object.keys(patch).length === 0 && !body.addChauffeurId) {
       return res.status(400).json({ error: "Aucun champ à mettre à jour" });
     }
 
     try {
-      const [updated] = await db.update(vehicules).set(patch).where(eq(vehicules.id, id)).returning();
-      if (!updated) return res.status(404).json({ error: "Véhicule introuvable" });
+      let updated;
+      if (Object.keys(patch).length > 0) {
+        // Rattachement d'un nouveau transporteur : on trace le changement
+        // dans l'historique, comme à la création du dossier.
+        if ("proprietaireId" in patch && patch.proprietaireId) {
+          await db.insert(historiqueProprietaires).values({
+            vehiculeId: id,
+            proprietaireId: patch.proprietaireId,
+            depuis: new Date().toISOString().slice(0, 10),
+          });
+        }
+        [updated] = await db.update(vehicules).set(patch).where(eq(vehicules.id, id)).returning();
+        if (!updated) return res.status(404).json({ error: "Véhicule introuvable" });
+      }
+
+      // Rattachement d'un chauffeur supplémentaire au dossier.
+      if (body.addChauffeurId) {
+        await db.insert(vehiculeChauffeurs).values({ vehiculeId: id, chauffeurId: body.addChauffeurId });
+        if (!updated) [updated] = await db.select().from(vehicules).where(eq(vehicules.id, id));
+      }
+
       return res.status(200).json(toApiFlat(updated));
     } catch (err) {
       if (err.code === "23505") {
