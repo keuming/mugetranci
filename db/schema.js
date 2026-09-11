@@ -132,13 +132,13 @@ export const elements = pgTable("elements", {
 /* ---------- Véhicules ---------- */
 export const vehicules = pgTable("vehicules", {
   id: uuid("id").defaultRandom().primaryKey(),
-  marque: varchar("marque", { length: 80 }).notNull(),
-  modele: varchar("modele", { length: 120 }).notNull(),
-  chassis: varchar("chassis", { length: 60 }).notNull().unique(),
-  carteGrise: varchar("carte_grise", { length: 60 }),
+  marque: varchar("marque", { length: 80 }), // optionnel a la creation du dossier — renseignable plus tard
+  modele: varchar("modele", { length: 120 }), // idem
+  chassis: varchar("chassis", { length: 60 }).unique(), // idem
+  carteGrise: varchar("carte_grise", { length: 60 }).notNull(), // obligatoire — pièce d'identité minimale du dossier
   nomCarteGrise: varchar("nom_carte_grise", { length: 160 }),
   categorie: varchar("categorie", { length: 40 }), // VTC, Minibus, Taxi brousse, Taxi compteur…
-  immatriculation: varchar("immatriculation", { length: 30 }).notNull().unique(),
+  immatriculation: varchar("immatriculation", { length: 30 }).notNull().unique(), // obligatoire
   dateMiseCirculation: date("date_mise_circulation"),
   photoUrl: text("photo_url"),
   visiteTechniqueDateFin: date("visite_technique_date_fin"),

@@ -401,9 +401,9 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
   const [saveError, setSaveError] = useState(null);
 
   const stepValid = [
-    !!(marque && modele && chassis && immatriculation) && (!isAdmin || !!syndicatIdSel),
+    !!(carteGrise && immatriculation) && (!isAdmin || !!syndicatIdSel),
     true, // documents are optional at creation time
-    ownerMode === "existing" ? !!ownerId : !!(newOwner.nom && newOwner.prenoms && newOwner.cni),
+    ownerMode === "none" ? true : ownerMode === "existing" ? !!ownerId : !!(newOwner.nom && newOwner.prenoms && newOwner.cni),
     driverRows.every((row) => row.mode === "existing" ? true : !!(row.draft.nom && row.draft.prenoms && row.draft.cni && row.draft.permisNumero && row.draft.permisDateFin)),
     true, // affectation is optional
   ];
@@ -413,7 +413,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
     setSaving(true);
     setSaveError(null);
     try {
-      let finalOwnerId = ownerId;
+      let finalOwnerId = ownerMode === "existing" ? ownerId : "";
       if (ownerMode === "new") {
         const payload = isAdmin && syndicatIdSel ? { ...newOwner, syndicatId: syndicatIdSel } : newOwner;
         const created = await addOwner(payload); // POST /api/proprietaires — id réel renvoyé par Neon
@@ -472,20 +472,21 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
             )}
             <PhotoUpload value={photo} onChange={setPhoto} label="Photo du véhicule" shape="square" />
             <div className="grid grid-cols-2 gap-4 mt-5">
-              <Field label="Marque"><TextInput value={marque} onChange={(e) => setMarque(e.target.value)} placeholder="Toyota" /></Field>
-              <Field label="Modèle"><TextInput value={modele} onChange={(e) => setModele(e.target.value)} placeholder="Hiace 18 places" /></Field>
+              <Field label="Marque (optionnel)"><TextInput value={marque} onChange={(e) => setMarque(e.target.value)} placeholder="Toyota" /></Field>
+              <Field label="Modèle (optionnel)"><TextInput value={modele} onChange={(e) => setModele(e.target.value)} placeholder="Hiace 18 places" /></Field>
               <Field label="Secteur / catégorie de transport">
                 <select style={inputStyle} className="font-body" value={categorie} onChange={(e) => setCategorie(e.target.value)}>
                   <option value="">— Sélectionner —</option>
                   {TRANSPORT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </Field>
-              <Field label="Numéro de châssis"><TextInput value={chassis} onChange={(e) => setChassis(e.target.value)} placeholder="JT731HB0900123456" /></Field>
-              <Field label="Numéro carte grise"><TextInput value={carteGrise} onChange={(e) => setCarteGrise(e.target.value)} placeholder="CG-2024-000000" /></Field>
+              <Field label="Numéro de châssis (optionnel)"><TextInput value={chassis} onChange={(e) => setChassis(e.target.value)} placeholder="JT731HB0900123456" /></Field>
+              <Field label="Numéro carte grise *"><TextInput value={carteGrise} onChange={(e) => setCarteGrise(e.target.value)} placeholder="CG-2024-000000" /></Field>
               <Field label="Nom sur la carte grise" hint="Peut différer du propriétaire actuel"><TextInput value={nomCarteGrise} onChange={(e) => setNomCarteGrise(e.target.value)} placeholder="Nom du titulaire inscrit sur le document" /></Field>
-              <Field label="Numéro d'immatriculation"><TextInput value={immatriculation} onChange={(e) => setImmatriculation(e.target.value)} placeholder="CI 1234 AB 01" /></Field>
+              <Field label="Numéro d'immatriculation *"><TextInput value={immatriculation} onChange={(e) => setImmatriculation(e.target.value)} placeholder="CI 1234 AB 01" /></Field>
               <Field label="1ère mise en circulation"><DateInput value={dateMiseCirculation} onChange={(e) => setDateMiseCirculation(e.target.value)} /></Field>
             </div>
+            <p className="font-body text-xs mt-3" style={{ color: C.slate }}>* Champs obligatoires pour créer le dossier — tout le reste peut être complété plus tard.</p>
           </SectionCard>
         )}
 
@@ -505,12 +506,16 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
 
         {step === 2 && (
           <SectionCard accent={C.orange} icon={<User size={18} />} title="Propriétaire">
+            <p className="font-body text-xs mb-4 px-3 py-2.5 rounded-lg" style={{ color: C.slate, background: C.cream }}>
+              💡 Étape optionnelle — le transporteur peut être ajouté plus tard depuis la fiche du véhicule.
+            </p>
             <div className="flex gap-2 mb-5">
+              <button type="button" onClick={() => setOwnerMode("none")} className="font-body text-xs font-semibold px-3.5 py-2 rounded-full" style={{ background: ownerMode === "none" ? C.orangeLight : "transparent", color: ownerMode === "none" ? C.orangeDark : C.slate, border: `1px solid ${ownerMode === "none" ? C.orange : C.border}` }}>Sans transporteur pour l'instant</button>
               <button type="button" onClick={() => setOwnerMode("existing")} className="font-body text-xs font-semibold px-3.5 py-2 rounded-full" style={{ background: ownerMode === "existing" ? C.orangeLight : "transparent", color: ownerMode === "existing" ? C.orangeDark : C.slate, border: `1px solid ${ownerMode === "existing" ? C.orange : C.border}` }}>Propriétaire existant</button>
               <button type="button" onClick={() => setOwnerMode("new")} className="font-body text-xs font-semibold px-3.5 py-2 rounded-full" style={{ background: ownerMode === "new" ? C.orangeLight : "transparent", color: ownerMode === "new" ? C.orangeDark : C.slate, border: `1px solid ${ownerMode === "new" ? C.orange : C.border}` }}>+ Nouveau propriétaire</button>
             </div>
 
-            {ownerMode === "existing" ? (
+            {ownerMode === "none" ? null : ownerMode === "existing" ? (
               owners.length ? (
                 <Field label="Sélectionner un propriétaire">
                   <select style={inputStyle} className="font-body" value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
@@ -564,6 +569,12 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
               </button>
             }
           >
+            <p className="font-body text-xs mb-4 px-3 py-2.5 rounded-lg" style={{ color: C.slate, background: C.cream }}>
+              💡 Étape optionnelle — un ou plusieurs chauffeurs peuvent être ajoutés plus tard depuis la fiche du véhicule.
+            </p>
+            {driverRows.length === 0 && (
+              <p className="font-body text-sm mb-4" style={{ color: C.slate }}>Aucun chauffeur pour l'instant — utilisez "Ajouter un chauffeur" si besoin, ou passez à l'étape suivante.</p>
+            )}
             <div className="flex flex-col gap-5">
               {driverRows.map((row, i) => (
                 <div key={i} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 16 }}>
@@ -572,7 +583,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
                       <button type="button" onClick={() => updateDriverRow(i, { mode: "existing" })} className="font-body text-xs font-semibold px-3 py-1.5 rounded-full" style={{ background: row.mode === "existing" ? C.greenLight : "transparent", color: row.mode === "existing" ? C.greenDark : C.slate, border: `1px solid ${row.mode === "existing" ? C.green : C.border}` }}>Chauffeur existant</button>
                       <button type="button" onClick={() => updateDriverRow(i, { mode: "new" })} className="font-body text-xs font-semibold px-3 py-1.5 rounded-full" style={{ background: row.mode === "new" ? C.greenLight : "transparent", color: row.mode === "new" ? C.greenDark : C.slate, border: `1px solid ${row.mode === "new" ? C.green : C.border}` }}>+ Nouveau chauffeur</button>
                     </div>
-                    {driverRows.length > 1 && (
+                    {driverRows.length > 0 && (
                       <button type="button" onClick={() => removeDriverRow(i)} style={{ color: C.red }} title="Retirer"><Trash2 size={16} /></button>
                     )}
                   </div>
@@ -3572,7 +3583,7 @@ function VehicleEditForm({ vehicle, onCancel, onSave }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  const canSave = marque && modele && chassis && immatriculation && !saving;
+  const canSave = carteGrise && immatriculation && !saving;
 
   const handleSave = async () => {
     setSaving(true);

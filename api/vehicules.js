@@ -31,6 +31,9 @@ function toDbVehicule(body) {
   const { photo, documents = {}, chauffeurIds, historiqueProprietaires: _h, ...rest } = body;
   return {
     ...rest,
+    marque: rest.marque || null,
+    modele: rest.modele || null,
+    chassis: rest.chassis || null, // nullable + unique : jamais de chaîne vide, sinon conflit d'unicité entre dossiers sans châssis renseigné
     photoUrl: photo ?? null,
     visiteTechniqueDateFin: documents.visiteTechnique || null,
     assuranceAutoDateFin: documents.assuranceAuto || null,
@@ -79,14 +82,23 @@ export default async function handler(req, res) {
       const body = req.body || {};
       const { chauffeurIds = [] } = body;
 
-      if (!body.marque || !body.modele || !body.chassis || !body.immatriculation) {
-        return res.status(400).json({ error: "marque, modele, chassis et immatriculation sont requis" });
+      if (!body.carteGrise || !body.immatriculation) {
+        return res.status(400).json({ error: "carteGrise et immatriculation sont requis pour créer le dossier" });
       }
 
       const dbValues = toDbVehicule(body);
       if (auth.role === "syndicat") dbValues.syndicatId = auth.syndicatId;
 
-      const [vehicule] = await db.insert(vehicules).values(dbValues).returning();
+      let vehicule;
+      try {
+        [vehicule] = await db.insert(vehicules).values(dbValues).returning();
+      } catch (err) {
+        if (err.code === "23505") {
+          return res.status(400).json({ error: "Ce numéro de carte grise, de châssis ou d'immatriculation est déjà utilisé par un autre véhicule." });
+        }
+        console.error("POST /api/vehicules:", err);
+        return res.status(500).json({ error: "Erreur lors de la création du dossier." });
+      }
 
       if (body.proprietaireId) {
         await db.insert(historiqueProprietaires).values({
@@ -132,7 +144,7 @@ export default async function handler(req, res) {
     if ("photo" in body) patch.photoUrl = body.photo;
     if ("marque" in body) patch.marque = body.marque;
     if ("modele" in body) patch.modele = body.modele;
-    if ("chassis" in body) patch.chassis = body.chassis;
+    if ("chassis" in body) patch.chassis = body.chassis || null;
     if ("carteGrise" in body) patch.carteGrise = body.carteGrise;
     if ("nomCarteGrise" in body) patch.nomCarteGrise = body.nomCarteGrise;
     if ("categorie" in body) patch.categorie = body.categorie;
