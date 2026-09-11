@@ -916,18 +916,30 @@ const MEMBER_CARD_THEMES = {
     barBottom: `linear-gradient(90deg, ${C.orange} 0%, ${C.green} 55%, ${C.green} 100%)`,
     numColor: C.orangeDark,
     label: "Transporteur agréé",
+    photoShape: "circle",
+    badgeIcon: Car,
+    badgeColor: C.greenDark,
+    footerTint: "#fff",
   },
   chauffeur: {
     barTop: `linear-gradient(90deg, ${C.orange} 0%, ${C.orange} 55%, ${C.green} 100%)`,
     barBottom: `linear-gradient(90deg, ${C.green} 0%, ${C.orange} 55%, ${C.orange} 100%)`,
     numColor: C.greenDark,
     label: "Chauffeur agréé",
+    photoShape: "circle-ring",
+    badgeIcon: RotateCw,
+    badgeColor: C.orangeDark,
+    footerTint: C.orangeLight,
   },
   element: {
     barTop: `linear-gradient(90deg, ${C.green} 0%, ${C.orange} 50%, ${C.green} 100%)`,
     barBottom: `linear-gradient(90deg, ${C.orange} 0%, ${C.green} 50%, ${C.orange} 100%)`,
     numColor: C.ink,
     label: "Élément agréé",
+    photoShape: "squircle",
+    badgeIcon: BadgeCheck,
+    badgeColor: C.ink,
+    footerTint: C.greenLight,
   },
 };
 
@@ -1013,8 +1025,20 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
           </div>
 
           <div className="flex items-center gap-2.5">
-            <div style={{ width: 42, height: 42, borderRadius: 999, overflow: "hidden", background: C.cream, border: `2px solid ${C.border}`, flexShrink: 0 }}>
-              {member.photo ? <img src={member.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-bold text-sm" style={{ color: C.slate }}>{initials(member.nom, member.prenoms)}</div>}
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              <div
+                style={{
+                  width: 42, height: 42,
+                  borderRadius: theme.photoShape === "squircle" ? 11 : 999,
+                  overflow: "hidden", background: C.cream,
+                  border: theme.photoShape === "circle-ring" ? `2px dashed ${theme.badgeColor}` : `2px solid ${C.border}`,
+                }}
+              >
+                {member.photo ? <img src={member.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-bold text-sm" style={{ color: C.slate }}>{initials(member.nom, member.prenoms)}</div>}
+              </div>
+              <div style={{ position: "absolute", bottom: -2, right: -2, width: 17, height: 17, borderRadius: 999, background: theme.badgeColor, border: "2px solid #fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <theme.badgeIcon size={9} color="#fff" />
+              </div>
             </div>
             <div className="font-body">
               <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink, lineHeight: 1.15 }}>{member.prenoms} {member.nom}</div>
@@ -1031,7 +1055,7 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
             ))}
           </div>
 
-          <div className="flex items-end justify-between">
+          <div className="flex items-end justify-between" style={{ background: theme.footerTint, padding: "4px 8px", borderRadius: 8 }}>
             <div className="font-body">
               <div style={{ fontSize: 7.5, color: C.slate }}>N° Carte</div>
               <div className="font-mono" style={{ fontWeight: 700, fontSize: 12, color: theme.numColor }}>{numero || "—"}</div>
