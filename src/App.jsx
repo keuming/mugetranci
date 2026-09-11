@@ -684,8 +684,13 @@ function FicheVehicule({ vehicle, owners, drivers, commissionsMixtes, syndicats,
   const owner = owners.find((o) => o.id === vehicle.proprietaireId);
   const vDrivers = vehicle.chauffeurIds.map((id) => drivers.find((d) => d.id === id)).filter(Boolean);
 
-  // Entête personnalisé selon l'entité qui a créé ce transporteur.
-  const headerEntity = getCreatorEntity(owner, commissionsMixtes, syndicats, garesRoutieres);
+  // Entête personnalisé — même logique que la carte de membre (logos
+  // explicitement choisis, avec repli sur le rattachement syndicat/
+  // commission), peu importe qui a créé ce transporteur.
+  const { syndicat: autoSyndicat, commission: autoCommission } = getMemberHierarchy(owner, commissionsMixtes, syndicats);
+  const logo1 = resolveLogoEntity(owner?.logo1Type, owner?.logo1Id, commissionsMixtes, syndicats) || autoSyndicat;
+  const logo2 = resolveLogoEntity(owner?.logo2Type, owner?.logo2Id, commissionsMixtes, syndicats) || autoCommission;
+  const headerEntity = logo1 || logo2;
   const headerFallbackLabel = "Commissions Mixtes de Côte d'Ivoire — COMIX-CI";
   const headerTitle = headerEntity ? (headerEntity.sigle ? `${headerEntity.nom} — ${headerEntity.sigle}` : headerEntity.nom) : headerFallbackLabel;
 
