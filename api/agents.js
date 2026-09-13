@@ -43,6 +43,9 @@ export default async function handler(req, res) {
       if (!body.nom || !body.prenoms || !body.login || !body.pinCode) {
         return res.status(400).json({ error: "nom, prenoms, login et pinCode sont requis" });
       }
+      if (!/^\d{4}$/.test(body.pinCode)) {
+        return res.status(400).json({ error: "Le code PIN doit comporter exactement 4 chiffres" });
+      }
       const restriction = allowedParent(auth);
       const parentType = restriction ? restriction.parentType : (body.parentType || "admin");
       const parentId = restriction ? restriction.parentId : (body.parentId || null);
@@ -90,7 +93,12 @@ export default async function handler(req, res) {
     if ("prenoms" in body) patch.prenoms = body.prenoms;
     if ("contact1" in body) patch.contact1 = body.contact1;
     if ("login" in body) patch.login = body.login;
-    if ("pinCode" in body && body.pinCode) patch.pinCode = body.pinCode;
+    if ("pinCode" in body && body.pinCode) {
+      if (!/^\d{4}$/.test(body.pinCode)) {
+        return res.status(400).json({ error: "Le code PIN doit comporter exactement 4 chiffres" });
+      }
+      patch.pinCode = body.pinCode;
+    }
     if ("actif" in body) patch.actif = !!body.actif;
 
     if (Object.keys(patch).length === 0) {

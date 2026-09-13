@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { proprietaires, syndicats, garesRoutieres, vehicules, historiqueProprietaires } from "../db/schema.js";
-import { requireAuth } from "../lib/auth.js";
+import { requireAuth, agentPeutGerer } from "../lib/auth.js";
 import { genererNumeroCarte } from "../lib/cards.js";
 
 function toApi(row) {
@@ -90,6 +90,15 @@ export default async function handler(req, res) {
     if (auth.role === "gare") {
       if (p.creatorType === "gare" && p.creatorId === auth.gareRoutiereId) return true;
       res.status(403).json({ error: "Vous ne pouvez modifier que les transporteurs créés par votre gare." });
+      return false;
+    }
+    if (auth.role === "agent") {
+      const ok = await agentPeutGerer(auth, p, async (cmId) => {
+        const rows = await db.select().from(syndicats).where(eq(syndicats.commissionMixteId, cmId));
+        return new Set(rows.map((s) => s.id));
+      });
+      if (ok) return true;
+      res.status(403).json({ error: "Cet enregistrement est hors de votre périmètre." });
       return false;
     }
     if (auth.role === "syndicat") {

@@ -3,7 +3,7 @@ import { db } from "../db/index.js";
 import {
   vehicules, historiqueProprietaires, vehiculeChauffeurs, affectations, achatsCarburant, syndicats, chauffeurs,
 } from "../db/schema.js";
-import { requireAuth } from "../lib/auth.js";
+import { requireAuth, agentPeutGerer } from "../lib/auth.js";
 
 // Taux de commission de la mutuelle sur chaque achat de carburant.
 const COMMISSION_RATE = 0.02; // 2%
@@ -219,6 +219,15 @@ export default async function handler(req, res) {
     }
     const [v] = await db.select().from(vehicules).where(eq(vehicules.id, id));
     if (!v) { res.status(404).json({ error: "Véhicule introuvable" }); return false; }
+    if (auth.role === "agent") {
+      const ok = await agentPeutGerer(auth, v, async (cmId) => {
+        const rows = await db.select().from(syndicats).where(eq(syndicats.commissionMixteId, cmId));
+        return new Set(rows.map((s) => s.id));
+      });
+      if (ok) return true;
+      res.status(403).json({ error: "Ce véhicule est hors de votre périmètre." });
+      return false;
+    }
     if (v.syndicatId !== auth.syndicatId) { res.status(403).json({ error: "Ce véhicule n'appartient pas à votre syndicat." }); return false; }
     return true;
   }
