@@ -197,7 +197,7 @@ function Badge({ status, small }) {
 function Field({ label, children, hint }) {
   return (
     <label className="font-body flex flex-col gap-1.5">
-      <span className="text-xs font-semibold tracking-wide" style={{ color: C.slate }}>{label}</span>
+      <span className="text-xs tracking-wide" style={{ color: C.ink, fontWeight: 800 }}>{label}</span>
       {children}
       {hint && <span className="text-[11px]" style={{ color: C.slate }}>{hint}</span>}
     </label>
@@ -205,14 +205,25 @@ function Field({ label, children, hint }) {
 }
 
 const inputStyle = {
-  border: `1px solid ${C.border}`,
-  borderRadius: 8,
-  padding: "9px 11px",
+  border: `1.5px solid ${C.border}`,
+  borderRadius: 10,
+  padding: "10px 11px",
   fontSize: 14,
+  fontWeight: 600,
   background: "#fff",
   color: C.ink,
   outline: "none",
   width: "100%",
+};
+// Un champ desactive doit se voir : sans cela l'utilisateur tape dessus
+// et croit l'interface bloquee.
+const inputDisabledStyle = {
+  ...inputStyle,
+  background: "#EFEDE6",
+  borderStyle: "dashed",
+  color: C.slate,
+  fontWeight: 500,
+  cursor: "not-allowed",
 };
 
 function TextInput(props) {
@@ -754,7 +765,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
                   </select>
                 </Field>
                 <Field label="Ligne">
-                  <select style={inputStyle} className="font-body" value={ligneId} onChange={(e) => setLigneId(e.target.value)} disabled={!gareRoutiereId}>
+                  <select style={gareRoutiereId ? inputStyle : inputDisabledStyle} className="font-body" value={ligneId} onChange={(e) => setLigneId(e.target.value)} disabled={!gareRoutiereId}>
                     <option value="">— Sélectionner —</option>
                     {lignesDeLaGareChoisie.map((l) => <option key={l.id} value={l.id}>{l.lieuDepart} → {l.lieuArrivee} ({l.cout.toLocaleString("fr-FR")} F)</option>)}
                   </select>
@@ -1839,16 +1850,16 @@ function MobileTile({ icon, label, hint, accent, onClick }) {
     <button
       onClick={onClick}
       className="w-full text-left"
-      style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 18, padding: 18, display: "flex", alignItems: "center", gap: 14 }}
+      style={{ background: "#fff", border: `1.5px solid ${C.border}`, borderLeft: `6px solid ${accent}`, borderRadius: 16, padding: 18, display: "flex", alignItems: "center", gap: 14, boxShadow: "0 2px 10px rgba(11,110,79,0.06)" }}
     >
-      <div style={{ width: 52, height: 52, borderRadius: 14, background: accent + "1A", color: accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      <div style={{ width: 52, height: 52, borderRadius: 15, background: accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 4px 12px ${accent}55` }}>
         {icon}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="font-display" style={{ fontSize: 17, fontWeight: 800, color: C.ink, letterSpacing: -0.2 }}>{label}</div>
-        <div className="font-body" style={{ fontSize: 12.5, color: C.slate }}>{hint}</div>
+        <div className="font-display" style={{ fontSize: 17.5, fontWeight: 800, color: C.ink, letterSpacing: -0.3 }}>{label}</div>
+        <div className="font-body" style={{ fontSize: 12.5, color: C.slate, fontWeight: 600 }}>{hint}</div>
       </div>
-      <ChevronRight size={20} color={C.slate} />
+      <ChevronRight size={20} color={accent} strokeWidth={2.5} />
     </button>
   );
 }
@@ -1856,8 +1867,8 @@ function MobileTile({ icon, label, hint, accent, onClick }) {
 function MobileField({ label, value, mono }) {
   return (
     <div style={{ padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
-      <div className="font-body" style={{ fontSize: 10.5, color: C.slate, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>{label}</div>
-      <div className={mono ? "font-mono" : "font-body"} style={{ fontSize: 15, fontWeight: 700, color: C.ink, marginTop: 2, wordBreak: "break-word" }}>{value || "—"}</div>
+      <div className="font-body" style={{ fontSize: 10, color: C.orangeDark, textTransform: "uppercase", letterSpacing: 0.7, fontWeight: 800 }}>{label}</div>
+      <div className={mono ? "font-mono" : "font-body"} style={{ fontSize: 15.5, fontWeight: 800, color: C.ink, marginTop: 2, wordBreak: "break-word" }}>{value || "—"}</div>
     </div>
   );
 }
@@ -1865,8 +1876,8 @@ function MobileField({ label, value, mono }) {
 function MobileSectionTitle({ icon, children, accent }) {
   return (
     <div className="flex items-center gap-2" style={{ marginTop: 18, marginBottom: 4 }}>
-      <div style={{ width: 28, height: 28, borderRadius: 8, background: (accent || C.green) + "1A", color: accent || C.green, display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</div>
-      <div className="font-display" style={{ fontSize: 15, fontWeight: 800, color: C.ink }}>{children}</div>
+      <div style={{ width: 28, height: 28, borderRadius: 8, background: accent || C.green, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</div>
+      <div className="font-display" style={{ fontSize: 15.5, fontWeight: 800, color: C.ink, letterSpacing: -0.2 }}>{children}</div>
     </div>
   );
 }
@@ -2039,8 +2050,9 @@ function MobileDetail({ result, vehicles, owners, drivers, syndicats, commission
               style={{
                 whiteSpace: "nowrap", fontSize: 13, fontWeight: 700, padding: "8px 14px", borderRadius: 999,
                 background: section === t.key ? C.green : "#fff",
-                color: section === t.key ? "#fff" : C.slate,
-                border: `1px solid ${section === t.key ? C.green : C.border}`,
+                color: section === t.key ? "#fff" : C.ink,
+                border: `1.5px solid ${section === t.key ? C.green : C.border}`,
+                boxShadow: section === t.key ? `0 3px 10px ${C.green}44` : "none",
               }}
             >
               {t.label}
@@ -2155,8 +2167,9 @@ function MobileView({
         ) : tab === "ajout" ? (
           <div style={{ paddingBottom: 90 }}>
             <SyncBanner count={queueCount} syncing={syncing} onSync={onSync} compact />
-            <h2 className="font-display" style={{ fontSize: 23, fontWeight: 800, color: C.ink, letterSpacing: -0.5 }}>Nouvel enrôlement</h2>
-            <p className="font-body" style={{ fontSize: 13.5, color: C.slate, marginBottom: 16 }}>Choisissez ce que vous souhaitez enregistrer.</p>
+            <h2 className="font-display" style={{ fontSize: 25, fontWeight: 800, color: C.ink, letterSpacing: -0.6 }}>Nouvel enrôlement</h2>
+            <div style={{ width: 52, height: 4, borderRadius: 999, background: `linear-gradient(90deg, ${C.orange}, ${C.green})`, margin: "6px 0 8px" }} />
+            <p className="font-body" style={{ fontSize: 13.5, color: C.slate, marginBottom: 16, fontWeight: 600 }}>Choisissez ce que vous souhaitez enregistrer.</p>
             <div className="flex flex-col gap-3">
               <MobileTile icon={<Car size={24} />} accent={C.green} label="Véhicule" hint="Carte grise et immatriculation suffisent" onClick={() => setShowForm(true)} />
               <MobileTile icon={<User size={24} />} accent={C.orangeDark} label="Transporteur" hint="Propriétaire du véhicule" onClick={() => setShowMemberFormFor(true)} />
@@ -2166,11 +2179,15 @@ function MobileView({
           </div>
         ) : (
           <div style={{ paddingBottom: 90 }}>
-            <h2 className="font-display" style={{ fontSize: 23, fontWeight: 800, color: C.ink, letterSpacing: -0.5 }}>Recherche</h2>
-            <p className="font-body" style={{ fontSize: 13.5, color: C.slate, marginBottom: 12 }}>Choisissez la commune, puis le critère de recherche.</p>
+            <h2 className="font-display" style={{ fontSize: 25, fontWeight: 800, color: C.ink, letterSpacing: -0.6 }}>Recherche</h2>
+            <div style={{ width: 52, height: 4, borderRadius: 999, background: `linear-gradient(90deg, ${C.green}, ${C.orange})`, margin: "6px 0 8px" }} />
+            <p className="font-body" style={{ fontSize: 13.5, color: C.slate, marginBottom: 12, fontWeight: 600 }}>Choisissez la commune, puis le critère de recherche.</p>
 
             {/* 1 — Commune */}
-            <div className="font-body" style={{ fontSize: 11, fontWeight: 800, color: C.slate, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>1 · Commune</div>
+            <div className="flex items-center gap-2" style={{ marginBottom: 7 }}>
+              <span className="font-display" style={{ width: 21, height: 21, borderRadius: 999, background: C.green, color: "#fff", fontSize: 11.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>1</span>
+              <span className="font-display" style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>Commune</span>
+            </div>
             <select
               value={communeF}
               onChange={(e) => setCommuneF(e.target.value)}
@@ -2187,7 +2204,10 @@ function MobileView({
             )}
 
             {/* 2 — Critere */}
-            <div className="font-body" style={{ fontSize: 11, fontWeight: 800, color: C.slate, textTransform: "uppercase", letterSpacing: 0.6, margin: "16px 0 6px" }}>2 · Critère de recherche</div>
+            <div className="flex items-center gap-2" style={{ margin: "18px 0 7px" }}>
+              <span className="font-display" style={{ width: 21, height: 21, borderRadius: 999, background: C.orange, color: "#fff", fontSize: 11.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>2</span>
+              <span className="font-display" style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>Critère de recherche</span>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               {CRITERES.map((cr) => (
                 <button
@@ -2207,7 +2227,10 @@ function MobileView({
             </div>
 
             {/* 3 — Saisie */}
-            <div className="font-body" style={{ fontSize: 11, fontWeight: 800, color: C.slate, textTransform: "uppercase", letterSpacing: 0.6, margin: "16px 0 6px" }}>3 · {critereActif.label}</div>
+            <div className="flex items-center gap-2" style={{ margin: "18px 0 7px" }}>
+              <span className="font-display" style={{ width: 21, height: 21, borderRadius: 999, background: C.greenDark, color: "#fff", fontSize: 11.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>3</span>
+              <span className="font-display" style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>{critereActif.label}</span>
+            </div>
             <div className="flex items-center gap-2 px-3" style={{ background: "#fff", border: `1.5px solid ${C.border}`, borderRadius: 14, height: 50 }}>
               <Search size={19} color={C.slate} />
               <input
@@ -2239,9 +2262,9 @@ function MobileView({
                     key={`${r.kind}-${r.item.id}-${i}`}
                     onClick={() => setSelected(r)}
                     className="w-full text-left flex items-center gap-3"
-                    style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 16, padding: 14 }}
+                    style={{ background: "#fff", border: `1.5px solid ${C.border}`, borderLeft: `5px solid ${m.color}`, borderRadius: 14, padding: 14 }}
                   >
-                    <div style={{ width: 42, height: 42, borderRadius: 12, background: m.color + "1A", color: m.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <div style={{ width: 42, height: 42, borderRadius: 12, background: m.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                       {m.icon}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -2266,8 +2289,9 @@ function MobileView({
             key={k}
             onClick={() => { setTab(k); setSelected(null); }}
             className="flex-1 flex flex-col items-center justify-center gap-1"
-            style={{ padding: "11px 0 13px", color: tab === k ? C.green : C.slate }}
+            style={{ padding: "11px 0 13px", color: tab === k ? C.green : C.slate, position: "relative" }}
           >
+            {tab === k && <span style={{ position: "absolute", top: 0, left: "22%", right: "22%", height: 3, borderRadius: 999, background: C.orange }} />}
             {ic}
             <span className="font-body" style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: 0.2 }}>{lab}</span>
           </button>
@@ -4282,10 +4306,10 @@ function CollectifSelector({ collectifId, onChange, syndicats, commune }) {
   const collectifs = commune ? syndicats.filter((s) => COMMUNE_EQ(s.commune, commune)) : [];
   const entity = syndicats.find((s) => s.id === collectifId) || null;
   return (
-    <Field label="Collectif — logo en haut à GAUCHE" hint="Collectif des transporteurs ou des chauffeurs de la commune. C'est aussi l'association de rattachement du membre.">
+    <Field label="" hint="Collectif des transporteurs ou des chauffeurs de la commune. C'est aussi l'association de rattachement du membre.">
       <div className="flex items-center gap-2">
         <LogoPreview entity={entity} />
-        <select style={inputStyle} className="font-body" value={collectifId || ""} onChange={(e) => onChange(e.target.value)} disabled={!commune}>
+        <select style={commune ? inputStyle : inputDisabledStyle} className="font-body" value={collectifId || ""} onChange={(e) => onChange(e.target.value)} disabled={!commune}>
           <option value="">{commune ? "— Sélectionner —" : "— Choisissez d'abord une commune —"}</option>
           {collectifs.map((s) => (
             <option key={s.id} value={s.id}>
@@ -4309,10 +4333,10 @@ function AssociationSelector({ associationId, onChange, associations, collectifI
   const liste = collectifId ? associations.filter((a) => a.syndicatId === collectifId) : [];
   const entity = associations.find((a) => a.id === associationId) || null;
   return (
-    <Field label="Association — logo en haut à DROITE" hint="Syndicat de base rattaché au collectif choisi">
+    <Field label="" hint="Syndicat de base rattaché au collectif choisi">
       <div className="flex items-center gap-2">
         <LogoPreview entity={entity} />
-        <select style={inputStyle} className="font-body" value={associationId || ""} onChange={(e) => onChange(e.target.value)} disabled={!collectifId}>
+        <select style={collectifId ? inputStyle : inputDisabledStyle} className="font-body" value={associationId || ""} onChange={(e) => onChange(e.target.value)} disabled={!collectifId}>
           <option value="">{collectifId ? "— Sélectionner —" : "— Choisissez d'abord un collectif —"}</option>
           {liste.map((a) => <option key={a.id} value={a.id}>{a.sigle ? `${a.sigle} — ${a.nom}` : a.nom}</option>)}
         </select>
@@ -4328,15 +4352,45 @@ function AssociationSelector({ associationId, onChange, associations, collectifI
 
 /* Bloc complet reutilise par les 4 formulaires : commune -> commission
    mixte -> collectif (gauche) -> association (droite). */
+function EtapeBadge({ n, actif, children }) {
+  return (
+    <div className="flex items-center gap-2" style={{ marginBottom: 8 }}>
+      <span
+        className="font-display"
+        style={{
+          width: 22, height: 22, borderRadius: 999, flexShrink: 0,
+          background: actif ? C.green : "#D7D3C8", color: "#fff",
+          fontSize: 12, fontWeight: 800,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}
+      >
+        {n}
+      </span>
+      <span className="font-display" style={{ fontSize: 13, fontWeight: 800, color: actif ? C.ink : C.slate, letterSpacing: -0.1 }}>
+        {children}
+      </span>
+    </div>
+  );
+}
+
 function AppartenanceBlock({ commune, commissionMixteId, onCommune, logo2Id, onCollectif, logo1Id, onAssociation, commissionsMixtes, syndicats, associations }) {
   return (
-    <>
-      <CommuneCommissionSelector commune={commune} onChange={onCommune} commissionsMixtes={commissionsMixtes} />
-      <div className="grid grid-cols-2 gap-4">
-        <CollectifSelector collectifId={logo2Id} onChange={onCollectif} syndicats={syndicats} commune={commune} />
-        <AssociationSelector associationId={logo1Id} onChange={onAssociation} associations={associations} collectifId={logo2Id} />
+    <div style={{ background: "#fff", border: `1.5px solid ${C.border}`, borderLeft: `5px solid ${C.orange}`, borderRadius: 14, padding: 16 }}>
+      <div className="font-display" style={{ fontSize: 14.5, fontWeight: 800, color: C.ink, marginBottom: 12, letterSpacing: -0.2 }}>
+        Appartenance du membre
       </div>
-    </>
+
+      <EtapeBadge n="1" actif>Commune et commission mixte</EtapeBadge>
+      <CommuneCommissionSelector commune={commune} onChange={onCommune} commissionsMixtes={commissionsMixtes} />
+
+      <div style={{ height: 14 }} />
+      <EtapeBadge n="2" actif={!!commune}>Collectif — logo à gauche</EtapeBadge>
+      <CollectifSelector collectifId={logo2Id} onChange={onCollectif} syndicats={syndicats} commune={commune} />
+
+      <div style={{ height: 14 }} />
+      <EtapeBadge n="3" actif={!!logo2Id}>Association — logo à droite</EtapeBadge>
+      <AssociationSelector associationId={logo1Id} onChange={onAssociation} associations={associations} collectifId={logo2Id} />
+    </div>
   );
 }
 
@@ -4616,7 +4670,7 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
             </select>
           </Field>
           <Field label="Ligne">
-            <select style={inputStyle} className="font-body" value={ligneId} onChange={(e) => setLigneId(e.target.value)} disabled={!gareRoutiereId}>
+            <select style={gareRoutiereId ? inputStyle : inputDisabledStyle} className="font-body" value={ligneId} onChange={(e) => setLigneId(e.target.value)} disabled={!gareRoutiereId}>
               <option value="">— Aucune —</option>
               {lignesDeLaGare.map((l) => <option key={l.id} value={l.id}>{l.lieuDepart} → {l.lieuArrivee}</option>)}
             </select>
@@ -4975,7 +5029,7 @@ function ReassignForm({ auth, vehicle, commissionsMixtes, lignes, garesRoutieres
             </select>
           </Field>
           <Field label="Ligne">
-            <select style={inputStyle} className="font-body" value={ligneId} onChange={(e) => setLigneId(e.target.value)} disabled={!gareRoutiereId}>
+            <select style={gareRoutiereId ? inputStyle : inputDisabledStyle} className="font-body" value={ligneId} onChange={(e) => setLigneId(e.target.value)} disabled={!gareRoutiereId}>
               <option value="">— Sélectionner —</option>
               {lignesDeLaGareChoisie.map((l) => <option key={l.id} value={l.id}>{l.lieuDepart} → {l.lieuArrivee} ({l.cout.toLocaleString("fr-FR")} F)</option>)}
             </select>
