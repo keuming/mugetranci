@@ -10,7 +10,7 @@ function toApi(row) {
 }
 function toDb(body) {
   const { photo, qrPaiement, numeroCarte, ...rest } = body; // le numéro de carte est généré côté serveur
-  return { ...rest, photoUrl: photo ?? null, qrPaiementUrl: qrPaiement ?? null, commissionMixteId: rest.commissionMixteId || null, commune: rest.commune || null };
+  return { ...rest, photoUrl: photo ?? null, qrPaiementUrl: qrPaiement ?? null, commissionMixteId: rest.commissionMixteId || null, commune: rest.commune || null, syndicatId: rest.syndicatId || null };
 }
 
 export default async function handler(req, res) {
@@ -57,9 +57,12 @@ export default async function handler(req, res) {
         const [gare] = await db.select().from(garesRoutieres).where(eq(garesRoutieres.id, auth.gareRoutiereId));
         if (gare) values.syndicatId = gare.syndicatId;
       } else if (auth.role === "agent") {
+        // Un agent enrôleur agit au nom de son entité de rattachement, mais
+        // il enrôle des membres de n'importe quelle association : si le
+        // formulaire précise l'association du membre, elle fait foi.
         values.creatorType = auth.parentType;
         values.creatorId = auth.parentId;
-        if (auth.parentType === "syndicat") values.syndicatId = auth.parentId;
+        if (!body.syndicatId && auth.parentType === "syndicat") values.syndicatId = auth.parentId;
       } else {
         values.creatorType = "admin";
       }
@@ -108,6 +111,7 @@ export default async function handler(req, res) {
     if ("permisDateFin" in body) patch.permisDateFin = body.permisDateFin;
     if ("logo1Type" in body) { patch.logo1Type = body.logo1Type || null; patch.logo1Id = body.logo1Id || null; }
     if ("logo2Type" in body) { patch.logo2Type = body.logo2Type || null; patch.logo2Id = body.logo2Id || null; }
+    if ("syndicatId" in body && body.syndicatId) patch.syndicatId = body.syndicatId;
     if ("commune" in body) patch.commune = body.commune || null;
     if ("commissionMixteId" in body) patch.commissionMixteId = body.commissionMixteId || null;
     if ("carteImprimee" in body) {
