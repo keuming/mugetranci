@@ -3963,7 +3963,7 @@ function CollectifSelector({ collectifId, onChange, syndicats, commune }) {
   const collectifs = commune ? syndicats.filter((s) => COMMUNE_EQ(s.commune, commune)) : [];
   const entity = syndicats.find((s) => s.id === collectifId) || null;
   return (
-    <Field label="Collectif — logo en haut à GAUCHE" hint="Collectif des transporteurs ou des chauffeurs de la commune">
+    <Field label="Collectif — logo en haut à GAUCHE" hint="Collectif des transporteurs ou des chauffeurs de la commune. C'est aussi l'association de rattachement du membre.">
       <div className="flex items-center gap-2">
         <LogoPreview entity={entity} />
         <select style={inputStyle} className="font-body" value={collectifId || ""} onChange={(e) => onChange(e.target.value)} disabled={!commune}>
@@ -4066,6 +4066,18 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
         <PhotoUpload value={photo} onChange={setPhoto} label="Photo du transporteur" />
         <PhotoUpload value={qrPaiement} onChange={setQrPaiement} label="QR code Mobile Money (compte marchand)" shape="square" />
       </div>
+      <AppartenanceBlock
+        commune={commune}
+        commissionMixteId={commissionMixteId}
+        onCommune={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); setLogo2Type(""); setLogo2Id(""); setLogo1Type(""); setLogo1Id(""); setSyndicatId(""); }}
+        logo2Id={logo2Id}
+        onCollectif={(v) => { setLogo2Type(v ? "syndicat" : ""); setLogo2Id(v); setSyndicatId(v); setLogo1Type(""); setLogo1Id(""); }}
+        logo1Id={logo1Id}
+        onAssociation={(v) => { setLogo1Type(v ? "association" : ""); setLogo1Id(v); }}
+        commissionsMixtes={commissionsMixtes}
+        syndicats={syndicats}
+        associations={associations}
+      />
       {!isEdit && vehicles && (
         <Field label="Véhicule à rattacher (optionnel)" hint="Le dossier peut aussi être complété plus tard depuis la fiche du véhicule.">
           <select style={inputStyle} className="font-body" value={vehiculeId} onChange={(e) => setVehiculeId(e.target.value)}>
@@ -4080,24 +4092,6 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
           N° carte transporteur (généré automatiquement) : <strong className="font-mono">{initialMember.carteTransporteurNumero}</strong>
         </p>
       )}
-      <Field label="Association de rattachement (collectif/syndicat)" hint="Classe le membre dans son association, quelle que soit celle de l'agent.">
-        <select style={inputStyle} className="font-body" value={syndicatId} onChange={(e) => setSyndicatId(e.target.value)}>
-          <option value="">— Association de l'agent (par défaut) —</option>
-          {syndicats.map((s) => <option key={s.id} value={s.id}>{s.sigle || s.nom}{s.commune ? ` — ${s.commune}` : ""}{s.type ? ` (${s.type === "transporteurs" ? "Transporteurs" : "Chauffeurs"})` : ""}</option>)}
-        </select>
-      </Field>
-      <AppartenanceBlock
-        commune={commune}
-        commissionMixteId={commissionMixteId}
-        onCommune={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); setLogo2Type(""); setLogo2Id(""); setLogo1Type(""); setLogo1Id(""); }}
-        logo2Id={logo2Id}
-        onCollectif={(v) => { setLogo2Type(v ? "syndicat" : ""); setLogo2Id(v); setLogo1Type(""); setLogo1Id(""); }}
-        logo1Id={logo1Id}
-        onAssociation={(v) => { setLogo1Type(v ? "association" : ""); setLogo1Id(v); }}
-        commissionsMixtes={commissionsMixtes}
-        syndicats={syndicats}
-        associations={associations}
-      />
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
         <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
@@ -4174,6 +4168,18 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
         <PhotoUpload value={photo} onChange={setPhoto} label="Photo du chauffeur" />
         <PhotoUpload value={qrPaiement} onChange={setQrPaiement} label="QR code Mobile Money (compte marchand)" shape="square" />
       </div>
+      <AppartenanceBlock
+        commune={commune}
+        commissionMixteId={commissionMixteId}
+        onCommune={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); setLogo2Type(""); setLogo2Id(""); setLogo1Type(""); setLogo1Id(""); setSyndicatId(""); }}
+        logo2Id={logo2Id}
+        onCollectif={(v) => { setLogo2Type(v ? "syndicat" : ""); setLogo2Id(v); setSyndicatId(v); setLogo1Type(""); setLogo1Id(""); }}
+        logo1Id={logo1Id}
+        onAssociation={(v) => { setLogo1Type(v ? "association" : ""); setLogo1Id(v); }}
+        commissionsMixtes={commissionsMixtes}
+        syndicats={syndicats}
+        associations={associations}
+      />
       {!isEdit && vehicles && (
         <Field label="Véhicule à rattacher (optionnel)" hint="Un véhicule peut avoir jusqu'à 3 chauffeurs — le dossier peut aussi être complété plus tard.">
           <select style={inputStyle} className="font-body" value={vehiculeId} onChange={(e) => setVehiculeId(e.target.value)}>
@@ -4187,24 +4193,6 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
           N° carte chauffeur (généré automatiquement) : <strong className="font-mono">{initialDriver.numeroCarte}</strong>
         </p>
       )}
-      <Field label="Association de rattachement (collectif/syndicat)" hint="Classe le membre dans son association, quelle que soit celle de l'agent.">
-        <select style={inputStyle} className="font-body" value={syndicatId} onChange={(e) => setSyndicatId(e.target.value)}>
-          <option value="">— Association de l'agent (par défaut) —</option>
-          {syndicats.map((s) => <option key={s.id} value={s.id}>{s.sigle || s.nom}{s.commune ? ` — ${s.commune}` : ""}{s.type ? ` (${s.type === "transporteurs" ? "Transporteurs" : "Chauffeurs"})` : ""}</option>)}
-        </select>
-      </Field>
-      <AppartenanceBlock
-        commune={commune}
-        commissionMixteId={commissionMixteId}
-        onCommune={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); setLogo2Type(""); setLogo2Id(""); setLogo1Type(""); setLogo1Id(""); }}
-        logo2Id={logo2Id}
-        onCollectif={(v) => { setLogo2Type(v ? "syndicat" : ""); setLogo2Id(v); setLogo1Type(""); setLogo1Id(""); }}
-        logo1Id={logo1Id}
-        onAssociation={(v) => { setLogo1Type(v ? "association" : ""); setLogo1Id(v); }}
-        commissionsMixtes={commissionsMixtes}
-        syndicats={syndicats}
-        associations={associations}
-      />
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
         <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
@@ -4272,29 +4260,23 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
         <PhotoUpload value={photo} onChange={setPhoto} label="Photo de l'élément" />
         <PhotoUpload value={qrPaiement} onChange={setQrPaiement} label="QR code Mobile Money (compte marchand)" shape="square" />
       </div>
-      {isEdit && initialElement?.numeroCarte && (
-        <p className="font-body text-xs px-3 py-2.5 rounded-lg" style={{ background: C.cream, color: C.slate }}>
-          N° carte élément (généré automatiquement) : <strong className="font-mono">{initialElement.numeroCarte}</strong>
-        </p>
-      )}
-      <Field label="Association de rattachement (collectif/syndicat) *" hint="L'élément est l'agent administratif de cette association précise.">
-        <select style={inputStyle} className="font-body" value={syndicatId} onChange={(e) => setSyndicatId(e.target.value)}>
-          <option value="">— Sélectionner —</option>
-          {syndicats.map((s) => <option key={s.id} value={s.id}>{s.sigle || s.nom}{s.commune ? ` — ${s.commune}` : ""}{s.type ? ` (${s.type === "transporteurs" ? "Transporteurs" : "Chauffeurs"})` : ""}</option>)}
-        </select>
-      </Field>
       <AppartenanceBlock
         commune={commune}
         commissionMixteId={commissionMixteId}
-        onCommune={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); setLogo2Type(""); setLogo2Id(""); setLogo1Type(""); setLogo1Id(""); }}
+        onCommune={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); setLogo2Type(""); setLogo2Id(""); setLogo1Type(""); setLogo1Id(""); setSyndicatId(""); }}
         logo2Id={logo2Id}
-        onCollectif={(v) => { setLogo2Type(v ? "syndicat" : ""); setLogo2Id(v); setLogo1Type(""); setLogo1Id(""); }}
+        onCollectif={(v) => { setLogo2Type(v ? "syndicat" : ""); setLogo2Id(v); setSyndicatId(v); setLogo1Type(""); setLogo1Id(""); }}
         logo1Id={logo1Id}
         onAssociation={(v) => { setLogo1Type(v ? "association" : ""); setLogo1Id(v); }}
         commissionsMixtes={commissionsMixtes}
         syndicats={syndicats}
         associations={associations}
       />
+      {isEdit && initialElement?.numeroCarte && (
+        <p className="font-body text-xs px-3 py-2.5 rounded-lg" style={{ background: C.cream, color: C.slate }}>
+          N° carte élément (généré automatiquement) : <strong className="font-mono">{initialElement.numeroCarte}</strong>
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
         <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
