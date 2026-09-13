@@ -227,6 +227,23 @@ export const garesRoutieres = pgTable("gares_routieres", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+/* ---------- Associations / syndicats de base ----------
+   Niveau le plus fin de la hierarchie :
+     Commune -> Commission mixte -> Collectif (transporteurs | chauffeurs)
+       -> Association (syndicat de base)
+   Le logo du collectif s'affiche en haut a GAUCHE de la carte,
+   celui de l'association en haut a DROITE. */
+export const associations = pgTable("associations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  syndicatId: uuid("syndicat_id").references(() => syndicats.id).notNull(), // collectif parent
+  nom: varchar("nom", { length: 160 }).notNull(),
+  sigle: varchar("sigle", { length: 20 }),
+  logoUrl: text("logo_url"),
+  presidentNom: varchar("president_nom", { length: 160 }),
+  presidentContact: varchar("president_contact", { length: 30 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 /* ---------- Agents enrôleurs (application mobile) ----------
    Comptes individuels créés par un dashboard (commission mixte,
    syndicat, admin général) ou par un super admin mobile. Rôle unique :

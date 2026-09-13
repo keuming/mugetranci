@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { syndicats, proprietaires } from "../db/schema.js";
+import { syndicats, proprietaires, associations } from "../db/schema.js";
 import { requireAuth } from "../lib/auth.js";
 
 function toApi(row) {
@@ -8,9 +8,79 @@ function toApi(row) {
   return { ...rest, pinConfigure: !!pinCode };
 }
 
+/* Sous-ressource "associations" (syndicats de base sous un collectif),
+   servie par cette meme fonction via ?resource=associations pour rester
+   sous la limite de 12 fonctions serverless du plan Vercel Hobby. */
+async function handleAssociations(req, res, id) {
+  const auth = requireAuth(req, res);
+  if (!auth) return;
+
+  if (!id) {
+    if (req.method === "GET") {
+      const rows = await db.select().from(associations);
+      return res.status(200).json(rows);
+    }
+    if (req.method === "POST") {
+      if (auth.role !== "admin" && auth.role !== "commission_mixte" && auth.role !== "syndicat") {
+        return res.status(403).json({ error: "Réservé à l'admin général, à une commission mixte ou à un collectif." });
+      }
+      const body = req.body || {};
+      if (!body.syndicatId || !body.nom) {
+        return res.status(400).json({ error: "syndicatId (collectif) et nom sont requis" });
+      }
+      if (auth.role === "syndicat" && body.syndicatId !== auth.syndicatId) {
+        return res.status(403).json({ error: "Ce collectif n'est pas le vôtre." });
+      }
+      const [created] = await db.insert(associations).values({
+        syndicatId: body.syndicatId,
+        nom: body.nom,
+        sigle: body.sigle || null,
+        logoUrl: body.logoUrl || null,
+        presidentNom: body.presidentNom || null,
+        presidentContact: body.presidentContact || null,
+      }).returning();
+      return res.status(201).json(created);
+    }
+    res.setHeader("Allow", "GET, POST");
+    return res.status(405).json({ error: "Méthode non autorisée" });
+  }
+
+  const [existing] = await db.select().from(associations).where(eq(associations.id, id));
+  if (!existing) return res.status(404).json({ error: "Association introuvable" });
+  if (auth.role === "syndicat" && existing.syndicatId !== auth.syndicatId) {
+    return res.status(403).json({ error: "Cette association n'appartient pas à votre collectif." });
+  }
+  if (auth.role !== "admin" && auth.role !== "commission_mixte" && auth.role !== "syndicat") {
+    return res.status(403).json({ error: "Modification non autorisée." });
+  }
+
+  if (req.method === "PATCH") {
+    const body = req.body || {};
+    const patch = {};
+    ["nom", "sigle", "logoUrl", "presidentNom", "presidentContact"].forEach((k) => {
+      if (k in body) patch[k] = body[k] || null;
+    });
+    if (Object.keys(patch).length === 0) return res.status(400).json({ error: "Aucun champ à mettre à jour" });
+    const [updated] = await db.update(associations).set(patch).where(eq(associations.id, id)).returning();
+    return res.status(200).json(updated);
+  }
+
+  if (req.method === "DELETE") {
+    await db.delete(associations).where(eq(associations.id, id));
+    return res.status(200).json({ deleted: true });
+  }
+
+  res.setHeader("Allow", "PATCH, DELETE");
+  return res.status(405).json({ error: "Méthode non autorisée" });
+}
+
 export default async function handler(req, res) {
   const idParam = req.query.id;
   const id = Array.isArray(idParam) ? idParam[0] : idParam;
+
+  if (req.query.resource === "associations") {
+    return handleAssociations(req, res, id);
+  }
 
   if (!id) {
     if (req.method === "GET") {

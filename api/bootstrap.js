@@ -2,7 +2,7 @@ import { eq, desc } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
   proprietaires, chauffeurs, elements, vehicules, historiqueProprietaires, vehiculeChauffeurs,
-  achatsCarburant, commissionsMixtes, syndicats, garesRoutieres, lignes, affectations,
+  achatsCarburant, commissionsMixtes, syndicats, garesRoutieres, lignes, affectations, associations,
 } from "../db/schema.js";
 import { requireAuth } from "../lib/auth.js";
 
@@ -89,7 +89,7 @@ export default async function handler(req, res) {
 
   const [
     allOwners, allDrivers, allElements, allVehicules, junctions, historiques,
-    allAchats, allCommissions, allSyndicats, allGares, allLignes, allAffectations,
+    allAchats, allCommissions, allSyndicats, allGares, allLignes, allAffectations, allAssociations,
   ] = await Promise.all([
     db.select().from(proprietaires),
     db.select().from(chauffeurs),
@@ -103,6 +103,7 @@ export default async function handler(req, res) {
     db.select().from(garesRoutieres),
     db.select().from(lignes),
     db.select().from(affectations),
+    db.select().from(associations),
   ]);
 
   const isSyndicat = auth.role === "syndicat";
@@ -199,5 +200,6 @@ export default async function handler(req, res) {
     garesRoutieres: visibleGares.map(toApiGareRoutiere),
     lignes: visibleLignes,
     affectations: visibleAffectations,
+    associations: allAssociations, // lecture ouverte : necessaire pour composer les cartes
   });
 }

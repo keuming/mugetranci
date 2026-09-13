@@ -409,7 +409,7 @@ function StepIndicator({ step }) {
   );
 }
 
-function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commissionsMixtes, lignes, onCancel, onSave, addOwner, addDriver, affecterVehicule }) {
+function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRoutieres, commissionsMixtes, lignes, onCancel, onSave, addOwner, addDriver, affecterVehicule }) {
   const [step, setStep] = useState(0);
   const isAdmin = auth?.role === "admin";
   const [syndicatIdSel, setSyndicatIdSel] = useState(isAdmin ? "" : (auth?.syndicatId || ""));
@@ -592,8 +592,8 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
                   <PhotoUpload value={newOwner.qrPaiement} onChange={(v) => setNewOwner({ ...newOwner, qrPaiement: v })} label="QR code Mobile Money (compte marchand)" shape="square" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <LogoSelector label="Premier collectif (logo en haut à droite)" type={newOwner.logo1Type} id={newOwner.logo1Id} onChange={(t, i) => setNewOwner({ ...newOwner, logo1Type: t, logo1Id: i })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} commune={commune} />
-                  <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={newOwner.logo2Type} id={newOwner.logo2Id} onChange={(t, i) => setNewOwner({ ...newOwner, logo2Type: t, logo2Id: i })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} commune={commune} />
+                  <CollectifSelector collectifId={newOwner.logo2Id} onChange={(v) => setNewOwner({ ...newOwner, logo2Type: v ? "syndicat" : "", logo2Id: v, logo1Type: "", logo1Id: "" })} syndicats={syndicats} commune={commune} />
+                  <AssociationSelector associationId={newOwner.logo1Id} onChange={(v) => setNewOwner({ ...newOwner, logo1Type: v ? "association" : "", logo1Id: v })} associations={associations} collectifId={newOwner.logo2Id} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Field label="Nom"><TextInput value={newOwner.nom} onChange={(e) => setNewOwner({ ...newOwner, nom: e.target.value })} /></Field>
@@ -665,8 +665,8 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
                         <PhotoUpload value={row.draft.qrPaiement} onChange={(v) => updateDriverDraft(i, { qrPaiement: v })} label="QR code de paiement (wallet Mobile Money)" shape="square" />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
-                        <LogoSelector label="Premier collectif (logo en haut à droite)" type={row.draft.logo1Type} id={row.draft.logo1Id} onChange={(t, iId) => updateDriverDraft(i, { logo1Type: t, logo1Id: iId })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} commune={commune} />
-                        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={row.draft.logo2Type} id={row.draft.logo2Id} onChange={(t, iId) => updateDriverDraft(i, { logo2Type: t, logo2Id: iId })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} commune={commune} />
+                        <CollectifSelector collectifId={row.draft.logo2Id} onChange={(v) => updateDriverDraft(i, { logo2Type: v ? "syndicat" : "", logo2Id: v, logo1Type: "", logo1Id: "" })} syndicats={syndicats} commune={commune} />
+                        <AssociationSelector associationId={row.draft.logo1Id} onChange={(v) => updateDriverDraft(i, { logo1Type: v ? "association" : "", logo1Id: v })} associations={associations} collectifId={row.draft.logo2Id} />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <Field label="Nom"><TextInput value={row.draft.nom} onChange={(e) => updateDriverDraft(i, { nom: e.target.value })} /></Field>
@@ -751,7 +751,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
 /* ============================================================
    FICHE VÉHICULE COMMERCIAL
    ============================================================ */
-function FicheVehicule({ vehicle, owners, drivers, commissionsMixtes, syndicats, garesRoutieres, onClose }) {
+function FicheVehicule({ vehicle, owners, drivers, commissionsMixtes, syndicats, associations = [], garesRoutieres, onClose }) {
   const owner = owners.find((o) => o.id === vehicle.proprietaireId);
   const vDrivers = vehicle.chauffeurIds.map((id) => drivers.find((d) => d.id === id)).filter(Boolean);
 
@@ -759,8 +759,8 @@ function FicheVehicule({ vehicle, owners, drivers, commissionsMixtes, syndicats,
   // explicitement choisis, avec repli sur le rattachement syndicat/
   // commission), peu importe qui a créé ce transporteur.
   const { syndicat: autoSyndicat, commission: autoCommission } = getMemberHierarchy(owner, commissionsMixtes, syndicats);
-  const logo1 = resolveLogoEntity(owner?.logo1Type, owner?.logo1Id, commissionsMixtes, syndicats) || autoSyndicat;
-  const logo2 = resolveLogoEntity(owner?.logo2Type, owner?.logo2Id, commissionsMixtes, syndicats) || autoCommission;
+  const logo1 = resolveLogoEntity(owner?.logo1Type, owner?.logo1Id, commissionsMixtes, syndicats, associations) || autoSyndicat;
+  const logo2 = resolveLogoEntity(owner?.logo2Type, owner?.logo2Id, commissionsMixtes, syndicats, associations) || autoCommission;
   const headerEntity = logo1 || logo2;
   const headerFallbackLabel = "Commissions Mixtes de Côte d'Ivoire — COMIX-CI";
   const headerTitle = headerEntity ? (headerEntity.sigle ? `${headerEntity.nom} — ${headerEntity.sigle}` : headerEntity.nom) : headerFallbackLabel;
@@ -1016,10 +1016,11 @@ const MEMBER_CARD_THEMES = {
 
 // Résout l'entité logo (commission mixte ou syndicat) à partir du type/id
 // explicitement choisis dans le formulaire du membre.
-function resolveLogoEntity(type, id, commissionsMixtes, syndicats) {
+function resolveLogoEntity(type, id, commissionsMixtes, syndicats, associations = []) {
   if (!type || !id) return null;
   if (type === "commission_mixte") return commissionsMixtes.find((c) => c.id === id) || null;
   if (type === "syndicat") return syndicats.find((s) => s.id === id) || null;
+  if (type === "association") return associations.find((a) => a.id === id) || null;
   return null;
 }
 
@@ -1028,10 +1029,11 @@ function resolveLogoEntity(type, id, commissionsMixtes, syndicats) {
 // sur la hiérarchie syndicat/commission si non renseignée), numéro de
 // carte, valeur du QR (vers la fiche pour transporteur/chauffeur, référence
 // d'identité pour un élément qui n'a pas de véhicule), et champs d'info.
-function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles) {
+function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles, associations = []) {
   const { syndicat: autoSyndicat, commission: autoCommission } = getMemberHierarchy(member, commissionsMixtes, syndicats);
-  const logo1 = resolveLogoEntity(member.logo1Type, member.logo1Id, commissionsMixtes, syndicats) || autoSyndicat;
-  const logo2 = resolveLogoEntity(member.logo2Type, member.logo2Id, commissionsMixtes, syndicats) || autoCommission;
+  // logo1 = haut a DROITE (association) ; logo2 = haut a GAUCHE (collectif)
+  const logo1 = resolveLogoEntity(member.logo1Type, member.logo1Id, commissionsMixtes, syndicats, associations) || autoSyndicat;
+  const logo2 = resolveLogoEntity(member.logo2Type, member.logo2Id, commissionsMixtes, syndicats, associations) || autoCommission;
 
   if (category === "transporteur") {
     return {
@@ -2048,10 +2050,13 @@ function Dashboard({ auth, onLogout }) {
   const [cardElement, setCardElement] = useState(null);
   const [selectedElementIds, setSelectedElementIds] = useState([]);
   const [elements, setElements] = useState([]);
+  const [associations, setAssociations] = useState([]);
   const [showElementFormFor, setShowElementFormFor] = useState(false);
   const [agentsList, setAgentsList] = useState([]);
   const [agentsLoaded, setAgentsLoaded] = useState(false);
   const [showAgentFormFor, setShowAgentFormFor] = useState(false);
+  const [assoFormForCollectif, setAssoFormForCollectif] = useState(null);
+  const [editAsso, setEditAsso] = useState(null);
   const [showOwnersArchive, setShowOwnersArchive] = useState(false);
   const [showDriversArchive, setShowDriversArchive] = useState(false);
   const [showElementsArchive, setShowElementsArchive] = useState(false);
@@ -2093,10 +2098,11 @@ function Dashboard({ auth, onLogout }) {
       try {
         const data = await apiGet("/api/bootstrap");
         if (cancelled) return;
-        const { proprietaires: o, chauffeurs: d, elements: el, vehicules: v, carburant: ac, commissionsMixtes: cm, syndicats: sy, garesRoutieres: gr, lignes: li, affectations: af } = data;
+        const { proprietaires: o, chauffeurs: d, elements: el, vehicules: v, carburant: ac, commissionsMixtes: cm, syndicats: sy, garesRoutieres: gr, lignes: li, affectations: af, associations: asso } = data;
         setOwners(o);
         setDrivers(d);
         setElements(el);
+        setAssociations(asso || []);
         setVehicles(v);
         setAchats(ac);
         setCommissionsMixtes(cm);
@@ -2229,6 +2235,20 @@ function Dashboard({ auth, onLogout }) {
   const deleteElement = async (elementId) => {
     await apiDelete(`/api/elements?id=${elementId}`);
     setElements((s) => s.filter((e) => e.id !== elementId));
+  };
+  const addAssociation = async (payload) => {
+    const created = await apiPost("/api/syndicats?resource=associations", payload);
+    setAssociations((s) => [...s, created]);
+    return created;
+  };
+  const updateAssociation = async (assoId, payload) => {
+    const updated = await apiPatch(`/api/syndicats?resource=associations&id=${assoId}`, payload);
+    setAssociations((s) => s.map((a) => (a.id === assoId ? updated : a)));
+    return updated;
+  };
+  const deleteAssociation = async (assoId) => {
+    await apiDelete(`/api/syndicats?resource=associations&id=${assoId}`);
+    setAssociations((s) => s.filter((a) => a.id !== assoId));
   };
   const loadAgents = async () => {
     const rows = await apiGet("/api/agents");
@@ -3195,7 +3215,7 @@ function Dashboard({ auth, onLogout }) {
                   const totalMembres = owners.filter((o) => commissionSyndicats.some((s) => s.id === o.syndicatId)).length;
                   return (
                     <SectionCard key={c.id} accent={C.orangeDark} icon={<MapPin size={18} />} title={`${c.nom} (${c.commune}) — ${totalMembres} transporteur(s) au total`}>
-                      <SyndicatMembersTable commissionSyndicats={commissionSyndicats} owners={owners} />
+                      <SyndicatMembersTable associations={associations} onAddAsso={setAssoFormForCollectif} onEditAsso={setEditAsso} onDeleteAsso={deleteAssociation} commissionSyndicats={commissionSyndicats} owners={owners} />
                     </SectionCard>
                   );
                 })
@@ -3388,16 +3408,16 @@ function Dashboard({ auth, onLogout }) {
 
       {/* MODALS */}
       {showForm && <Modal onClose={() => setShowForm(false)} title="Ajouter un véhicule" wide>
-        <VehicleForm auth={auth} owners={owners} drivers={drivers} syndicats={syndicats} garesRoutieres={garesRoutieres} commissionsMixtes={commissionsMixtes} lignes={lignes} onCancel={() => setShowForm(false)} onSave={addVehicle} addOwner={addOwner} addDriver={addDriver} affecterVehicule={affecterVehicule} />
+        <VehicleForm auth={auth} owners={owners} drivers={drivers} syndicats={syndicats} associations={associations} garesRoutieres={garesRoutieres} commissionsMixtes={commissionsMixtes} lignes={lignes} onCancel={() => setShowForm(false)} onSave={addVehicle} addOwner={addOwner} addDriver={addDriver} affecterVehicule={affecterVehicule} />
       </Modal>}
 
       {ficheVehicle && <Modal onClose={closeFiche} title="Fiche d'Identification du Transporteur" wide>
-        <FicheVehicule vehicle={ficheVehicle} owners={owners} drivers={drivers} commissionsMixtes={commissionsMixtes} syndicats={syndicats} garesRoutieres={garesRoutieres} onClose={closeFiche} />
+        <FicheVehicule vehicle={ficheVehicle} owners={owners} drivers={drivers} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} garesRoutieres={garesRoutieres} onClose={closeFiche} />
       </Modal>}
 
       {cardDriver && <Modal onClose={closeCard} title="Carte de membre — Chauffeur">
         {(() => {
-          const data = cardDataFor(cardDriver, "chauffeur", commissionsMixtes, syndicats, vehicles);
+          const data = cardDataFor(cardDriver, "chauffeur", commissionsMixtes, syndicats, vehicles, associations);
           return <MemberCard member={cardDriver} category="chauffeur" initialFace={cardFace} {...data} />;
         })()}
       </Modal>}
@@ -3406,13 +3426,13 @@ function Dashboard({ auth, onLogout }) {
         title="Planche de production, cartes de membre chauffeurs"
         items={drivers.filter((d) => selectedDriverIds.includes(d.id)).map((d) => ({
           key: d.id, name: `${d.prenoms} ${d.nom}`, member: d, category: "chauffeur",
-          ...cardDataFor(d, "chauffeur", commissionsMixtes, syndicats, vehicles),
+          ...cardDataFor(d, "chauffeur", commissionsMixtes, syndicats, vehicles, associations),
         }))}
       />
 
       {cardOwner && <Modal onClose={() => setCardOwner(null)} title="Carte de membre — Transporteur">
         {(() => {
-          const data = cardDataFor(cardOwner, "transporteur", commissionsMixtes, syndicats, vehicles);
+          const data = cardDataFor(cardOwner, "transporteur", commissionsMixtes, syndicats, vehicles, associations);
           return <MemberCard member={cardOwner} category="transporteur" {...data} />;
         })()}
       </Modal>}
@@ -3421,13 +3441,13 @@ function Dashboard({ auth, onLogout }) {
         title="Planche de production, cartes transporteurs"
         items={owners.filter((o) => selectedOwnerIds.includes(o.id)).map((o) => ({
           key: o.id, name: `${o.prenoms} ${o.nom}`, member: o, category: "transporteur",
-          ...cardDataFor(o, "transporteur", commissionsMixtes, syndicats, vehicles),
+          ...cardDataFor(o, "transporteur", commissionsMixtes, syndicats, vehicles, associations),
         }))}
       />
 
       {cardElement && <Modal onClose={() => setCardElement(null)} title="Carte de membre — Élément">
         {(() => {
-          const data = cardDataFor(cardElement, "element", commissionsMixtes, syndicats, vehicles);
+          const data = cardDataFor(cardElement, "element", commissionsMixtes, syndicats, vehicles, associations);
           return <MemberCard member={cardElement} category="element" {...data} />;
         })()}
       </Modal>}
@@ -3436,7 +3456,7 @@ function Dashboard({ auth, onLogout }) {
         title="Planche de production, cartes éléments"
         items={elements.filter((e) => selectedElementIds.includes(e.id)).map((e) => ({
           key: e.id, name: `${e.prenoms} ${e.nom}`, member: e, category: "element",
-          ...cardDataFor(e, "element", commissionsMixtes, syndicats, vehicles),
+          ...cardDataFor(e, "element", commissionsMixtes, syndicats, vehicles, associations),
         }))}
       />
 
@@ -3465,7 +3485,7 @@ function Dashboard({ auth, onLogout }) {
       </Modal>}
 
       {showMemberFormFor && <Modal onClose={() => setShowMemberFormFor(false)} title="Ajouter un transporteur" wide>
-        <MemberForm commissionsMixtes={commissionsMixtes} syndicats={syndicats} vehicles={vehicles} onCancel={() => setShowMemberFormFor(false)} onSave={async (payload, vehId) => { const created = await addOwner(payload); if (vehId) await updateVehicle(vehId, { proprietaireId: created.id }); setShowMemberFormFor(false); }} />
+        <MemberForm commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} vehicles={vehicles} onCancel={() => setShowMemberFormFor(false)} onSave={async (payload, vehId) => { const created = await addOwner(payload); if (vehId) await updateVehicle(vehId, { proprietaireId: created.id }); setShowMemberFormFor(false); }} />
       </Modal>}
 
       {showProfileForm && (
@@ -3510,11 +3530,11 @@ function Dashboard({ auth, onLogout }) {
       )}
 
       {editMember && <Modal onClose={() => setEditMember(null)} title={`Modifier — ${editMember.prenoms} ${editMember.nom}`} wide>
-        <MemberForm initialMember={editMember} commissionsMixtes={commissionsMixtes} syndicats={syndicats} onCancel={() => setEditMember(null)} onSave={async (payload) => { await updateOwner(editMember.id, payload); setEditMember(null); }} />
+        <MemberForm initialMember={editMember} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} onCancel={() => setEditMember(null)} onSave={async (payload) => { await updateOwner(editMember.id, payload); setEditMember(null); }} />
       </Modal>}
 
       {showDriverFormFor && <Modal onClose={() => setShowDriverFormFor(false)} title="Ajouter un chauffeur" wide>
-        <DriverForm commissionsMixtes={commissionsMixtes} syndicats={syndicats} vehicles={vehicles} onCancel={() => setShowDriverFormFor(false)} onSave={async (payload, vehId) => {
+        <DriverForm commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} vehicles={vehicles} onCancel={() => setShowDriverFormFor(false)} onSave={async (payload, vehId) => {
           const created = await addDriver(payload);
           if (vehId) {
             await updateVehicle(vehId, { addChauffeurId: created.id });
@@ -3525,7 +3545,15 @@ function Dashboard({ auth, onLogout }) {
       </Modal>}
 
       {editDriver && <Modal onClose={() => setEditDriver(null)} title={`Modifier — ${editDriver.prenoms} ${editDriver.nom}`} wide>
-        <DriverForm initialDriver={editDriver} commissionsMixtes={commissionsMixtes} syndicats={syndicats} onCancel={() => setEditDriver(null)} onSave={async (payload) => { await updateDriver(editDriver.id, payload); setEditDriver(null); }} />
+        <DriverForm initialDriver={editDriver} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} onCancel={() => setEditDriver(null)} onSave={async (payload) => { await updateDriver(editDriver.id, payload); setEditDriver(null); }} />
+      </Modal>}
+
+      {assoFormForCollectif && <Modal onClose={() => setAssoFormForCollectif(null)} title="Ajouter une association" wide>
+        <AssociationForm collectif={syndicats.find((s) => s.id === assoFormForCollectif)} onCancel={() => setAssoFormForCollectif(null)} onSave={async (p) => { await addAssociation(p); setAssoFormForCollectif(null); }} />
+      </Modal>}
+
+      {editAsso && <Modal onClose={() => setEditAsso(null)} title={`Modifier — ${editAsso.nom}`} wide>
+        <AssociationForm initialAsso={editAsso} collectif={syndicats.find((s) => s.id === editAsso.syndicatId)} onCancel={() => setEditAsso(null)} onSave={async (p) => { await updateAssociation(editAsso.id, p); setEditAsso(null); }} />
       </Modal>}
 
       {showAgentFormFor && <Modal onClose={() => setShowAgentFormFor(false)} title="Ajouter un agent enrôleur">
@@ -3537,11 +3565,11 @@ function Dashboard({ auth, onLogout }) {
       </Modal>}
 
       {showElementFormFor && <Modal onClose={() => setShowElementFormFor(false)} title="Ajouter un élément" wide>
-        <ElementForm commissionsMixtes={commissionsMixtes} syndicats={syndicats} garesRoutieres={garesRoutieres} lignes={lignes} onCancel={() => setShowElementFormFor(false)} onSave={async (payload) => { await addElement(payload); setShowElementFormFor(false); }} />
+        <ElementForm commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} garesRoutieres={garesRoutieres} lignes={lignes} onCancel={() => setShowElementFormFor(false)} onSave={async (payload) => { await addElement(payload); setShowElementFormFor(false); }} />
       </Modal>}
 
       {editElement && <Modal onClose={() => setEditElement(null)} title={`Modifier — ${editElement.prenoms} ${editElement.nom}`} wide>
-        <ElementForm initialElement={editElement} commissionsMixtes={commissionsMixtes} syndicats={syndicats} garesRoutieres={garesRoutieres} lignes={lignes} onCancel={() => setEditElement(null)} onSave={async (payload) => { await updateElement(editElement.id, payload); setEditElement(null); }} />
+        <ElementForm initialElement={editElement} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} garesRoutieres={garesRoutieres} lignes={lignes} onCancel={() => setEditElement(null)} onSave={async (payload) => { await updateElement(editElement.id, payload); setEditElement(null); }} />
       </Modal>}
 
       {editGareRoutiere && <Modal onClose={() => setEditGareRoutiere(null)} title={`Modifier — ${editGareRoutiere.nom}`} wide>
@@ -3913,73 +3941,87 @@ function CommuneCommissionSelector({ commune, onChange, commissionsMixtes, requi
   );
 }
 
-/* Les deux selecteurs de logo proposent la MEME liste complete des
-   collectifs de la commune choisie — la combinaison (lequel a gauche,
-   lequel a droite) est laissee au choix de l'utilisateur. */
-function LogoSelector({ label, type, id, onChange, commissionsMixtes, syndicats, commune }) {
-  const value = type && id ? `${type}:${id}` : "";
-  const entity = resolveLogoEntity(type, id, commissionsMixtes, syndicats);
-  const norm = (s) => (s || "").trim().toUpperCase();
-  // La commune met en avant ses propres associations, mais ne bloque
-  // jamais l'acces aux autres : un agent doit pouvoir enroler un membre
-  // de n'importe quelle association.
-  const memeCommune = (x) => commune && norm(x.commune) === norm(commune);
-  const commissionsProches = commissionsMixtes.filter(memeCommune);
-  const commissionsAutres = commissionsMixtes.filter((x) => !memeCommune(x));
-  const collectifsProches = syndicats.filter(memeCommune);
-  const collectifsAutres = syndicats.filter((x) => !memeCommune(x));
-  const opt = (s) => `${s.sigle || s.nom}${s.commune ? ` — ${s.commune}` : ""}${s.type ? ` (${s.type === "transporteurs" ? "Transporteurs" : "Chauffeurs"})` : ""}`;
+/* ============================================================
+   LOGOS DE LA CARTE — hierarchie stricte
+     Commune -> Commission mixte -> Collectif (transporteurs |
+     chauffeurs) -> Association (syndicat de base)
+   Logo en haut A GAUCHE  = le collectif  (2 choix par commune)
+   Logo en haut A DROITE  = l'association (dependante du collectif)
+   ============================================================ */
+const COMMUNE_EQ = (a, b) => (a || "").trim().toUpperCase() === (b || "").trim().toUpperCase();
 
+function LogoPreview({ entity }) {
   return (
-    <Field label={label}>
+    <div style={{ width: 34, height: 34, borderRadius: 8, overflow: "hidden", background: C.cream, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      {entity?.logoUrl ? <img src={entity.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Building2 size={16} color={C.slate} />}
+    </div>
+  );
+}
+
+/* Logo en haut A GAUCHE : le collectif de la commune choisie. */
+function CollectifSelector({ collectifId, onChange, syndicats, commune }) {
+  const collectifs = commune ? syndicats.filter((s) => COMMUNE_EQ(s.commune, commune)) : [];
+  const entity = syndicats.find((s) => s.id === collectifId) || null;
+  return (
+    <Field label="Collectif — logo en haut à GAUCHE" hint="Collectif des transporteurs ou des chauffeurs de la commune">
       <div className="flex items-center gap-2">
-        <div style={{ width: 34, height: 34, borderRadius: 8, overflow: "hidden", background: C.cream, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          {entity?.logoUrl ? <img src={entity.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Building2 size={16} color={C.slate} />}
-        </div>
-        <select
-          style={inputStyle}
-          className="font-body"
-          value={value}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (!v) return onChange("", "");
-            const [t, i] = v.split(":");
-            onChange(t, i);
-          }}
-        >
-          <option value="">— Aucun —</option>
-          {commissionsProches.length > 0 && (
-            <optgroup label={`Commission mixte de ${commune}`}>
-              {commissionsProches.map((c) => <option key={c.id} value={`commission_mixte:${c.id}`}>{c.sigle || c.nom}</option>)}
-            </optgroup>
-          )}
-          {collectifsProches.length > 0 && (
-            <optgroup label={`Collectifs de ${commune}`}>
-              {collectifsProches.map((s) => <option key={s.id} value={`syndicat:${s.id}`}>{opt(s)}</option>)}
-            </optgroup>
-          )}
-          {commissionsAutres.length > 0 && (
-            <optgroup label={commune ? "Autres commissions mixtes" : "Commissions mixtes"}>
-              {commissionsAutres.map((c) => <option key={c.id} value={`commission_mixte:${c.id}`}>{c.sigle || c.nom}{c.commune ? ` — ${c.commune}` : ""}</option>)}
-            </optgroup>
-          )}
-          {collectifsAutres.length > 0 && (
-            <optgroup label={commune ? "Autres collectifs" : "Collectifs (Syndicats)"}>
-              {collectifsAutres.map((s) => <option key={s.id} value={`syndicat:${s.id}`}>{opt(s)}</option>)}
-            </optgroup>
-          )}
+        <LogoPreview entity={entity} />
+        <select style={inputStyle} className="font-body" value={collectifId || ""} onChange={(e) => onChange(e.target.value)} disabled={!commune}>
+          <option value="">{commune ? "— Sélectionner —" : "— Choisissez d'abord une commune —"}</option>
+          {collectifs.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.type === "transporteurs" ? "Collectif des transporteurs" : s.type === "chauffeurs" ? "Collectif des chauffeurs" : (s.sigle || s.nom)}
+              {s.sigle ? ` — ${s.sigle}` : ""}
+            </option>
+          ))}
         </select>
       </div>
-      {value && !entity?.logoUrl && (
+      {commune && collectifs.length === 0 && (
         <p className="font-body text-xs mt-1" style={{ color: C.amber }}>
-          Ce collectif n'a pas encore de logo enregistré — ajoutez-le depuis sa page (Commissions Mixtes / Collectifs → Modifier) ou "Mon profil".
+          Aucun collectif enregistré pour {commune} — créez-le depuis la page "Collectifs (Syndicats)".
         </p>
       )}
     </Field>
   );
 }
 
-function MemberForm({ initialMember, commissionsMixtes, syndicats, vehicles, onCancel, onSave }) {
+/* Logo en haut A DROITE : l'association rattachee au collectif choisi. */
+function AssociationSelector({ associationId, onChange, associations, collectifId }) {
+  const liste = collectifId ? associations.filter((a) => a.syndicatId === collectifId) : [];
+  const entity = associations.find((a) => a.id === associationId) || null;
+  return (
+    <Field label="Association — logo en haut à DROITE" hint="Syndicat de base rattaché au collectif choisi">
+      <div className="flex items-center gap-2">
+        <LogoPreview entity={entity} />
+        <select style={inputStyle} className="font-body" value={associationId || ""} onChange={(e) => onChange(e.target.value)} disabled={!collectifId}>
+          <option value="">{collectifId ? "— Sélectionner —" : "— Choisissez d'abord un collectif —"}</option>
+          {liste.map((a) => <option key={a.id} value={a.id}>{a.sigle ? `${a.sigle} — ${a.nom}` : a.nom}</option>)}
+        </select>
+      </div>
+      {collectifId && liste.length === 0 && (
+        <p className="font-body text-xs mt-1" style={{ color: C.amber }}>
+          Aucune association sous ce collectif — ajoutez-la depuis la page "Collectifs (Syndicats)".
+        </p>
+      )}
+    </Field>
+  );
+}
+
+/* Bloc complet reutilise par les 4 formulaires : commune -> commission
+   mixte -> collectif (gauche) -> association (droite). */
+function AppartenanceBlock({ commune, commissionMixteId, onCommune, logo2Id, onCollectif, logo1Id, onAssociation, commissionsMixtes, syndicats, associations }) {
+  return (
+    <>
+      <CommuneCommissionSelector commune={commune} onChange={onCommune} commissionsMixtes={commissionsMixtes} />
+      <div className="grid grid-cols-2 gap-4">
+        <CollectifSelector collectifId={logo2Id} onChange={onCollectif} syndicats={syndicats} commune={commune} />
+        <AssociationSelector associationId={logo1Id} onChange={onAssociation} associations={associations} collectifId={logo2Id} />
+      </div>
+    </>
+  );
+}
+
+function MemberForm({ initialMember, commissionsMixtes, syndicats, associations, vehicles, onCancel, onSave }) {
   const isEdit = !!initialMember;
   const [nom, setNom] = useState(initialMember?.nom || "");
   const [prenoms, setPrenoms] = useState(initialMember?.prenoms || "");
@@ -4044,11 +4086,18 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, vehicles, onC
           {syndicats.map((s) => <option key={s.id} value={s.id}>{s.sigle || s.nom}{s.commune ? ` — ${s.commune}` : ""}{s.type ? ` (${s.type === "transporteurs" ? "Transporteurs" : "Chauffeurs"})` : ""}</option>)}
         </select>
       </Field>
-      <CommuneCommissionSelector commune={commune} onChange={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); }} commissionsMixtes={commissionsMixtes} />
-      <div className="grid grid-cols-2 gap-4">
-        <LogoSelector label="Premier collectif (logo en haut à droite)" type={logo1Type} id={logo1Id} onChange={(t, i) => { setLogo1Type(t); setLogo1Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} commune={commune} />
-        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={logo2Type} id={logo2Id} onChange={(t, i) => { setLogo2Type(t); setLogo2Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} commune={commune} />
-      </div>
+      <AppartenanceBlock
+        commune={commune}
+        commissionMixteId={commissionMixteId}
+        onCommune={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); setLogo2Type(""); setLogo2Id(""); setLogo1Type(""); setLogo1Id(""); }}
+        logo2Id={logo2Id}
+        onCollectif={(v) => { setLogo2Type(v ? "syndicat" : ""); setLogo2Id(v); setLogo1Type(""); setLogo1Id(""); }}
+        logo1Id={logo1Id}
+        onAssociation={(v) => { setLogo1Type(v ? "association" : ""); setLogo1Id(v); }}
+        commissionsMixtes={commissionsMixtes}
+        syndicats={syndicats}
+        associations={associations}
+      />
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
         <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
@@ -4082,7 +4131,7 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, vehicles, onC
    CHAUFFEUR — formulaire d'ajout/modification autonome, sans passer
    par la création d'un véhicule.
    ============================================================ */
-function DriverForm({ initialDriver, commissionsMixtes, syndicats, vehicles, onCancel, onSave }) {
+function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations, vehicles, onCancel, onSave }) {
   const isEdit = !!initialDriver;
   const [nom, setNom] = useState(initialDriver?.nom || "");
   const [prenoms, setPrenoms] = useState(initialDriver?.prenoms || "");
@@ -4144,11 +4193,18 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, vehicles, onC
           {syndicats.map((s) => <option key={s.id} value={s.id}>{s.sigle || s.nom}{s.commune ? ` — ${s.commune}` : ""}{s.type ? ` (${s.type === "transporteurs" ? "Transporteurs" : "Chauffeurs"})` : ""}</option>)}
         </select>
       </Field>
-      <CommuneCommissionSelector commune={commune} onChange={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); }} commissionsMixtes={commissionsMixtes} />
-      <div className="grid grid-cols-2 gap-4">
-        <LogoSelector label="Premier collectif (logo en haut à droite)" type={logo1Type} id={logo1Id} onChange={(t, i) => { setLogo1Type(t); setLogo1Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} commune={commune} />
-        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={logo2Type} id={logo2Id} onChange={(t, i) => { setLogo2Type(t); setLogo2Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} commune={commune} />
-      </div>
+      <AppartenanceBlock
+        commune={commune}
+        commissionMixteId={commissionMixteId}
+        onCommune={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); setLogo2Type(""); setLogo2Id(""); setLogo1Type(""); setLogo1Id(""); }}
+        logo2Id={logo2Id}
+        onCollectif={(v) => { setLogo2Type(v ? "syndicat" : ""); setLogo2Id(v); setLogo1Type(""); setLogo1Id(""); }}
+        logo1Id={logo1Id}
+        onAssociation={(v) => { setLogo1Type(v ? "association" : ""); setLogo1Id(v); }}
+        commissionsMixtes={commissionsMixtes}
+        syndicats={syndicats}
+        associations={associations}
+      />
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
         <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
@@ -4172,7 +4228,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, vehicles, onC
   );
 }
 
-function ElementForm({ initialElement, commissionsMixtes, syndicats, garesRoutieres, lignes, onCancel, onSave }) {
+function ElementForm({ initialElement, commissionsMixtes, syndicats, associations, garesRoutieres, lignes, onCancel, onSave }) {
   const isEdit = !!initialElement;
   const [nom, setNom] = useState(initialElement?.nom || "");
   const [prenoms, setPrenoms] = useState(initialElement?.prenoms || "");
@@ -4227,11 +4283,18 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, garesRoutie
           {syndicats.map((s) => <option key={s.id} value={s.id}>{s.sigle || s.nom}{s.commune ? ` — ${s.commune}` : ""}{s.type ? ` (${s.type === "transporteurs" ? "Transporteurs" : "Chauffeurs"})` : ""}</option>)}
         </select>
       </Field>
-      <CommuneCommissionSelector commune={commune} onChange={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); }} commissionsMixtes={commissionsMixtes} />
-      <div className="grid grid-cols-2 gap-4">
-        <LogoSelector label="Premier collectif (logo en haut à droite)" type={logo1Type} id={logo1Id} onChange={(t, i) => { setLogo1Type(t); setLogo1Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} commune={commune} />
-        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={logo2Type} id={logo2Id} onChange={(t, i) => { setLogo2Type(t); setLogo2Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} commune={commune} />
-      </div>
+      <AppartenanceBlock
+        commune={commune}
+        commissionMixteId={commissionMixteId}
+        onCommune={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); setLogo2Type(""); setLogo2Id(""); setLogo1Type(""); setLogo1Id(""); }}
+        logo2Id={logo2Id}
+        onCollectif={(v) => { setLogo2Type(v ? "syndicat" : ""); setLogo2Id(v); setLogo1Type(""); setLogo1Id(""); }}
+        logo1Id={logo1Id}
+        onAssociation={(v) => { setLogo1Type(v ? "association" : ""); setLogo1Id(v); }}
+        commissionsMixtes={commissionsMixtes}
+        syndicats={syndicats}
+        associations={associations}
+      />
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
         <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
@@ -4276,6 +4339,48 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, garesRoutie
    mixte, un collectif (syndicat), ou l'admin général. Rôle unique :
    enrôler des membres et générer leurs cartes.
    ============================================================ */
+function AssociationForm({ initialAsso, collectif, onCancel, onSave }) {
+  const isEdit = !!initialAsso;
+  const [nom, setNom] = useState(initialAsso?.nom || "");
+  const [sigle, setSigle] = useState(initialAsso?.sigle || "");
+  const [logoUrl, setLogoUrl] = useState(initialAsso?.logoUrl || null);
+  const [presidentNom, setPresidentNom] = useState(initialAsso?.presidentNom || "");
+  const [presidentContact, setPresidentContact] = useState(initialAsso?.presidentContact || "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const canSave = nom && !saving;
+
+  const handleSave = async () => {
+    setSaving(true); setError(null);
+    try {
+      await onSave({ syndicatId: collectif.id, nom, sigle, logoUrl, presidentNom, presidentContact });
+    } catch (err) { setError(err.message || "Erreur lors de l'enregistrement."); setSaving(false); }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="font-body text-xs px-3 py-2.5 rounded-lg" style={{ background: C.cream, color: C.slate }}>
+        Association rattachée au collectif <strong>{collectif?.sigle || collectif?.nom}</strong>
+        {collectif?.commune ? ` (${collectif.commune})` : ""}
+      </p>
+      <PhotoUpload value={logoUrl} onChange={setLogoUrl} label="Logo de l'association" shape="square" />
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Nom de l'association"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Syndicat des conducteurs de Niangon" /></Field>
+        <Field label="Sigle" hint="Affiché sur la carte"><TextInput value={sigle} onChange={(e) => setSigle(e.target.value)} maxLength={20} /></Field>
+        <Field label="Nom du président"><TextInput value={presidentNom} onChange={(e) => setPresidentNom(e.target.value)} /></Field>
+        <Field label="Contact du président"><TextInput value={presidentContact} onChange={(e) => setPresidentContact(e.target.value)} /></Field>
+      </div>
+      <div className="flex items-center justify-end gap-3 pt-2">
+        {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
+        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
+        <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
+          <Check size={16} /> {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Créer l'association"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AgentForm({ initialAgent, onCancel, onSave }) {
   const isEdit = !!initialAgent;
   const [nom, setNom] = useState(initialAgent?.nom || "");
@@ -4608,7 +4713,7 @@ function ReassignForm({ auth, vehicle, commissionsMixtes, lignes, garesRoutieres
 /* ============================================================
    TABLEAU DES MEMBRES PAR SYNDICAT (vue commission mixte / admin)
    ============================================================ */
-function SyndicatMembersTable({ commissionSyndicats, owners, onEdit, onDelete }) {
+function SyndicatMembersTable({ commissionSyndicats, owners, associations = [], onEdit, onDelete, onAddAsso, onEditAsso, onDeleteAsso }) {
   if (commissionSyndicats.length === 0) {
     return <p className="font-body text-sm" style={{ color: C.slate }}>Aucun collectif (syndicat) rattaché.</p>;
   }
@@ -4638,6 +4743,32 @@ function SyndicatMembersTable({ commissionSyndicats, owners, onEdit, onDelete })
                 </div>
               )}
               <div className="font-display" style={{ fontSize: 22, fontWeight: 700, color: C.green }}>{count}</div>
+              {onAddAsso && (() => {
+                const assos = associations.filter((a) => a.syndicatId === s.id);
+                return (
+                  <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 8, paddingTop: 8 }}>
+                    <span className="font-body text-xs font-semibold" style={{ color: C.ink }}>Associations ({assos.length})</span>
+                    {assos.map((a) => (
+                      <div key={a.id} className="flex items-center justify-between mt-1.5">
+                        <span className="font-body text-xs" style={{ color: C.slate }}>{a.sigle || a.nom}</span>
+                        <div className="flex items-center gap-1.5">
+                          <button onClick={() => onEditAsso(a)} title="Modifier" style={{ color: C.slate }}><Pencil size={11} /></button>
+                          <button
+                            onClick={async () => {
+                              if (!window.confirm(`Supprimer l'association "${a.nom}" ?`)) return;
+                              try { await onDeleteAsso(a.id); } catch (err) { alert(err.message || "Suppression impossible."); }
+                            }}
+                            title="Supprimer" style={{ color: C.red }}
+                          ><Trash2 size={11} /></button>
+                        </div>
+                      </div>
+                    ))}
+                    <button onClick={() => onAddAsso(s.id)} className="w-full font-body text-xs font-semibold flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg mt-2" style={{ background: C.orangeLight, color: C.orangeDark }}>
+                      <Plus size={12} /> Association
+                    </button>
+                  </div>
+                );
+              })()}
               <div className="font-body text-xs" style={{ color: C.slate }}>transporteur{count > 1 ? "s" : ""}</div>
             </div>
           );
