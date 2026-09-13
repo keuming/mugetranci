@@ -45,6 +45,9 @@ export default async function handler(req, res) {
       if ("logo2Type" in body) { values.logo2Type = body.logo2Type || null; values.logo2Id = body.logo2Id || null; }
       if ("gareRoutiereId" in body) values.gareRoutiereId = body.gareRoutiereId || null;
       if ("ligneId" in body) values.ligneId = body.ligneId || null;
+      // Un élément est l'agent administratif d'UNE association précise —
+      // rattachement explicite quand le créateur n'en implique pas déjà un.
+      if (body.syndicatId) values.syndicatId = body.syndicatId;
 
       if (auth.role === "syndicat") {
         values.syndicatId = auth.syndicatId;
@@ -64,6 +67,9 @@ export default async function handler(req, res) {
         if (auth.parentType === "syndicat") values.syndicatId = auth.parentId;
       } else {
         values.creatorType = "admin";
+      }
+      if (!values.syndicatId) {
+        return res.status(400).json({ error: "L'association (collectif/syndicat) de rattachement de l'élément est requise." });
       }
 
       const [created] = await db.insert(elements).values(values).returning();
@@ -103,6 +109,7 @@ export default async function handler(req, res) {
     if ("nom" in body) patch.nom = body.nom;
     if ("prenoms" in body) patch.prenoms = body.prenoms;
     if ("fonction" in body) patch.fonction = body.fonction;
+    if ("syndicatId" in body && body.syndicatId) patch.syndicatId = body.syndicatId;
     if ("contact1" in body) patch.contact1 = body.contact1;
     if ("contact2" in body) patch.contact2 = body.contact2;
     if ("contact3" in body) patch.contact3 = body.contact3;

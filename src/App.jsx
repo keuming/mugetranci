@@ -3614,17 +3614,18 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, garesRoutie
   const [logo2Id, setLogo2Id] = useState(initialElement?.logo2Id || "");
   const [gareRoutiereId, setGareRoutiereId] = useState(initialElement?.gareRoutiereId || "");
   const [ligneId, setLigneId] = useState(initialElement?.ligneId || "");
+  const [syndicatId, setSyndicatId] = useState(initialElement?.syndicatId || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
   const lignesDeLaGare = lignes.filter((l) => l.gareRoutiereId === gareRoutiereId);
-  const canSave = nom && prenoms && cni && !saving;
+  const canSave = nom && prenoms && cni && syndicatId && !saving;
 
   const handleSave = async () => {
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, fonction, contact1, contact2, contact3, email, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id, gareRoutiereId, ligneId });
+      await onSave({ nom, prenoms, cni, fonction, contact1, contact2, contact3, email, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id, gareRoutiereId, ligneId, syndicatId });
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -3642,6 +3643,12 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, garesRoutie
           N° carte élément (généré automatiquement) : <strong className="font-mono">{initialElement.numeroCarte}</strong>
         </p>
       )}
+      <Field label="Association de rattachement (collectif/syndicat) *" hint="L'élément est l'agent administratif de cette association précise.">
+        <select style={inputStyle} className="font-body" value={syndicatId} onChange={(e) => setSyndicatId(e.target.value)}>
+          <option value="">— Sélectionner —</option>
+          {syndicats.map((s) => <option key={s.id} value={s.id}>{s.sigle || s.nom}{s.commune ? ` — ${s.commune}` : ""}{s.type ? ` (${s.type === "transporteurs" ? "Transporteurs" : "Chauffeurs"})` : ""}</option>)}
+        </select>
+      </Field>
       <div className="grid grid-cols-2 gap-4">
         <LogoSelector label="Premier collectif (logo en haut à droite)" type={logo1Type} id={logo1Id} onChange={(t, i) => { setLogo1Type(t); setLogo1Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="element" />
         <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={logo2Type} id={logo2Id} onChange={(t, i) => { setLogo2Type(t); setLogo2Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="element" />
