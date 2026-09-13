@@ -655,7 +655,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <CollectifSelector collectifId={newOwner.logo2Id} onChange={(v) => setNewOwner({ ...newOwner, logo2Type: v ? "syndicat" : "", logo2Id: v, logo1Type: "", logo1Id: "" })} syndicats={syndicats} commune={commune} />
-                  <AssociationSelector associationId={newOwner.logo1Id} onChange={(v) => setNewOwner({ ...newOwner, logo1Type: v ? "association" : "", logo1Id: v })} associations={associations} collectifId={newOwner.logo2Id} />
+                  <AssociationSelector associationId={newOwner.logo1Id} onChange={(v) => setNewOwner({ ...newOwner, logo1Type: v ? "association" : "", logo1Id: v })} associations={associations} collectifId={newOwner.logo2Id} syndicats={syndicats} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Field label="Nom"><TextInput value={newOwner.nom} onChange={(e) => setNewOwner({ ...newOwner, nom: e.target.value })} /></Field>
@@ -728,7 +728,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <CollectifSelector collectifId={row.draft.logo2Id} onChange={(v) => updateDriverDraft(i, { logo2Type: v ? "syndicat" : "", logo2Id: v, logo1Type: "", logo1Id: "" })} syndicats={syndicats} commune={commune} />
-                        <AssociationSelector associationId={row.draft.logo1Id} onChange={(v) => updateDriverDraft(i, { logo1Type: v ? "association" : "", logo1Id: v })} associations={associations} collectifId={row.draft.logo2Id} />
+                        <AssociationSelector associationId={row.draft.logo1Id} onChange={(v) => updateDriverDraft(i, { logo1Type: v ? "association" : "", logo1Id: v })} associations={associations} collectifId={row.draft.logo2Id} syndicats={syndicats} />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <Field label="Nom"><TextInput value={row.draft.nom} onChange={(e) => updateDriverDraft(i, { nom: e.target.value })} /></Field>
@@ -4302,26 +4302,45 @@ function LogoPreview({ entity }) {
 }
 
 /* Logo en haut A GAUCHE : le collectif de la commune choisie. */
+function libelleCollectif(s) {
+  const base = s.type === "transporteurs" ? "Collectif des transporteurs"
+    : s.type === "chauffeurs" ? "Collectif des chauffeurs"
+    : (s.nom || "Collectif");
+  return s.sigle ? `${base} — ${s.sigle}` : base;
+}
+
 function CollectifSelector({ collectifId, onChange, syndicats, commune }) {
-  const collectifs = commune ? syndicats.filter((s) => COMMUNE_EQ(s.commune, commune)) : [];
+  // La commune met en avant ses collectifs, mais n'en masque AUCUN : un
+  // collectif dont la commune n'a pas ete renseignee, ou orthographiee
+  // autrement, resterait sinon introuvable.
+  const deLaCommune = commune ? syndicats.filter((s) => COMMUNE_EQ(s.commune, commune)) : [];
+  const autres = commune ? syndicats.filter((s) => !COMMUNE_EQ(s.commune, commune)) : syndicats;
   const entity = syndicats.find((s) => s.id === collectifId) || null;
   return (
-    <Field label="" hint="Collectif des transporteurs ou des chauffeurs de la commune. C'est aussi l'association de rattachement du membre.">
+    <Field label="" hint="Collectif des transporteurs ou des chauffeurs. C'est aussi l'association de rattachement du membre.">
       <div className="flex items-center gap-2">
         <LogoPreview entity={entity} />
         <select style={commune ? inputStyle : inputDisabledStyle} className="font-body" value={collectifId || ""} onChange={(e) => onChange(e.target.value)} disabled={!commune}>
           <option value="">{commune ? "— Sélectionner —" : "— Choisissez d'abord une commune —"}</option>
-          {collectifs.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.type === "transporteurs" ? "Collectif des transporteurs" : s.type === "chauffeurs" ? "Collectif des chauffeurs" : (s.sigle || s.nom)}
-              {s.sigle ? ` — ${s.sigle}` : ""}
-            </option>
-          ))}
+          {deLaCommune.length > 0 && (
+            <optgroup label={`Collectifs de ${commune}`}>
+              {deLaCommune.map((s) => <option key={s.id} value={s.id}>{libelleCollectif(s)}</option>)}
+            </optgroup>
+          )}
+          {autres.length > 0 && (
+            <optgroup label={deLaCommune.length > 0 ? "Autres collectifs" : "Tous les collectifs"}>
+              {autres.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {libelleCollectif(s)}{s.commune ? ` (${s.commune})` : " (commune non renseignée)"}
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
       </div>
-      {commune && collectifs.length === 0 && (
+      {commune && syndicats.length === 0 && (
         <p className="font-body text-xs mt-1" style={{ color: C.amber }}>
-          Aucun collectif enregistré pour {commune} — créez-le depuis la page "Collectifs (Syndicats)".
+          Aucun collectif enregistré — créez-en un depuis la page "Collectifs (Syndicats)".
         </p>
       )}
     </Field>
@@ -4329,21 +4348,42 @@ function CollectifSelector({ collectifId, onChange, syndicats, commune }) {
 }
 
 /* Logo en haut A DROITE : l'association rattachee au collectif choisi. */
-function AssociationSelector({ associationId, onChange, associations, collectifId }) {
-  const liste = collectifId ? associations.filter((a) => a.syndicatId === collectifId) : [];
+function AssociationSelector({ associationId, onChange, associations, collectifId, syndicats = [] }) {
+  // Meme principe : les associations du collectif choisi en tete, toutes
+  // les autres restent accessibles dessous (une association rattachee par
+  // erreur a un autre collectif doit pouvoir etre retrouvee et corrigee).
+  const duCollectif = collectifId ? associations.filter((a) => a.syndicatId === collectifId) : [];
+  const autres = collectifId ? associations.filter((a) => a.syndicatId !== collectifId) : associations;
   const entity = associations.find((a) => a.id === associationId) || null;
+  const nomCollectif = (id) => {
+    const s = syndicats.find((x) => x.id === id);
+    return s ? (s.sigle || s.nom) : "collectif inconnu";
+  };
   return (
     <Field label="" hint="Syndicat de base rattaché au collectif choisi">
       <div className="flex items-center gap-2">
         <LogoPreview entity={entity} />
         <select style={collectifId ? inputStyle : inputDisabledStyle} className="font-body" value={associationId || ""} onChange={(e) => onChange(e.target.value)} disabled={!collectifId}>
           <option value="">{collectifId ? "— Sélectionner —" : "— Choisissez d'abord un collectif —"}</option>
-          {liste.map((a) => <option key={a.id} value={a.id}>{a.sigle ? `${a.sigle} — ${a.nom}` : a.nom}</option>)}
+          {duCollectif.length > 0 && (
+            <optgroup label="Associations de ce collectif">
+              {duCollectif.map((a) => <option key={a.id} value={a.id}>{a.sigle ? `${a.sigle} — ${a.nom}` : a.nom}</option>)}
+            </optgroup>
+          )}
+          {autres.length > 0 && (
+            <optgroup label={duCollectif.length > 0 ? "Autres associations" : "Toutes les associations"}>
+              {autres.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.sigle ? `${a.sigle} — ${a.nom}` : a.nom} ({nomCollectif(a.syndicatId)})
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
       </div>
-      {collectifId && liste.length === 0 && (
+      {collectifId && associations.length === 0 && (
         <p className="font-body text-xs mt-1" style={{ color: C.amber }}>
-          Aucune association sous ce collectif — ajoutez-la depuis la page "Collectifs (Syndicats)".
+          Aucune association enregistrée — ajoutez-en une depuis la page "Collectifs (Syndicats)".
         </p>
       )}
     </Field>
@@ -4389,7 +4429,7 @@ function AppartenanceBlock({ commune, commissionMixteId, onCommune, logo2Id, onC
 
       <div style={{ height: 14 }} />
       <EtapeBadge n="3" actif={!!logo2Id}>Association — logo à droite</EtapeBadge>
-      <AssociationSelector associationId={logo1Id} onChange={onAssociation} associations={associations} collectifId={logo2Id} />
+      <AssociationSelector associationId={logo1Id} onChange={onAssociation} associations={associations} collectifId={logo2Id} syndicats={syndicats} />
     </div>
   );
 }
