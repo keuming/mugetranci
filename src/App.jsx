@@ -3,7 +3,7 @@ import { QRCodeSVG } from "qrcode.react";
 import {
   Car, User, Users, Bell, Plus, X, Check, AlertTriangle, CreditCard,
   Camera, Printer, Search, Home, FileText, Phone, Mail, MapPin,
-  BadgeCheck, Calendar, ChevronRight, ChevronLeft, RotateCw, Trash2, Building2, QrCode, Fuel, Pencil, LogOut, Settings, Route
+  BadgeCheck, Calendar, ChevronRight, ChevronLeft, RotateCw, Trash2, Building2, QrCode, Fuel, Pencil, LogOut, Settings, Route, Menu
 } from "lucide-react";
 
 /* ============================================================
@@ -34,6 +34,46 @@ const FONTS = `
 .font-mono { font-family: 'IBM Plex Mono', monospace; }
 
 .print-card-duo { display: none; }
+
+/* ---------- Mise en page adaptative (PWA mobile) ---------- */
+.comix-main { padding: 32px; }
+.comix-page-title { font-size: 24px; }
+.comix-drawer { transition: transform 0.22s ease; }
+
+.comix-modal-overlay { padding: 24px; }
+
+@media (max-width: 1023px) {
+  /* La barre latérale devient un tiroir qui glisse par-dessus le contenu */
+  .comix-drawer {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 50;
+    transform: translateX(-100%);
+    box-shadow: 0 0 40px rgba(0,0,0,0.35);
+  }
+  .comix-drawer-open { transform: translateX(0); }
+
+  .comix-main { padding: 16px; max-width: 100% !important; }
+  .comix-page-title { font-size: 19px; }
+
+  /* Grilles de cartes : une seule colonne sur téléphone */
+  .grid.grid-cols-3, .grid.grid-cols-2 { grid-template-columns: 1fr !important; }
+
+  /* Rangées de statistiques : passent à la ligne au lieu de déborder */
+  .comix-stats-row { flex-wrap: wrap; }
+  .comix-stats-row > * { flex: 1 1 calc(50% - 8px); min-width: calc(50% - 8px); }
+
+  /* Les formulaires en 2 colonnes passent en 1 colonne */
+  .comix-modal .grid { grid-template-columns: 1fr !important; }
+
+  /* Tableaux larges : défilement horizontal plutôt que débordement */
+  table { display: block; overflow-x: auto; white-space: nowrap; }
+}
+
+@media (max-width: 640px) {
+  .comix-main { padding: 12px; }
+  .comix-modal-overlay { padding: 10px; }
+}
 .print-card-sheet { display: none; }
 
 @media print {
@@ -1287,7 +1327,7 @@ function HautConseilPanel({ vehicles, owners, commissionsMixtes, syndicats, gare
         {notFound && <p className="font-body text-xs mt-2" style={{ color: "#FDEBD8" }}>Aucun véhicule trouvé pour "{query}".</p>}
       </div>
 
-      <div className="flex gap-4">
+      <div className="flex gap-4 comix-stats-row">
         <StatCard icon={<AlertTriangle size={17} />} label="Véhicules non en règle" value={nonCompliant.length} accent={C.red} />
         <StatCard icon={<Bell size={17} />} label="Échéances à 15 jours" value={approaching15Count} accent={C.amber} />
       </div>
@@ -1626,6 +1666,7 @@ function Dashboard({ auth, onLogout }) {
   const [showMemberFormFor, setShowMemberFormFor] = useState(false);
   const [editMember, setEditMember] = useState(null);
   const [showProfileForm, setShowProfileForm] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [lignes, setLignes] = useState([]);
   const [affectations, setAffectations] = useState([]);
   const [showCommissionForm, setShowCommissionForm] = useState(false);
@@ -1952,24 +1993,41 @@ function Dashboard({ auth, onLogout }) {
     <div className="font-body" style={{ background: C.cream, minHeight: "100vh", color: C.ink }}>
       <style>{FONTS}</style>
       <div className="flex" style={{ height: "100vh", overflow: "hidden" }}>
-        {/* SIDEBAR — hauteur fixe, ne défile pas avec le contenu */}
-        <aside style={{ width: 232, background: C.greenDark, flexShrink: 0, display: "flex", flexDirection: "column", height: "100vh", overflowY: "auto" }}>
+        {/* Voile sombre derrière le menu sur mobile */}
+        {mobileNavOpen && (
+          <div
+            onClick={() => setMobileNavOpen(false)}
+            className="lg:hidden"
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 40 }}
+          />
+        )}
+
+        {/* SIDEBAR — tiroir escamotable sur mobile, fixe sur grand écran */}
+        <aside
+          className={mobileNavOpen ? "comix-drawer comix-drawer-open" : "comix-drawer"}
+          style={{ width: 232, background: C.greenDark, flexShrink: 0, display: "flex", flexDirection: "column", height: "100vh", overflowY: "auto" }}
+        >
           <div className="px-5 py-6">
-            <div className="flex items-center gap-2.5">
-              <div style={{ width: 34, height: 34, borderRadius: 9, background: C.orange, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Car size={17} color="#fff" />
+            <div className="flex items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2.5">
+                <div style={{ width: 34, height: 34, borderRadius: 9, background: C.orange, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Car size={17} color="#fff" />
+                </div>
+                <div>
+                  <div className="font-display" style={{ color: "#fff", fontSize: 15, fontWeight: 700, lineHeight: 1.1 }}>COMIX-CI</div>
+                  <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 9.5 }}>Commissions Mixtes des Transporteurs</div>
+                </div>
               </div>
-              <div>
-                <div className="font-display" style={{ color: "#fff", fontSize: 15, fontWeight: 700, lineHeight: 1.1 }}>COMIX-CI</div>
-                <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 9.5 }}>Commissions Mixtes des Transporteurs</div>
-              </div>
+              <button onClick={() => setMobileNavOpen(false)} className="lg:hidden" style={{ color: "rgba(255,255,255,0.7)" }} title="Fermer le menu">
+                <X size={18} />
+              </button>
             </div>
           </div>
           <nav className="flex flex-col gap-1 px-3">
             {nav.map((n) => (
               <button
                 key={n.key}
-                onClick={() => setPage(n.key)}
+                onClick={() => { setPage(n.key); setMobileNavOpen(false); }}
                 className="flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium"
                 style={{ background: page === n.key ? "rgba(255,255,255,0.12)" : "transparent", color: page === n.key ? "#fff" : "rgba(255,255,255,0.68)" }}
               >
@@ -2001,16 +2059,21 @@ function Dashboard({ auth, onLogout }) {
         </aside>
 
         {/* MAIN — défile indépendamment de la barre latérale */}
-        <main className="flex-1 p-8" style={{ maxWidth: 1180, height: "100vh", overflowY: "auto" }}>
+        <main className="flex-1 comix-main" style={{ maxWidth: 1180, height: "100vh", overflowY: "auto" }}>
           {/* TOP BAR */}
-          <div className="flex items-center justify-between mb-7">
-            <div>
-              <h1 className="font-display" style={{ fontSize: 24, fontWeight: 700 }}>
-                {{ dashboard: "Tableau de bord", vehicles: "Véhicules", owners: "Transporteurs", drivers: "Chauffeurs", elements: "Éléments", commissions: "Commissions Mixtes", syndicats: "Collectifs (Syndicats)", garesroutieres: "Gares Routières", carburant: "Carburant", alerts: "Alertes documents" }[page]}
-              </h1>
-              <p className="text-sm" style={{ color: C.slate }}>Registre unifié véhicules · transporteurs · chauffeurs</p>
-            </div>
+          <div className="flex items-center justify-between gap-3 mb-7 flex-wrap">
             <div className="flex items-center gap-3">
+              <button onClick={() => setMobileNavOpen(true)} className="lg:hidden" style={{ color: C.ink }} title="Menu">
+                <Menu size={22} />
+              </button>
+              <div>
+                <h1 className="font-display comix-page-title" style={{ fontWeight: 700 }}>
+                  {{ dashboard: "Tableau de bord", vehicles: "Véhicules", owners: "Transporteurs", drivers: "Chauffeurs", elements: "Éléments", commissions: "Commissions Mixtes", syndicats: "Collectifs (Syndicats)", garesroutieres: "Gares Routières", carburant: "Carburant", alerts: "Alertes documents" }[page]}
+                </h1>
+                <p className="text-sm" style={{ color: C.slate }}>Registre unifié véhicules · transporteurs · chauffeurs</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 flex-wrap">
               <button
                 onClick={() => { setOnlyExpiredFilter((f) => !f); setPage("vehicles"); }}
                 className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-2 rounded-lg"
@@ -2134,7 +2197,7 @@ function Dashboard({ auth, onLogout }) {
               )}
 
               <div className="flex flex-col gap-4">
-                <div className="flex gap-4">
+                <div className="flex gap-4 comix-stats-row">
                   {auth.role === "admin" ? (
                     <>
                       <StatCard icon={<MapPin size={17} />} label="Commissions mixtes" value={commissionsMixtes.length} accent={C.orange} />
@@ -2151,7 +2214,7 @@ function Dashboard({ auth, onLogout }) {
                     </>
                   )}
                 </div>
-                <div className="flex gap-4">
+                <div className="flex gap-4 comix-stats-row">
                   <StatCard icon={<MapPin size={17} />} label="Gares routières" value={garesRoutieres.length} accent={C.orangeDark} />
                   <StatCard icon={<Route size={17} />} label="Lignes" value={lignes.length} accent={C.green} />
                 </div>
@@ -2829,7 +2892,7 @@ function Dashboard({ auth, onLogout }) {
 
           {page === "carburant" && (
             <div className="flex flex-col gap-6">
-              <div className="flex gap-4">
+              <div className="flex gap-4 comix-stats-row">
                 <StatCard icon={<Fuel size={17} />} label="Volume total (litres)" value={achats.reduce((s, a) => s + a.volumeLitres, 0).toLocaleString("fr-FR")} accent={C.green} />
                 <StatCard icon={<CreditCard size={17} />} label="Montant total (FCFA)" value={achats.reduce((s, a) => s + a.montantFcfa, 0).toLocaleString("fr-FR")} accent={C.orange} />
                 <StatCard icon={<BadgeCheck size={17} />} label="Commission Mutuelle (FCFA)" value={achats.reduce((s, a) => s + a.commissionFcfa, 0).toLocaleString("fr-FR")} accent={C.greenDark} />
@@ -4167,8 +4230,8 @@ function VehicleTable({ vehicles, owners, onFiche, onPhoto, commissionsMixtes, l
 
 function Modal({ children, onClose, title, wide }) {
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(20,24,20,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 24, overflowY: "auto" }}>
-      <div className="modal-box" style={{ background: C.cream, borderRadius: 16, width: wide ? 720 : 380, maxWidth: "94vw", maxHeight: "90vh", padding: 20, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+    <div className="comix-modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(20,24,20,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, overflowY: "auto" }}>
+      <div className="modal-box comix-modal" style={{ background: C.cream, borderRadius: 16, width: wide ? 720 : 380, maxWidth: "94vw", maxHeight: "90vh", padding: 20, overflowY: "auto", display: "flex", flexDirection: "column" }}>
         <div className="flex items-center justify-between mb-4" style={{ flexShrink: 0 }}>
           <h2 className="font-display" style={{ fontSize: 18, fontWeight: 700, color: C.ink }}>{title}</h2>
           <button onClick={onClose} style={{ color: C.slate }}><X size={20} /></button>
