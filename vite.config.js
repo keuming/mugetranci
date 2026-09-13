@@ -28,6 +28,13 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,png,svg,woff2}"],
+        // Le nouveau service worker prend la main immediatement au lieu
+        // d'attendre la fermeture de tous les onglets : sans cela, une mise
+        // a jour poussee sur Vercel n'apparaissait qu'apres plusieurs
+        // rechargements, l'ancienne version restant servie depuis le cache.
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         // Les appels API ne sont jamais servis depuis le cache par defaut :
         // les donnees d'enrolement doivent rester fraiches. On garde
         // neanmoins une copie de secours du bootstrap pour permettre la
