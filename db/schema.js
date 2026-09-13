@@ -34,6 +34,8 @@ export const syndicats = pgTable("syndicats", {
   nom: varchar("nom", { length: 160 }).notNull(),
   sigle: varchar("sigle", { length: 20 }),
   logoUrl: text("logo_url"),
+  commune: varchar("commune", { length: 60 }), // commune de rattachement du collectif
+  type: varchar("type", { length: 20 }), // transporteurs | chauffeurs — determine quel collectif apparait sur quelle carte
   presidentNom: varchar("president_nom", { length: 160 }),
   presidentContact: varchar("president_contact", { length: 30 }),
   login: varchar("login", { length: 20 }).unique(),

@@ -57,6 +57,17 @@ const FONTS = `
 
 const TODAY = new Date("2026-07-27");
 const TRANSPORT_CATEGORIES = ["VTC", "Minibus", "Taxi brousse", "Taxi compteur"];
+// Communes d'Abidjan + principales villes de Côte d'Ivoire — liste par
+// défaut proposée à la création d'un collectif (syndicat).
+const COMMUNES = [
+  "ABOBO", "ADJAMÉ", "ATTÉCOUBÉ", "COCODY", "KOUMASSI", "MARCORY", "PLATEAU", "PORT-BOUËT", "TREICHVILLE", "YOPOUGON",
+  "YAMOUSSOUKRO", "BOUAKÉ", "KORHOGO", "FERKESSÉDOUGOU", "DALOA", "MAN", "GUIGLO", "DUÉKOUÉ", "ISSIA", "GAGNOA",
+  "SAN-PÉDRO", "DIVO", "DABOU", "AGBOVILLE", "GRAND-BASSAM", "BONOUA", "ABOISSO", "ABENGOUROU", "BONDOUKOU", "KATIOLA", "GRAND-LAHOU",
+];
+const SYNDICAT_TYPES = [
+  { value: "transporteurs", label: "Collectif des syndicats des transporteurs" },
+  { value: "chauffeurs", label: "Collectif des syndicats des chauffeurs" },
+];
 
 /* ============================================================
    HELPERS
@@ -3272,6 +3283,8 @@ function SyndicatForm({ commission, initialSyndicat, onCancel, onSave }) {
   const [nom, setNom] = useState(initialSyndicat?.nom || "");
   const [sigle, setSigle] = useState(initialSyndicat?.sigle || "");
   const [logoUrl, setLogoUrl] = useState(initialSyndicat?.logoUrl || null);
+  const [commune, setCommune] = useState(initialSyndicat?.commune || "");
+  const [type, setType] = useState(initialSyndicat?.type || "");
   const [presidentNom, setPresidentNom] = useState(initialSyndicat?.presidentNom || "");
   const [presidentContact, setPresidentContact] = useState(initialSyndicat?.presidentContact || "");
   const [login, setLogin] = useState(initialSyndicat?.login || "");
@@ -3286,7 +3299,7 @@ function SyndicatForm({ commission, initialSyndicat, onCancel, onSave }) {
     setSaving(true);
     setError(null);
     try {
-      await onSave({ commissionMixteId: commission.id, nom, sigle, logoUrl, presidentNom, presidentContact, login, pinCode });
+      await onSave({ commissionMixteId: commission.id, nom, sigle, logoUrl, commune, type, presidentNom, presidentContact, login, pinCode });
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -3302,6 +3315,20 @@ function SyndicatForm({ commission, initialSyndicat, onCancel, onSave }) {
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom du collectif (syndicat)"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Syndicat des Transporteurs de Yopougon" /></Field>
         <Field label="Sigle" hint="Affiché sur le tableau de bord"><TextInput value={sigle} onChange={(e) => setSigle(e.target.value)} placeholder="STY" maxLength={20} /></Field>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Commune">
+          <select style={inputStyle} className="font-body" value={commune} onChange={(e) => setCommune(e.target.value)}>
+            <option value="">— Sélectionner —</option>
+            {COMMUNES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </Field>
+        <Field label="Type de collectif" hint="Détermine quelle carte de membre affichera ce logo">
+          <select style={inputStyle} className="font-body" value={type} onChange={(e) => setType(e.target.value)}>
+            <option value="">— Sélectionner —</option>
+            {SYNDICAT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
+        </Field>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom du président"><TextInput value={presidentNom} onChange={(e) => setPresidentNom(e.target.value)} /></Field>
@@ -4009,6 +4036,11 @@ function SyndicatMembersTable({ commissionSyndicats, owners, onEdit, onDelete })
                 )}
               </div>
               {s.sigle && <div className="font-body text-xs" style={{ color: C.slate }}>{s.nom}</div>}
+              {(s.commune || s.type) && (
+                <div className="font-body text-xs mt-0.5" style={{ color: C.orangeDark }}>
+                  {s.commune}{s.commune && s.type ? " · " : ""}{s.type === "transporteurs" ? "Transporteurs" : s.type === "chauffeurs" ? "Chauffeurs" : ""}
+                </div>
+              )}
               <div className="font-display" style={{ fontSize: 22, fontWeight: 700, color: C.green }}>{count}</div>
               <div className="font-body text-xs" style={{ color: C.slate }}>transporteur{count > 1 ? "s" : ""}</div>
             </div>

@@ -51,6 +51,8 @@ export default async function handler(req, res) {
           nom: body.nom,
           sigle: body.sigle || null,
           logoUrl: body.logoUrl || null,
+          commune: body.commune || null,
+          type: body.type || null,
           presidentNom: body.presidentNom || null,
           presidentContact: body.presidentContact || null,
           login: body.login || null,
@@ -94,7 +96,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Le code PIN doit comporter exactement 4 chiffres" });
     }
     const patch = {};
-    ["nom", "sigle", "logoUrl", "presidentNom", "presidentContact", "login"].forEach((k) => {
+    ["nom", "sigle", "logoUrl", "commune", "type", "presidentNom", "presidentContact", "login"].forEach((k) => {
       if (k in body) patch[k] = body[k] || null;
     });
     if (body.pinCode) patch.pinCode = body.pinCode;
