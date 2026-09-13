@@ -114,6 +114,9 @@ function toDbVehicule(body) {
     marque: rest.marque || null,
     modele: rest.modele || null,
     chassis: rest.chassis || null, // nullable + unique : jamais de chaîne vide, sinon conflit d'unicité entre dossiers sans châssis renseigné
+    commissionMixteId: rest.commissionMixteId || null,
+    commune: rest.commune || null,
+    nombrePlaces: rest.nombrePlaces ? Number(rest.nombrePlaces) : null,
     photoUrl: photo ?? null,
     visiteTechniqueDateFin: documents.visiteTechnique || null,
     assuranceAutoDateFin: documents.assuranceAuto || null,
@@ -235,6 +238,9 @@ export default async function handler(req, res) {
     if ("categorie" in body) patch.categorie = body.categorie;
     if ("immatriculation" in body) patch.immatriculation = body.immatriculation;
     if ("dateMiseCirculation" in body) patch.dateMiseCirculation = body.dateMiseCirculation || null;
+    if ("commune" in body) patch.commune = body.commune || null;
+    if ("commissionMixteId" in body) patch.commissionMixteId = body.commissionMixteId || null;
+    if ("nombrePlaces" in body) patch.nombrePlaces = body.nombrePlaces ? Number(body.nombrePlaces) : null;
     if ("proprietaireId" in body) patch.proprietaireId = body.proprietaireId || null;
     if ("visiteTechnique" in documents) patch.visiteTechniqueDateFin = documents.visiteTechnique || null;
     if ("assuranceAuto" in documents) patch.assuranceAutoDateFin = documents.assuranceAuto || null;

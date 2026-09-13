@@ -417,6 +417,9 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
   const [marque, setMarque] = useState("");
   const [modele, setModele] = useState("");
   const [categorie, setCategorie] = useState("");
+  const [nombrePlaces, setNombrePlaces] = useState("");
+  const [commune, setCommune] = useState("");
+  const [commissionMixteId, setCommissionMixteId] = useState("");
   const [chassis, setChassis] = useState("");
   const [carteGrise, setCarteGrise] = useState("");
   const [nomCarteGrise, setNomCarteGrise] = useState("");
@@ -466,7 +469,8 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
     try {
       let finalOwnerId = ownerMode === "existing" ? ownerId : "";
       if (ownerMode === "new") {
-        const payload = isAdmin && syndicatIdSel ? { ...newOwner, syndicatId: syndicatIdSel } : newOwner;
+        const base = { ...newOwner, commune, commissionMixteId };
+        const payload = isAdmin && syndicatIdSel ? { ...base, syndicatId: syndicatIdSel } : base;
         const created = await addOwner(payload); // POST /api/proprietaires — id réel renvoyé par Neon
         finalOwnerId = created.id;
       }
@@ -476,14 +480,15 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
         if (row.mode === "existing") {
           if (row.id) finalDriverIds.push(row.id);
         } else {
-          const draftPayload = isAdmin && syndicatIdSel ? { ...row.draft, syndicatId: syndicatIdSel } : row.draft;
+          const draftBase = { ...row.draft, commune, commissionMixteId };
+          const draftPayload = isAdmin && syndicatIdSel ? { ...draftBase, syndicatId: syndicatIdSel } : draftBase;
           const created = await addDriver(draftPayload); // POST /api/chauffeurs
           finalDriverIds.push(created.id);
         }
       }
 
       const createdVehicle = await onSave({
-        marque, modele, categorie, chassis, carteGrise, nomCarteGrise, immatriculation, dateMiseCirculation, photo,
+        marque, modele, categorie, nombrePlaces, commune, commissionMixteId, chassis, carteGrise, nomCarteGrise, immatriculation, dateMiseCirculation, photo,
         documents: docs,
         proprietaireId: finalOwnerId || null,
         chauffeurIds: finalDriverIds,
@@ -522,7 +527,10 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
               </div>
             )}
             <PhotoUpload value={photo} onChange={setPhoto} label="Photo du véhicule" shape="square" />
-            <div className="grid grid-cols-2 gap-4 mt-5">
+            <div className="mt-5">
+              <CommuneCommissionSelector commune={commune} onChange={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); }} commissionsMixtes={commissionsMixtes} />
+            </div>
+            <div className="grid grid-cols-2 gap-4 mt-1">
               <Field label="Marque (optionnel)"><TextInput value={marque} onChange={(e) => setMarque(e.target.value)} placeholder="Toyota" /></Field>
               <Field label="Modèle (optionnel)"><TextInput value={modele} onChange={(e) => setModele(e.target.value)} placeholder="Hiace 18 places" /></Field>
               <Field label="Secteur / catégorie de transport">
@@ -531,6 +539,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
                   {TRANSPORT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </Field>
+              <Field label="Nombre de places"><TextInput value={nombrePlaces} onChange={(e) => setNombrePlaces(e.target.value.replace(/\D/g, ""))} placeholder="18" /></Field>
               <Field label="Numéro de châssis (optionnel)"><TextInput value={chassis} onChange={(e) => setChassis(e.target.value)} placeholder="JT731HB0900123456" /></Field>
               <Field label="Numéro carte grise *"><TextInput value={carteGrise} onChange={(e) => setCarteGrise(e.target.value)} placeholder="CG-2024-000000" /></Field>
               <Field label="Nom sur la carte grise" hint="Peut différer du propriétaire actuel"><TextInput value={nomCarteGrise} onChange={(e) => setNomCarteGrise(e.target.value)} placeholder="Nom du titulaire inscrit sur le document" /></Field>
@@ -583,8 +592,8 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
                   <PhotoUpload value={newOwner.qrPaiement} onChange={(v) => setNewOwner({ ...newOwner, qrPaiement: v })} label="QR code Mobile Money (compte marchand)" shape="square" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <LogoSelector label="Premier collectif (logo en haut à droite)" type={newOwner.logo1Type} id={newOwner.logo1Id} onChange={(t, i) => setNewOwner({ ...newOwner, logo1Type: t, logo1Id: i })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="transporteur" />
-                  <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={newOwner.logo2Type} id={newOwner.logo2Id} onChange={(t, i) => setNewOwner({ ...newOwner, logo2Type: t, logo2Id: i })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="transporteur" />
+                  <LogoSelector label="Premier collectif (logo en haut à droite)" type={newOwner.logo1Type} id={newOwner.logo1Id} onChange={(t, i) => setNewOwner({ ...newOwner, logo1Type: t, logo1Id: i })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} commune={commune} />
+                  <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={newOwner.logo2Type} id={newOwner.logo2Id} onChange={(t, i) => setNewOwner({ ...newOwner, logo2Type: t, logo2Id: i })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} commune={commune} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Field label="Nom"><TextInput value={newOwner.nom} onChange={(e) => setNewOwner({ ...newOwner, nom: e.target.value })} /></Field>
@@ -656,8 +665,8 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
                         <PhotoUpload value={row.draft.qrPaiement} onChange={(v) => updateDriverDraft(i, { qrPaiement: v })} label="QR code de paiement (wallet Mobile Money)" shape="square" />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
-                        <LogoSelector label="Premier collectif (logo en haut à droite)" type={row.draft.logo1Type} id={row.draft.logo1Id} onChange={(t, iId) => updateDriverDraft(i, { logo1Type: t, logo1Id: iId })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="chauffeur" />
-                        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={row.draft.logo2Type} id={row.draft.logo2Id} onChange={(t, iId) => updateDriverDraft(i, { logo2Type: t, logo2Id: iId })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="chauffeur" />
+                        <LogoSelector label="Premier collectif (logo en haut à droite)" type={row.draft.logo1Type} id={row.draft.logo1Id} onChange={(t, iId) => updateDriverDraft(i, { logo1Type: t, logo1Id: iId })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} commune={commune} />
+                        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={row.draft.logo2Type} id={row.draft.logo2Id} onChange={(t, iId) => updateDriverDraft(i, { logo2Type: t, logo2Id: iId })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} commune={commune} />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <Field label="Nom"><TextInput value={row.draft.nom} onChange={(e) => updateDriverDraft(i, { nom: e.target.value })} /></Field>
@@ -3440,12 +3449,67 @@ function SyndicatForm({ commission, initialSyndicat, onCancel, onSave }) {
    et le "deuxième collectif" (gauche) affichés sur une carte de membre.
    Liste combinée Commissions Mixtes + Syndicats.
    ============================================================ */
-function LogoSelector({ label, type, id, onChange, commissionsMixtes, syndicats, memberCategory }) {
+/* ============================================================
+   COMMUNE → COMMISSION MIXTE
+   Il existe une commission mixte par commune : choisir la commune
+   selectionne donc automatiquement la commission mixte correspondante.
+   La commune pilote aussi la liste des collectifs proposes pour les logos.
+   ============================================================ */
+function findCommissionForCommune(commune, commissionsMixtes) {
+  if (!commune) return null;
+  const norm = (s) => (s || "").trim().toUpperCase();
+  return commissionsMixtes.find((c) => norm(c.commune) === norm(commune)) || null;
+}
+
+function CommuneCommissionSelector({ commune, onChange, commissionsMixtes, required }) {
+  const commission = findCommissionForCommune(commune, commissionsMixtes);
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      <Field label={`Commune${required ? " *" : ""}`}>
+        <select
+          style={inputStyle}
+          className="font-body"
+          value={commune || ""}
+          onChange={(e) => {
+            const v = e.target.value;
+            const found = findCommissionForCommune(v, commissionsMixtes);
+            onChange(v, found ? found.id : "");
+          }}
+        >
+          <option value="">— Sélectionner —</option>
+          {COMMUNES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </Field>
+      <Field label="Commission mixte" hint="Déterminée automatiquement par la commune">
+        <div
+          className="font-body flex items-center gap-2"
+          style={{ ...inputStyle, background: C.cream, color: commission ? C.ink : C.slate, display: "flex", alignItems: "center" }}
+        >
+          {commission ? (
+            <>
+              {commission.logoUrl && <img src={commission.logoUrl} alt="" style={{ width: 20, height: 20, borderRadius: 4, objectFit: "cover" }} />}
+              <span>{commission.sigle || commission.nom}</span>
+            </>
+          ) : (
+            <span>{commune ? "Aucune commission mixte pour cette commune" : "Choisissez d'abord une commune"}</span>
+          )}
+        </div>
+      </Field>
+    </div>
+  );
+}
+
+/* Les deux selecteurs de logo proposent la MEME liste complete des
+   collectifs de la commune choisie — la combinaison (lequel a gauche,
+   lequel a droite) est laissee au choix de l'utilisateur. */
+function LogoSelector({ label, type, id, onChange, commissionsMixtes, syndicats, commune }) {
   const value = type && id ? `${type}:${id}` : "";
   const entity = resolveLogoEntity(type, id, commissionsMixtes, syndicats);
-  const wantedType = memberCategory === "transporteur" ? "transporteurs" : memberCategory === "chauffeur" ? "chauffeurs" : null;
-  const recommandes = wantedType ? syndicats.filter((s) => s.type === wantedType) : [];
-  const autres = wantedType ? syndicats.filter((s) => s.type !== wantedType) : syndicats;
+  const norm = (s) => (s || "").trim().toUpperCase();
+  const commissionsFiltrees = commune ? commissionsMixtes.filter((c) => norm(c.commune) === norm(commune)) : commissionsMixtes;
+  const collectifsFiltres = commune ? syndicats.filter((s) => norm(s.commune) === norm(commune)) : syndicats;
+  const aucunPourCommune = !!commune && commissionsFiltrees.length === 0 && collectifsFiltres.length === 0;
+
   return (
     <Field label={label}>
       <div className="flex items-center gap-2">
@@ -3463,23 +3527,31 @@ function LogoSelector({ label, type, id, onChange, commissionsMixtes, syndicats,
             onChange(t, i);
           }}
         >
-          <option value="">— Déduit automatiquement —</option>
-          <optgroup label="Commissions mixtes">
-            {commissionsMixtes.map((c) => <option key={c.id} value={`commission_mixte:${c.id}`}>{c.sigle || c.nom}</option>)}
-          </optgroup>
-          {recommandes.length > 0 && (
-            <optgroup label={`Collectifs des ${wantedType} (recommandé)`}>
-              {recommandes.map((s) => <option key={s.id} value={`syndicat:${s.id}`}>{s.sigle || s.nom}{s.commune ? ` — ${s.commune}` : ""}</option>)}
+          <option value="">— Aucun —</option>
+          {commissionsFiltrees.length > 0 && (
+            <optgroup label="Commissions mixtes">
+              {commissionsFiltrees.map((c) => <option key={c.id} value={`commission_mixte:${c.id}`}>{c.sigle || c.nom}</option>)}
             </optgroup>
           )}
-          <optgroup label={recommandes.length > 0 ? "Autres collectifs" : "Collectifs (Syndicats)"}>
-            {autres.map((s) => <option key={s.id} value={`syndicat:${s.id}`}>{s.sigle || s.nom}{s.commune ? ` — ${s.commune}` : ""}</option>)}
-          </optgroup>
+          {collectifsFiltres.length > 0 && (
+            <optgroup label={commune ? `Collectifs de ${commune}` : "Collectifs (Syndicats)"}>
+              {collectifsFiltres.map((s) => (
+                <option key={s.id} value={`syndicat:${s.id}`}>
+                  {s.sigle || s.nom}{s.type ? ` — ${s.type === "transporteurs" ? "Transporteurs" : "Chauffeurs"}` : ""}
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
       </div>
+      {aucunPourCommune && (
+        <p className="font-body text-xs mt-1" style={{ color: C.amber }}>
+          Aucun collectif enregistré pour {commune} — créez-le d'abord depuis la page "Collectifs (Syndicats)".
+        </p>
+      )}
       {value && !entity?.logoUrl && (
         <p className="font-body text-xs mt-1" style={{ color: C.amber }}>
-          Ce collectif n'a pas encore de logo enregistré — ajoutez-le depuis sa page (Commissions Mixtes / Syndicats → Modifier) ou "Mon profil".
+          Ce collectif n'a pas encore de logo enregistré — ajoutez-le depuis sa page (Commissions Mixtes / Collectifs → Modifier) ou "Mon profil".
         </p>
       )}
     </Field>
@@ -3500,6 +3572,8 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, vehicles, onC
   const [quartier, setQuartier] = useState(initialMember?.quartier || "");
   const [photo, setPhoto] = useState(initialMember?.photo || null);
   const [qrPaiement, setQrPaiement] = useState(initialMember?.qrPaiement || null);
+  const [commune, setCommune] = useState(initialMember?.commune || "");
+  const [commissionMixteId, setCommissionMixteId] = useState(initialMember?.commissionMixteId || "");
   const [logo1Type, setLogo1Type] = useState(initialMember?.logo1Type || "");
   const [logo1Id, setLogo1Id] = useState(initialMember?.logo1Id || "");
   const [logo2Type, setLogo2Type] = useState(initialMember?.logo2Type || "");
@@ -3515,7 +3589,7 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, vehicles, onC
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id }, vehiculeId || null);
+      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId }, vehiculeId || null);
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -3542,9 +3616,10 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, vehicles, onC
           N° carte transporteur (généré automatiquement) : <strong className="font-mono">{initialMember.carteTransporteurNumero}</strong>
         </p>
       )}
+      <CommuneCommissionSelector commune={commune} onChange={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); }} commissionsMixtes={commissionsMixtes} />
       <div className="grid grid-cols-2 gap-4">
-        <LogoSelector label="Premier collectif (logo en haut à droite)" type={logo1Type} id={logo1Id} onChange={(t, i) => { setLogo1Type(t); setLogo1Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="transporteur" />
-        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={logo2Type} id={logo2Id} onChange={(t, i) => { setLogo2Type(t); setLogo2Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="transporteur" />
+        <LogoSelector label="Premier collectif (logo en haut à droite)" type={logo1Type} id={logo1Id} onChange={(t, i) => { setLogo1Type(t); setLogo1Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} commune={commune} />
+        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={logo2Type} id={logo2Id} onChange={(t, i) => { setLogo2Type(t); setLogo2Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} commune={commune} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
@@ -3592,6 +3667,8 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, vehicles, onC
   const [email, setEmail] = useState(initialDriver?.email || "");
   const [photo, setPhoto] = useState(initialDriver?.photo || null);
   const [qrPaiement, setQrPaiement] = useState(initialDriver?.qrPaiement || null);
+  const [commune, setCommune] = useState(initialDriver?.commune || "");
+  const [commissionMixteId, setCommissionMixteId] = useState(initialDriver?.commissionMixteId || "");
   const [logo1Type, setLogo1Type] = useState(initialDriver?.logo1Type || "");
   const [logo1Id, setLogo1Id] = useState(initialDriver?.logo1Id || "");
   const [logo2Type, setLogo2Type] = useState(initialDriver?.logo2Type || "");
@@ -3606,7 +3683,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, vehicles, onC
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, permisNumero, permisDateFin, contact1, contact2, contact3, email, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id }, vehiculeId || null);
+      await onSave({ nom, prenoms, cni, permisNumero, permisDateFin, contact1, contact2, contact3, email, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId }, vehiculeId || null);
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -3632,9 +3709,10 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, vehicles, onC
           N° carte chauffeur (généré automatiquement) : <strong className="font-mono">{initialDriver.numeroCarte}</strong>
         </p>
       )}
+      <CommuneCommissionSelector commune={commune} onChange={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); }} commissionsMixtes={commissionsMixtes} />
       <div className="grid grid-cols-2 gap-4">
-        <LogoSelector label="Premier collectif (logo en haut à droite)" type={logo1Type} id={logo1Id} onChange={(t, i) => { setLogo1Type(t); setLogo1Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="chauffeur" />
-        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={logo2Type} id={logo2Id} onChange={(t, i) => { setLogo2Type(t); setLogo2Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="chauffeur" />
+        <LogoSelector label="Premier collectif (logo en haut à droite)" type={logo1Type} id={logo1Id} onChange={(t, i) => { setLogo1Type(t); setLogo1Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} commune={commune} />
+        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={logo2Type} id={logo2Id} onChange={(t, i) => { setLogo2Type(t); setLogo2Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} commune={commune} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
@@ -3671,6 +3749,8 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, garesRoutie
   const [email, setEmail] = useState(initialElement?.email || "");
   const [photo, setPhoto] = useState(initialElement?.photo || null);
   const [qrPaiement, setQrPaiement] = useState(initialElement?.qrPaiement || null);
+  const [commune, setCommune] = useState(initialElement?.commune || "");
+  const [commissionMixteId, setCommissionMixteId] = useState(initialElement?.commissionMixteId || "");
   const [logo1Type, setLogo1Type] = useState(initialElement?.logo1Type || "");
   const [logo1Id, setLogo1Id] = useState(initialElement?.logo1Id || "");
   const [logo2Type, setLogo2Type] = useState(initialElement?.logo2Type || "");
@@ -3688,7 +3768,7 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, garesRoutie
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, fonction, contact1, contact2, contact3, email, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id, gareRoutiereId, ligneId, syndicatId });
+      await onSave({ nom, prenoms, cni, fonction, contact1, contact2, contact3, email, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id, gareRoutiereId, ligneId, syndicatId, commune, commissionMixteId });
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -3712,9 +3792,10 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, garesRoutie
           {syndicats.map((s) => <option key={s.id} value={s.id}>{s.sigle || s.nom}{s.commune ? ` — ${s.commune}` : ""}{s.type ? ` (${s.type === "transporteurs" ? "Transporteurs" : "Chauffeurs"})` : ""}</option>)}
         </select>
       </Field>
+      <CommuneCommissionSelector commune={commune} onChange={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); }} commissionsMixtes={commissionsMixtes} />
       <div className="grid grid-cols-2 gap-4">
-        <LogoSelector label="Premier collectif (logo en haut à droite)" type={logo1Type} id={logo1Id} onChange={(t, i) => { setLogo1Type(t); setLogo1Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="element" />
-        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={logo2Type} id={logo2Id} onChange={(t, i) => { setLogo2Type(t); setLogo2Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="element" />
+        <LogoSelector label="Premier collectif (logo en haut à droite)" type={logo1Type} id={logo1Id} onChange={(t, i) => { setLogo1Type(t); setLogo1Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} commune={commune} />
+        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={logo2Type} id={logo2Id} onChange={(t, i) => { setLogo2Type(t); setLogo2Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} commune={commune} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
@@ -3932,6 +4013,7 @@ function VehicleEditForm({ vehicle, onCancel, onSave }) {
   const [marque, setMarque] = useState(vehicle.marque || "");
   const [modele, setModele] = useState(vehicle.modele || "");
   const [categorie, setCategorie] = useState(vehicle.categorie || "");
+  const [nombrePlaces, setNombrePlaces] = useState(vehicle.nombrePlaces ?? "");
   const [chassis, setChassis] = useState(vehicle.chassis || "");
   const [carteGrise, setCarteGrise] = useState(vehicle.carteGrise || "");
   const [nomCarteGrise, setNomCarteGrise] = useState(vehicle.nomCarteGrise || "");
@@ -3952,7 +4034,7 @@ function VehicleEditForm({ vehicle, onCancel, onSave }) {
     setSaving(true);
     setError(null);
     try {
-      await onSave({ marque, modele, categorie, chassis, carteGrise, nomCarteGrise, immatriculation, dateMiseCirculation, documents: docs });
+      await onSave({ marque, modele, categorie, nombrePlaces, chassis, carteGrise, nomCarteGrise, immatriculation, dateMiseCirculation, documents: docs });
     } catch (err) {
       setError(err.message || "Erreur lors de la mise à jour.");
       setSaving(false);
@@ -3970,6 +4052,7 @@ function VehicleEditForm({ vehicle, onCancel, onSave }) {
             {TRANSPORT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </Field>
+        <Field label="Nombre de places"><TextInput value={nombrePlaces} onChange={(e) => setNombrePlaces(e.target.value.replace(/\D/g, ""))} placeholder="18" /></Field>
         <Field label="Numéro de châssis"><TextInput value={chassis} onChange={(e) => setChassis(e.target.value)} /></Field>
         <Field label="Numéro d'immatriculation"><TextInput value={immatriculation} onChange={(e) => setImmatriculation(e.target.value)} /></Field>
         <Field label="Numéro carte grise"><TextInput value={carteGrise} onChange={(e) => setCarteGrise(e.target.value)} /></Field>

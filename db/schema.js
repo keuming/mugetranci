@@ -65,6 +65,8 @@ export const proprietaires = pgTable("proprietaires", {
   // verso de la carte de membre pour permettre l'encaissement des clients.
   qrPaiementUrl: text("qr_paiement_url"),
   syndicatId: uuid("syndicat_id"),
+  commune: varchar("commune", { length: 60 }), // commune de rattachement — pilote le choix de la commission mixte
+  commissionMixteId: uuid("commission_mixte_id"), // commission mixte de la commune (une par commune)
   gareRoutiereId: uuid("gare_routiere_id"), // gare routière de rattachement du membre
   creatorType: varchar("creator_type", { length: 20 }), // admin | commission_mixte | syndicat | gare
   creatorId: uuid("creator_id"),
@@ -97,6 +99,8 @@ export const chauffeurs = pgTable("chauffeurs", {
   carteImprimee: boolean("carte_imprimee").default(false).notNull(),
   carteImprimeeAt: timestamp("carte_imprimee_at"),
   syndicatId: uuid("syndicat_id"),
+  commune: varchar("commune", { length: 60 }), // commune de rattachement — pilote le choix de la commission mixte
+  commissionMixteId: uuid("commission_mixte_id"), // commission mixte de la commune (une par commune)
   gareRoutiereId: uuid("gare_routiere_id"),
   creatorType: varchar("creator_type", { length: 20 }),
   creatorId: uuid("creator_id"),
@@ -126,6 +130,8 @@ export const elements = pgTable("elements", {
   carteImprimee: boolean("carte_imprimee").default(false).notNull(),
   carteImprimeeAt: timestamp("carte_imprimee_at"),
   syndicatId: uuid("syndicat_id"),
+  commune: varchar("commune", { length: 60 }), // commune de rattachement — pilote le choix de la commission mixte
+  commissionMixteId: uuid("commission_mixte_id"), // commission mixte de la commune (une par commune)
   gareRoutiereId: uuid("gare_routiere_id"),
   ligneId: uuid("ligne_id"),
   creatorType: varchar("creator_type", { length: 20 }),
@@ -146,6 +152,7 @@ export const vehicules = pgTable("vehicules", {
   carteGrise: varchar("carte_grise", { length: 60 }).notNull(), // obligatoire — pièce d'identité minimale du dossier
   nomCarteGrise: varchar("nom_carte_grise", { length: 160 }),
   categorie: varchar("categorie", { length: 40 }), // VTC, Minibus, Taxi brousse, Taxi compteur…
+  nombrePlaces: integer("nombre_places"), // capacite du vehicule
   immatriculation: varchar("immatriculation", { length: 30 }).notNull().unique(), // obligatoire
   dateMiseCirculation: date("date_mise_circulation"),
   photoUrl: text("photo_url"),
@@ -155,6 +162,8 @@ export const vehicules = pgTable("vehicules", {
   carteStationnementDateFin: date("carte_stationnement_date_fin"),
   proprietaireId: uuid("proprietaire_id").references(() => proprietaires.id),
   syndicatId: uuid("syndicat_id"),
+  commune: varchar("commune", { length: 60 }), // commune de rattachement — pilote le choix de la commission mixte
+  commissionMixteId: uuid("commission_mixte_id"), // commission mixte de la commune (une par commune)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
