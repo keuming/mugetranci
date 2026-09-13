@@ -1855,26 +1855,49 @@ function MobileView({
 }) {
   const [tab, setTab] = useState("ajout");
   const [q, setQ] = useState("");
-  const [filter, setFilter] = useState("tout");
+  const [critere, setCritere] = useState("nom");
+  const [communeF, setCommuneF] = useState("");
   const [selected, setSelected] = useState(null);
 
   const query = q.trim().toLowerCase();
   const match = (...vals) => vals.filter(Boolean).join(" ").toLowerCase().includes(query);
 
-  const results = !query ? [] : [
-    ...(filter === "tout" || filter === "vehicule" ? vehicles
-      .filter((v) => match(v.immatriculation, v.chassis, v.carteGrise, v.marque, v.modele))
-      .map((v) => ({ kind: "vehicule", item: v, title: v.immatriculation, sub: [v.marque, v.modele].filter(Boolean).join(" ") || "Véhicule" })) : []),
-    ...(filter === "tout" || filter === "transporteur" ? owners
-      .filter((o) => match(o.nom, o.prenoms, o.cni, o.contact1, o.contact2, o.contact3, o.carteTransporteurNumero))
-      .map((o) => ({ kind: "transporteur", item: o, title: `${o.prenoms} ${o.nom}`, sub: o.carteTransporteurNumero || "Transporteur" })) : []),
-    ...(filter === "tout" || filter === "chauffeur" ? drivers
-      .filter((d) => match(d.nom, d.prenoms, d.cni, d.permisNumero, d.contact1, d.contact2, d.contact3, d.numeroCarte))
-      .map((d) => ({ kind: "chauffeur", item: d, title: `${d.prenoms} ${d.nom}`, sub: d.numeroCarte || "Chauffeur" })) : []),
-    ...(filter === "tout" || filter === "element" ? elements
-      .filter((e) => match(e.nom, e.prenoms, e.cni, e.fonction, e.contact1, e.contact2, e.contact3, e.numeroCarte))
-      .map((e) => ({ kind: "element", item: e, title: `${e.prenoms} ${e.nom}`, sub: e.fonction || "Élément" })) : []),
+  // 1er filtre : la commune reduit le volume a parcourir.
+  const sameCommune = (x) => !communeF || COMMUNE_EQ(x.commune, communeF);
+  const vehiculesF = vehicles.filter(sameCommune);
+  const ownersF = owners.filter(sameCommune);
+  const driversF = drivers.filter(sameCommune);
+  const elementsF = elements.filter(sameCommune);
+
+  // 2e filtre : le critere determine les champs interroges — et donc
+  // quelles categories sont pertinentes.
+  const chercheVehicule = critere === "chassis" || critere === "immatriculation";
+  const results = !query ? [] : (
+    chercheVehicule
+      ? vehiculesF
+          .filter((v) => critere === "chassis" ? match(v.chassis, v.carteGrise) : match(v.immatriculation))
+          .map((v) => ({ kind: "vehicule", item: v, title: v.immatriculation, sub: [v.marque, v.modele].filter(Boolean).join(" ") || "Véhicule" }))
+      : [
+          ...ownersF
+            .filter((o) => critere === "nom" ? match(o.nom, o.prenoms) : match(o.contact1, o.contact2, o.contact3))
+            .map((o) => ({ kind: "transporteur", item: o, title: `${o.prenoms} ${o.nom}`, sub: o.carteTransporteurNumero || "Transporteur" })),
+          ...driversF
+            .filter((d) => critere === "nom" ? match(d.nom, d.prenoms) : match(d.contact1, d.contact2, d.contact3))
+            .map((d) => ({ kind: "chauffeur", item: d, title: `${d.prenoms} ${d.nom}`, sub: d.numeroCarte || "Chauffeur" })),
+          ...elementsF
+            .filter((e) => critere === "nom" ? match(e.nom, e.prenoms) : match(e.contact1, e.contact2, e.contact3))
+            .map((e) => ({ kind: "element", item: e, title: `${e.prenoms} ${e.nom}`, sub: e.fonction || "Élément" })),
+        ]
+  );
+
+  const CRITERES = [
+    { key: "nom", label: "Nom complet", ph: "Ex. Moussa KONE" },
+    { key: "telephone", label: "Téléphone", ph: "Ex. 0555622208" },
+    { key: "chassis", label: "N° châssis", ph: "Ex. JT731HB09" },
+    { key: "immatriculation", label: "Immatriculation", ph: "Ex. 9186 HZ 01" },
   ];
+  const critereActif = CRITERES.find((x) => x.key === critere);
+  const totalCommune = communeF ? vehiculesF.length + ownersF.length + driversF.length + elementsF.length : null;
 
   const kindMeta = {
     vehicule: { icon: <Car size={18} />, color: C.green, label: "Véhicule" },
@@ -1922,41 +1945,64 @@ function MobileView({
         ) : (
           <div style={{ paddingBottom: 90 }}>
             <h2 className="font-display" style={{ fontSize: 23, fontWeight: 800, color: C.ink, letterSpacing: -0.5 }}>Recherche</h2>
-            <p className="font-body" style={{ fontSize: 13.5, color: C.slate, marginBottom: 12 }}>Immatriculation, nom, CNI, téléphone, n° de carte…</p>
+            <p className="font-body" style={{ fontSize: 13.5, color: C.slate, marginBottom: 12 }}>Choisissez la commune, puis le critère de recherche.</p>
+
+            {/* 1 — Commune */}
+            <div className="font-body" style={{ fontSize: 11, fontWeight: 800, color: C.slate, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>1 · Commune</div>
+            <select
+              value={communeF}
+              onChange={(e) => setCommuneF(e.target.value)}
+              className="font-body"
+              style={{ width: "100%", height: 50, borderRadius: 14, border: `1.5px solid ${communeF ? C.green : C.border}`, background: "#fff", padding: "0 12px", fontSize: 15.5, fontWeight: 700, color: C.ink }}
+            >
+              <option value="">Toutes les communes</option>
+              {COMMUNES.map((cm) => <option key={cm} value={cm}>{cm}</option>)}
+            </select>
+            {communeF && (
+              <p className="font-body" style={{ fontSize: 12, color: C.slate, marginTop: 5 }}>
+                {totalCommune} enregistrement{totalCommune > 1 ? "s" : ""} dans cette commune.
+              </p>
+            )}
+
+            {/* 2 — Critere */}
+            <div className="font-body" style={{ fontSize: 11, fontWeight: 800, color: C.slate, textTransform: "uppercase", letterSpacing: 0.6, margin: "16px 0 6px" }}>2 · Critère de recherche</div>
+            <div className="grid grid-cols-2 gap-2">
+              {CRITERES.map((cr) => (
+                <button
+                  key={cr.key}
+                  onClick={() => setCritere(cr.key)}
+                  className="font-body"
+                  style={{
+                    fontSize: 13.5, fontWeight: 800, padding: "11px 8px", borderRadius: 12,
+                    background: critere === cr.key ? C.orange : "#fff",
+                    color: critere === cr.key ? "#fff" : C.slate,
+                    border: `1.5px solid ${critere === cr.key ? C.orange : C.border}`,
+                  }}
+                >
+                  {cr.label}
+                </button>
+              ))}
+            </div>
+
+            {/* 3 — Saisie */}
+            <div className="font-body" style={{ fontSize: 11, fontWeight: 800, color: C.slate, textTransform: "uppercase", letterSpacing: 0.6, margin: "16px 0 6px" }}>3 · {critereActif.label}</div>
             <div className="flex items-center gap-2 px-3" style={{ background: "#fff", border: `1.5px solid ${C.border}`, borderRadius: 14, height: 50 }}>
               <Search size={19} color={C.slate} />
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Rechercher…"
+                placeholder={critereActif.ph}
+                inputMode={critere === "telephone" ? "tel" : "text"}
                 className="font-body"
                 style={{ border: "none", outline: "none", flex: 1, fontSize: 16, fontWeight: 600, background: "transparent", minWidth: 0 }}
               />
               {q && <button onClick={() => setQ("")} style={{ color: C.slate }}><X size={17} /></button>}
             </div>
 
-            <div className="flex gap-1.5 mt-3" style={{ overflowX: "auto", paddingBottom: 4 }}>
-              {[["tout", "Tout"], ["vehicule", "Véhicules"], ["transporteur", "Transporteurs"], ["chauffeur", "Chauffeurs"], ["element", "Éléments"]].map(([k, lab]) => (
-                <button
-                  key={k}
-                  onClick={() => setFilter(k)}
-                  className="font-body"
-                  style={{
-                    whiteSpace: "nowrap", fontSize: 13, fontWeight: 700, padding: "7px 13px", borderRadius: 999,
-                    background: filter === k ? C.orange : "#fff",
-                    color: filter === k ? "#fff" : C.slate,
-                    border: `1px solid ${filter === k ? C.orange : C.border}`,
-                  }}
-                >
-                  {lab}
-                </button>
-              ))}
-            </div>
-
             <div className="flex flex-col gap-2.5 mt-4">
               {!query && (
                 <p className="font-body text-center" style={{ fontSize: 13.5, color: C.slate, padding: "28px 12px" }}>
-                  Saisissez un terme pour lancer la recherche.
+                  Saisissez {critereActif.label.toLowerCase()} pour lancer la recherche.
                 </p>
               )}
               {query && results.length === 0 && (
