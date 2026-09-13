@@ -114,11 +114,13 @@ export default async function handler(req, res) {
     ? new Set(allSyndicats.filter((s) => s.commissionMixteId === auth.commissionMixteId).map((s) => s.id))
     : null;
 
-  const visibleSyndicats = isCommission
-    ? allSyndicats.filter((s) => mySyndicatIds.has(s.id))
-    : isSyndicat
-      ? allSyndicats.filter((s) => s.id === auth.syndicatId)
-      : allSyndicats;
+  // Referentiel organisationnel : lisible par tous les roles authentifies.
+  // Il sert a composer les cartes (logos collectif + association) et a
+  // enroler un membre de n'importe quelle association ; le restreindre au
+  // seul collectif de l'utilisateur rendait le seconde collectif de la
+  // commune introuvable dans les formulaires. Les identifiants de connexion
+  // ne fuitent pas : toApiSyndicat retire le code PIN.
+  const visibleSyndicats = allSyndicats;
 
   const visibleOwners = isSyndicat
     ? allOwners.filter((o) => o.syndicatId === auth.syndicatId)
