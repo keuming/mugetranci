@@ -1869,6 +1869,75 @@ function SyncBanner({ count, syncing, onSync, compact }) {
   );
 }
 
+/* ============================================================
+   INVITE D'INSTALLATION
+   Tant que l'application est simplement ouverte dans le navigateur,
+   celui-ci impose sa barre d'adresse. Une fois installee (WebAPK sur
+   Android, ecran d'accueil sur iOS), elle s'ouvre en plein ecran.
+   On propose donc l'installation au lieu de la laisser cachee dans le
+   menu du navigateur.
+   ============================================================ */
+function useInstallPrompt() {
+  const [promptEvent, setPromptEvent] = useState(null);
+  const [installe, setInstalle] = useState(false);
+
+  React.useEffect(() => {
+    const dejaInstalle = window.matchMedia("(display-mode: standalone)").matches
+      || window.navigator.standalone === true;
+    setInstalle(dejaInstalle);
+
+    const onPrompt = (e) => { e.preventDefault(); setPromptEvent(e); };
+    const onInstalled = () => { setInstalle(true); setPromptEvent(null); };
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
+
+  const estIOS = typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const installer = async () => {
+    if (!promptEvent) return;
+    promptEvent.prompt();
+    await promptEvent.userChoice;
+    setPromptEvent(null);
+  };
+  return { peutInstaller: !!promptEvent, installe, estIOS, installer };
+}
+
+function InstallBanner() {
+  const { peutInstaller, installe, estIOS, installer } = useInstallPrompt();
+  const [masque, setMasque] = useState(false);
+  if (installe || masque) return null;
+  if (!peutInstaller && !estIOS) return null;
+
+  return (
+    <div style={{ background: "#fff", border: `1.5px solid ${C.border}`, borderLeft: `6px solid ${C.green}`, borderRadius: 14, padding: 14, marginBottom: 14 }}>
+      <div className="flex items-start justify-between gap-2">
+        <div style={{ minWidth: 0 }}>
+          <div className="font-display" style={{ fontSize: 14.5, fontWeight: 800, color: C.ink }}>Installer l'application</div>
+          <div className="font-body" style={{ fontSize: 12.5, color: C.slate, fontWeight: 600, marginTop: 2 }}>
+            {estIOS
+              ? "Dans Safari : bouton Partager, puis « Sur l'écran d'accueil ». L'adresse du site disparaît et l'application s'ouvre en plein écran."
+              : "Elle s'ouvrira en plein écran, sans la barre d'adresse du navigateur, et fonctionnera hors connexion."}
+          </div>
+        </div>
+        <button onClick={() => setMasque(true)} style={{ color: C.slate, flexShrink: 0 }} title="Masquer"><X size={16} /></button>
+      </div>
+      {peutInstaller && (
+        <button
+          onClick={installer}
+          className="w-full font-body flex items-center justify-center gap-2 mt-3"
+          style={{ background: C.green, color: "#fff", fontSize: 14, fontWeight: 800, padding: "11px 0", borderRadius: 11, boxShadow: `0 4px 12px ${C.green}55` }}
+        >
+          <Plus size={17} /> Installer maintenant
+        </button>
+      )}
+    </div>
+  );
+}
+
 function MobileTile({ icon, label, hint, accent, onClick }) {
   return (
     <button
@@ -2190,6 +2259,7 @@ function MobileView({
           <MobileDetail result={selected} vehicles={vehicles} owners={owners} drivers={drivers} syndicats={syndicats} commissionsMixtes={commissionsMixtes} associations={associations} onCard={onCard} onBack={() => setSelected(null)} />
         ) : tab === "ajout" ? (
           <div style={{ paddingBottom: 90 }}>
+            <InstallBanner />
             <SyncBanner count={queueCount} syncing={syncing} onSync={onSync} compact />
             <h2 className="font-display" style={{ fontSize: 25, fontWeight: 800, color: C.ink, letterSpacing: -0.6 }}>Nouvel enrôlement</h2>
             <div style={{ width: 52, height: 4, borderRadius: 999, background: `linear-gradient(90deg, ${C.orange}, ${C.green})`, margin: "6px 0 8px" }} />

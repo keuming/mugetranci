@@ -16,6 +16,7 @@ export default defineConfig({
         theme_color: "#0B6E4F",
         background_color: "#FAF8F3",
         display: "standalone",
+        display_override: ["standalone", "minimal-ui"],
         orientation: "portrait",
         start_url: "/mobile", // l'APK et l'installation mobile ouvrent directement l'interface d'enrolement
         scope: "/",
