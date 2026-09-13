@@ -1620,10 +1620,10 @@ async function apiPost(path, body, queueLabel) {
 async function flushQueue() {
   const items = readQueue();
   if (!items.length) return { sent: 0, failed: 0, offline: false };
-  let sent = 0, failed = 0, offline = false;
+  let sent = 0, failed = 0, offline = false, authExpired = false;
   const rest = [];
   for (let i = 0; i < items.length; i++) {
-    if (offline) { rest.push(items[i]); continue; }
+    if (offline || authExpired) { rest.push(items[i]); continue; }
     const it = items[i];
     try {
       const res = await fetch(it.path, {
@@ -1631,15 +1631,22 @@ async function flushQueue() {
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify(it.body),
       });
-      if (res.ok) sent++;
-      else failed++; // refus serveur : inutile de reessayer indefiniment
+      if (res.ok) { sent++; continue; }
+      if (res.status === 401 || res.status === 403) {
+        // Jeton expire pendant la coupure : surtout ne pas jeter le travail
+        // de l'agent, on garde tout en file pour une reconnexion.
+        authExpired = true;
+        rest.push(it);
+        continue;
+      }
+      failed++; // refus metier (doublon, donnee invalide) : inutile de reessayer
     } catch (err) {
       if (isNetworkError(err)) { offline = true; rest.push(it); }
       else failed++;
     }
   }
   writeQueue(rest);
-  return { sent, failed, offline };
+  return { sent, failed, offline, authExpired };
 }
 async function apiPatch(path, body) {
   const res = await fetch(path, {
@@ -2235,6 +2242,8 @@ export default function App() {
     setAuth(authInfo);
   };
   const handleLogout = () => {
+    const pending = readQueue().length;
+    if (pending > 0 && !window.confirm(`${pending} enrôlement(s) ne sont pas encore envoyés. Ils resteront sur cet appareil mais ne pourront être transmis qu'avec ce compte. Se déconnecter quand même ?`)) return;
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(AUTH_KEY);
     setToken(null);
@@ -2308,7 +2317,7 @@ function Dashboard({ auth, onLogout }) {
     if (syncing || readQueue().length === 0) return;
     setSyncing(true);
     try {
-      const { sent, failed, offline } = await flushQueue();
+      const { sent, failed, offline, authExpired } = await flushQueue();
       setQueueCount(readQueue().length);
       if (sent > 0) {
         const data = await apiGet("/api/bootstrap");
@@ -2318,7 +2327,8 @@ function Dashboard({ auth, onLogout }) {
         setGaresRoutieres(data.garesRoutieres); setLignes(data.lignes);
         setAffectations(data.affectations); setAssociations(data.associations || []);
       }
-      if (failed > 0) alert(`${failed} enregistrement(s) en attente ont été refusés par le serveur (doublon ou donnée invalide) et retirés de la file.`);
+      if (authExpired) alert("Votre session a expiré pendant la coupure. Reconnectez-vous : vos enrôlements restent en attente et seront envoyés ensuite.");
+      else if (failed > 0) alert(`${failed} enregistrement(s) en attente ont été refusés par le serveur (doublon ou donnée invalide) et retirés de la file.`);
       else if (offline) alert("Toujours hors-ligne — les enregistrements restent en attente.");
     } catch (err) {
       console.error("sync:", err);

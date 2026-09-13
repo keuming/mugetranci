@@ -42,7 +42,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "nom, prenoms et cni sont requis" });
       }
       const values = toDb(body);
-      values.carteTransporteurNumero = await genererNumeroCarte(proprietaires, "T");
+      values.carteTransporteurNumero = await genererNumeroCarte(proprietaires, "T", "carteTransporteurNumero");
       if ("logo1Type" in body) { values.logo1Type = body.logo1Type || null; values.logo1Id = body.logo1Id || null; }
       if ("logo2Type" in body) { values.logo2Type = body.logo2Type || null; values.logo2Id = body.logo2Id || null; }
 
