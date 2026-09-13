@@ -1611,6 +1611,402 @@ function LoginScreen({ onLogin }) {
   );
 }
 
+/* ============================================================
+   INTERFACE MOBILE DEDIEE — deux menus : Ajout et Recherche.
+   Reutilise entierement l'etat et les actions du tableau de bord ;
+   seule la presentation change. Typographie grasse, grandes zones
+   tactiles, palette CI (orange / vert / blanc).
+   ============================================================ */
+function useIsMobile(breakpoint = 1024) {
+  const [isMobile, setIsMobile] = React.useState(
+    typeof window !== "undefined" ? window.innerWidth < breakpoint : false
+  );
+  React.useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    const onChange = (e) => setIsMobile(e.matches);
+    setIsMobile(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [breakpoint]);
+  return isMobile;
+}
+
+function MobileTile({ icon, label, hint, accent, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left"
+      style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 18, padding: 18, display: "flex", alignItems: "center", gap: 14 }}
+    >
+      <div style={{ width: 52, height: 52, borderRadius: 14, background: accent + "1A", color: accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        {icon}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="font-display" style={{ fontSize: 17, fontWeight: 800, color: C.ink, letterSpacing: -0.2 }}>{label}</div>
+        <div className="font-body" style={{ fontSize: 12.5, color: C.slate }}>{hint}</div>
+      </div>
+      <ChevronRight size={20} color={C.slate} />
+    </button>
+  );
+}
+
+function MobileField({ label, value, mono }) {
+  return (
+    <div style={{ padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
+      <div className="font-body" style={{ fontSize: 10.5, color: C.slate, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>{label}</div>
+      <div className={mono ? "font-mono" : "font-body"} style={{ fontSize: 15, fontWeight: 700, color: C.ink, marginTop: 2, wordBreak: "break-word" }}>{value || "—"}</div>
+    </div>
+  );
+}
+
+function MobileSectionTitle({ icon, children, accent }) {
+  return (
+    <div className="flex items-center gap-2" style={{ marginTop: 18, marginBottom: 4 }}>
+      <div style={{ width: 28, height: 28, borderRadius: 8, background: (accent || C.green) + "1A", color: accent || C.green, display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</div>
+      <div className="font-display" style={{ fontSize: 15, fontWeight: 800, color: C.ink }}>{children}</div>
+    </div>
+  );
+}
+
+/* Sections reutilisables — chacune n'affiche QUE son domaine. */
+function MobileVehiculeSection({ v }) {
+  if (!v) return <p className="font-body text-sm" style={{ color: C.slate, padding: "12px 0" }}>Aucun véhicule rattaché.</p>;
+  const docs = v.documents || {};
+  return (
+    <>
+      <MobileSectionTitle icon={<Car size={15} />}>Véhicule</MobileSectionTitle>
+      <MobileField label="Immatriculation" value={v.immatriculation} mono />
+      <MobileField label="N° carte grise" value={v.carteGrise} mono />
+      <MobileField label="Marque / Modèle" value={[v.marque, v.modele].filter(Boolean).join(" ") || "—"} />
+      <MobileField label="Catégorie" value={v.categorie} />
+      <MobileField label="Nombre de places" value={v.nombrePlaces} />
+      <MobileField label="N° châssis" value={v.chassis} mono />
+      <MobileField label="Nom sur la carte grise" value={v.nomCarteGrise} />
+      <MobileField label="1ère mise en circulation" value={v.dateMiseCirculation ? fmt(v.dateMiseCirculation) : "—"} />
+      <MobileSectionTitle icon={<FileText size={15} />} accent={C.orangeDark}>Documents</MobileSectionTitle>
+      {[["Visite technique", docs.visiteTechnique], ["Assurance auto", docs.assuranceAuto], ["Vignette", docs.vignette], ["Carte de stationnement", docs.carteStationnement]].map(([lab, d]) => {
+        const s = statusOf(d);
+        return (
+          <div key={lab} className="flex items-center justify-between" style={{ padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
+            <div>
+              <div className="font-body" style={{ fontSize: 10.5, color: C.slate, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>{lab}</div>
+              <div className="font-body" style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{d ? fmt(d) : "—"}</div>
+            </div>
+            <Badge status={s} small />
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+function MobileTransporteurSection({ owner }) {
+  if (!owner) return <p className="font-body text-sm" style={{ color: C.slate, padding: "12px 0" }}>Aucun transporteur rattaché à ce dossier.</p>;
+  return (
+    <>
+      <MobileSectionTitle icon={<User size={15} />} accent={C.orangeDark}>Transporteur</MobileSectionTitle>
+      <div className="flex items-center gap-3" style={{ padding: "10px 0" }}>
+        <div style={{ width: 54, height: 54, borderRadius: 999, overflow: "hidden", background: C.cream, border: `2px solid ${C.border}`, flexShrink: 0 }}>
+          {owner.photo ? <img src={owner.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-bold" style={{ color: C.slate }}>{initials(owner.nom, owner.prenoms)}</div>}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div className="font-display" style={{ fontSize: 18, fontWeight: 800, color: C.ink, lineHeight: 1.15 }}>{owner.prenoms} {owner.nom}</div>
+          <div className="font-mono" style={{ fontSize: 12.5, fontWeight: 700, color: C.orangeDark }}>{owner.carteTransporteurNumero || "—"}</div>
+        </div>
+      </div>
+      <MobileField label="N° CNI" value={owner.cni} mono />
+      <MobileField label="N° permis" value={owner.numeroPermis} mono />
+      <MobileField label="Téléphone" value={[owner.contact1, owner.contact2, owner.contact3].filter(Boolean).join(" · ")} mono />
+      <MobileField label="Email" value={owner.email} />
+      <MobileField label="Commune" value={owner.commune} />
+      <MobileField label="Résidence" value={[owner.quartier, owner.ville].filter(Boolean).join(", ")} />
+    </>
+  );
+}
+
+function MobileChauffeursSection({ drivers }) {
+  if (!drivers.length) return <p className="font-body text-sm" style={{ color: C.slate, padding: "12px 0" }}>Aucun chauffeur rattaché.</p>;
+  return (
+    <>
+      <MobileSectionTitle icon={<Users size={15} />}>Chauffeur{drivers.length > 1 ? "s" : ""} ({drivers.length})</MobileSectionTitle>
+      {drivers.map((d) => (
+        <div key={d.id} style={{ padding: "12px 0", borderBottom: `1px solid ${C.border}` }}>
+          <div className="flex items-center gap-3 mb-1.5">
+            <div style={{ width: 44, height: 44, borderRadius: 999, overflow: "hidden", background: C.cream, border: `2px solid ${C.border}`, flexShrink: 0 }}>
+              {d.photo ? <img src={d.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-bold text-xs" style={{ color: C.slate }}>{initials(d.nom, d.prenoms)}</div>}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div className="font-display" style={{ fontSize: 15.5, fontWeight: 800, color: C.ink }}>{d.prenoms} {d.nom}</div>
+              <div className="font-mono" style={{ fontSize: 11.5, fontWeight: 700, color: C.greenDark }}>{d.numeroCarte || "—"}</div>
+            </div>
+          </div>
+          <div className="font-body" style={{ fontSize: 12.5, color: C.slate }}>CNI {d.cni} · Permis {d.permisNumero}</div>
+          <div className="flex items-center justify-between mt-1">
+            <span className="font-body" style={{ fontSize: 12.5, color: C.slate }}>{d.contact1 || "—"}</span>
+            <Badge status={statusOf(d.permisDateFin)} small />
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function MobileElementSection({ el, syndicats }) {
+  if (!el) return null;
+  const syn = syndicats.find((s) => s.id === el.syndicatId);
+  return (
+    <>
+      <MobileSectionTitle icon={<BadgeCheck size={15} />}>Élément (agent administratif)</MobileSectionTitle>
+      <div className="flex items-center gap-3" style={{ padding: "10px 0" }}>
+        <div style={{ width: 54, height: 54, borderRadius: 14, overflow: "hidden", background: C.cream, border: `2px solid ${C.border}`, flexShrink: 0 }}>
+          {el.photo ? <img src={el.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-bold" style={{ color: C.slate }}>{initials(el.nom, el.prenoms)}</div>}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div className="font-display" style={{ fontSize: 18, fontWeight: 800, color: C.ink, lineHeight: 1.15 }}>{el.prenoms} {el.nom}</div>
+          <div className="font-mono" style={{ fontSize: 12.5, fontWeight: 700, color: C.ink }}>{el.numeroCarte || "—"}</div>
+        </div>
+      </div>
+      <MobileField label="Fonction / Poste" value={el.fonction} />
+      <MobileField label="Association" value={syn ? (syn.sigle || syn.nom) : "—"} />
+      <MobileField label="N° CNI" value={el.cni} mono />
+      <MobileField label="Téléphone" value={[el.contact1, el.contact2, el.contact3].filter(Boolean).join(" · ")} mono />
+      <MobileField label="Email" value={el.email} />
+      <MobileField label="Commune" value={el.commune} />
+    </>
+  );
+}
+
+/* Vue detail : un dossier (vehicule + transporteur + chauffeurs) ou un element,
+   avec navigation par section. */
+function MobileDetail({ result, vehicles, owners, drivers, syndicats, onBack }) {
+  const [section, setSection] = useState(result.kind === "element" ? "element" : "complete");
+
+  const v = result.kind === "vehicule" ? result.item
+    : result.kind === "transporteur" ? vehicles.find((x) => x.proprietaireId === result.item.id)
+    : result.kind === "chauffeur" ? vehicles.find((x) => x.chauffeurIds.includes(result.item.id))
+    : null;
+  const owner = result.kind === "transporteur" ? result.item : (v ? owners.find((o) => o.id === v.proprietaireId) : null);
+  const vDrivers = result.kind === "chauffeur" ? [result.item] : (v ? v.chauffeurIds.map((id) => drivers.find((d) => d.id === id)).filter(Boolean) : []);
+  const el = result.kind === "element" ? result.item : null;
+
+  const tabs = el
+    ? [{ key: "element", label: "Élément" }]
+    : [
+        { key: "vehicule", label: "Véhicule" },
+        { key: "transporteur", label: "Transporteur" },
+        { key: "chauffeurs", label: "Chauffeurs" },
+        { key: "complete", label: "Fiche complète" },
+      ];
+
+  const title = el ? `${el.prenoms} ${el.nom}`
+    : owner ? `${owner.prenoms} ${owner.nom}`
+    : v ? v.immatriculation
+    : vDrivers[0] ? `${vDrivers[0].prenoms} ${vDrivers[0].nom}` : "Dossier";
+
+  return (
+    <div style={{ paddingBottom: 90 }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 10, background: C.cream, paddingTop: 8, paddingBottom: 8 }}>
+        <button onClick={onBack} className="font-body flex items-center gap-1.5" style={{ fontSize: 14, fontWeight: 700, color: C.green, marginBottom: 8 }}>
+          <ChevronLeft size={18} /> Retour
+        </button>
+        <h2 className="font-display" style={{ fontSize: 22, fontWeight: 800, color: C.ink, letterSpacing: -0.4, lineHeight: 1.15 }}>{title}</h2>
+        <div className="flex gap-1.5 mt-3" style={{ overflowX: "auto", paddingBottom: 4 }}>
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setSection(t.key)}
+              className="font-body"
+              style={{
+                whiteSpace: "nowrap", fontSize: 13, fontWeight: 700, padding: "8px 14px", borderRadius: 999,
+                background: section === t.key ? C.green : "#fff",
+                color: section === t.key ? "#fff" : C.slate,
+                border: `1px solid ${section === t.key ? C.green : C.border}`,
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 18, padding: "4px 16px 16px", marginTop: 10 }}>
+        {section === "element" && <MobileElementSection el={el} syndicats={syndicats} />}
+        {section === "vehicule" && <MobileVehiculeSection v={v} />}
+        {section === "transporteur" && <MobileTransporteurSection owner={owner} />}
+        {section === "chauffeurs" && <MobileChauffeursSection drivers={vDrivers} />}
+        {section === "complete" && (
+          <>
+            <MobileTransporteurSection owner={owner} />
+            <MobileVehiculeSection v={v} />
+            <MobileChauffeursSection drivers={vDrivers} />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MobileView({
+  auth, onLogout, vehicles, owners, drivers, elements, syndicats,
+  setShowForm, setShowMemberFormFor, setShowDriverFormFor, setShowElementFormFor,
+  setShowProfileForm,
+}) {
+  const [tab, setTab] = useState("ajout");
+  const [q, setQ] = useState("");
+  const [filter, setFilter] = useState("tout");
+  const [selected, setSelected] = useState(null);
+
+  const query = q.trim().toLowerCase();
+  const match = (...vals) => vals.filter(Boolean).join(" ").toLowerCase().includes(query);
+
+  const results = !query ? [] : [
+    ...(filter === "tout" || filter === "vehicule" ? vehicles
+      .filter((v) => match(v.immatriculation, v.chassis, v.carteGrise, v.marque, v.modele))
+      .map((v) => ({ kind: "vehicule", item: v, title: v.immatriculation, sub: [v.marque, v.modele].filter(Boolean).join(" ") || "Véhicule" })) : []),
+    ...(filter === "tout" || filter === "transporteur" ? owners
+      .filter((o) => match(o.nom, o.prenoms, o.cni, o.contact1, o.contact2, o.contact3, o.carteTransporteurNumero))
+      .map((o) => ({ kind: "transporteur", item: o, title: `${o.prenoms} ${o.nom}`, sub: o.carteTransporteurNumero || "Transporteur" })) : []),
+    ...(filter === "tout" || filter === "chauffeur" ? drivers
+      .filter((d) => match(d.nom, d.prenoms, d.cni, d.permisNumero, d.contact1, d.contact2, d.contact3, d.numeroCarte))
+      .map((d) => ({ kind: "chauffeur", item: d, title: `${d.prenoms} ${d.nom}`, sub: d.numeroCarte || "Chauffeur" })) : []),
+    ...(filter === "tout" || filter === "element" ? elements
+      .filter((e) => match(e.nom, e.prenoms, e.cni, e.fonction, e.contact1, e.contact2, e.contact3, e.numeroCarte))
+      .map((e) => ({ kind: "element", item: e, title: `${e.prenoms} ${e.nom}`, sub: e.fonction || "Élément" })) : []),
+  ];
+
+  const kindMeta = {
+    vehicule: { icon: <Car size={18} />, color: C.green, label: "Véhicule" },
+    transporteur: { icon: <User size={18} />, color: C.orangeDark, label: "Transporteur" },
+    chauffeur: { icon: <Users size={18} />, color: C.greenDark, label: "Chauffeur" },
+    element: { icon: <BadgeCheck size={18} />, color: C.ink, label: "Élément" },
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: C.cream, display: "flex", flexDirection: "column" }}>
+      {/* EN-TETE */}
+      <header style={{ background: `linear-gradient(135deg, ${C.greenDark} 0%, ${C.green} 100%)`, padding: "18px 18px 22px", position: "relative" }}>
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 5, background: `linear-gradient(90deg, ${C.orange} 0%, ${C.orange} 50%, #fff 50%, #fff 100%)` }} />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5" style={{ minWidth: 0 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 11, background: C.orange, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Car size={19} color="#fff" />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div className="font-display" style={{ color: "#fff", fontSize: 18, fontWeight: 800, lineHeight: 1.1, letterSpacing: -0.3 }}>COMIX-CI</div>
+              <div className="font-body" style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{auth.nom}</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setShowProfileForm(true)} style={{ color: "rgba(255,255,255,0.85)" }} title="Mon profil"><Settings size={19} /></button>
+            <button onClick={onLogout} style={{ color: "rgba(255,255,255,0.85)" }} title="Déconnexion"><LogOut size={19} /></button>
+          </div>
+        </div>
+      </header>
+
+      <div style={{ flex: 1, padding: "16px 16px 0" }}>
+        {selected ? (
+          <MobileDetail result={selected} vehicles={vehicles} owners={owners} drivers={drivers} syndicats={syndicats} onBack={() => setSelected(null)} />
+        ) : tab === "ajout" ? (
+          <div style={{ paddingBottom: 90 }}>
+            <h2 className="font-display" style={{ fontSize: 23, fontWeight: 800, color: C.ink, letterSpacing: -0.5 }}>Nouvel enrôlement</h2>
+            <p className="font-body" style={{ fontSize: 13.5, color: C.slate, marginBottom: 16 }}>Choisissez ce que vous souhaitez enregistrer.</p>
+            <div className="flex flex-col gap-3">
+              <MobileTile icon={<Car size={24} />} accent={C.green} label="Véhicule" hint="Carte grise et immatriculation suffisent" onClick={() => setShowForm(true)} />
+              <MobileTile icon={<User size={24} />} accent={C.orangeDark} label="Transporteur" hint="Propriétaire du véhicule" onClick={() => setShowMemberFormFor(true)} />
+              <MobileTile icon={<Users size={24} />} accent={C.greenDark} label="Chauffeur" hint="Conducteur rattaché à un véhicule" onClick={() => setShowDriverFormFor(true)} />
+              <MobileTile icon={<BadgeCheck size={24} />} accent={C.ink} label="Élément" hint="Agent administratif d'une association" onClick={() => setShowElementFormFor(true)} />
+            </div>
+          </div>
+        ) : (
+          <div style={{ paddingBottom: 90 }}>
+            <h2 className="font-display" style={{ fontSize: 23, fontWeight: 800, color: C.ink, letterSpacing: -0.5 }}>Recherche</h2>
+            <p className="font-body" style={{ fontSize: 13.5, color: C.slate, marginBottom: 12 }}>Immatriculation, nom, CNI, téléphone, n° de carte…</p>
+            <div className="flex items-center gap-2 px-3" style={{ background: "#fff", border: `1.5px solid ${C.border}`, borderRadius: 14, height: 50 }}>
+              <Search size={19} color={C.slate} />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Rechercher…"
+                className="font-body"
+                style={{ border: "none", outline: "none", flex: 1, fontSize: 16, fontWeight: 600, background: "transparent", minWidth: 0 }}
+              />
+              {q && <button onClick={() => setQ("")} style={{ color: C.slate }}><X size={17} /></button>}
+            </div>
+
+            <div className="flex gap-1.5 mt-3" style={{ overflowX: "auto", paddingBottom: 4 }}>
+              {[["tout", "Tout"], ["vehicule", "Véhicules"], ["transporteur", "Transporteurs"], ["chauffeur", "Chauffeurs"], ["element", "Éléments"]].map(([k, lab]) => (
+                <button
+                  key={k}
+                  onClick={() => setFilter(k)}
+                  className="font-body"
+                  style={{
+                    whiteSpace: "nowrap", fontSize: 13, fontWeight: 700, padding: "7px 13px", borderRadius: 999,
+                    background: filter === k ? C.orange : "#fff",
+                    color: filter === k ? "#fff" : C.slate,
+                    border: `1px solid ${filter === k ? C.orange : C.border}`,
+                  }}
+                >
+                  {lab}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-col gap-2.5 mt-4">
+              {!query && (
+                <p className="font-body text-center" style={{ fontSize: 13.5, color: C.slate, padding: "28px 12px" }}>
+                  Saisissez un terme pour lancer la recherche.
+                </p>
+              )}
+              {query && results.length === 0 && (
+                <p className="font-body text-center" style={{ fontSize: 13.5, color: C.slate, padding: "28px 12px" }}>
+                  Aucun résultat pour « {q} ».
+                </p>
+              )}
+              {results.map((r, i) => {
+                const m = kindMeta[r.kind];
+                return (
+                  <button
+                    key={`${r.kind}-${r.item.id}-${i}`}
+                    onClick={() => setSelected(r)}
+                    className="w-full text-left flex items-center gap-3"
+                    style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 16, padding: 14 }}
+                  >
+                    <div style={{ width: 42, height: 42, borderRadius: 12, background: m.color + "1A", color: m.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {m.icon}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="font-display" style={{ fontSize: 16, fontWeight: 800, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</div>
+                      <div className="font-body" style={{ fontSize: 12.5, color: C.slate }}>
+                        <span style={{ color: m.color, fontWeight: 700 }}>{m.label}</span> · {r.sub}
+                      </div>
+                    </div>
+                    <ChevronRight size={18} color={C.slate} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* BARRE D'ONGLETS */}
+      <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: `1px solid ${C.border}`, display: "flex", zIndex: 30, paddingBottom: "env(safe-area-inset-bottom)" }}>
+        {[["ajout", "Ajout", <Plus size={22} key="a" />], ["recherche", "Recherche", <Search size={22} key="r" />]].map(([k, lab, ic]) => (
+          <button
+            key={k}
+            onClick={() => { setTab(k); setSelected(null); }}
+            className="flex-1 flex flex-col items-center justify-center gap-1"
+            style={{ padding: "11px 0 13px", color: tab === k ? C.green : C.slate }}
+          >
+            {ic}
+            <span className="font-body" style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: 0.2 }}>{lab}</span>
+          </button>
+        ))}
+      </nav>
+    </div>
+  );
+}
+
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
   const [auth, setAuth] = useState(() => {
@@ -1676,6 +2072,7 @@ function Dashboard({ auth, onLogout }) {
   const [editMember, setEditMember] = useState(null);
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const isMobile = useIsMobile();
   const [lignes, setLignes] = useState([]);
   const [affectations, setAffectations] = useState([]);
   const [showCommissionForm, setShowCommissionForm] = useState(false);
@@ -2001,6 +2398,22 @@ function Dashboard({ auth, onLogout }) {
   return (
     <div className="font-body" style={{ background: C.cream, minHeight: "100vh", color: C.ink }}>
       <style>{FONTS}</style>
+      {isMobile ? (
+        <MobileView
+          auth={auth}
+          onLogout={onLogout}
+          vehicles={vehicles}
+          owners={owners}
+          drivers={drivers}
+          elements={elements}
+          syndicats={syndicats}
+          setShowForm={setShowForm}
+          setShowMemberFormFor={setShowMemberFormFor}
+          setShowDriverFormFor={setShowDriverFormFor}
+          setShowElementFormFor={setShowElementFormFor}
+          setShowProfileForm={setShowProfileForm}
+        />
+      ) : (
       <div className="flex" style={{ height: "100vh", overflow: "hidden" }}>
         {/* Voile sombre derrière le menu sur mobile */}
         {mobileNavOpen && (
@@ -2971,6 +3384,7 @@ function Dashboard({ auth, onLogout }) {
           )}
         </main>
       </div>
+      )}
 
       {/* MODALS */}
       {showForm && <Modal onClose={() => setShowForm(false)} title="Ajouter un véhicule" wide>
