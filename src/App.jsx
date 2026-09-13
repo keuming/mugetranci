@@ -1759,12 +1759,19 @@ function LoginScreen({ onLogin }) {
    lien mobile, et pour l'APK dont c'est le point d'entree. */
 const VIEW_KEY = "mugetranci_view";
 
+// Sous-domaines dedies a l'interface d'enrolement (ex. m.comix-ci.com).
+// Le domaine principal garde la bascule automatique par taille d'ecran.
+const MOBILE_HOSTS = ["m.", "mobile.", "enrolement."];
+
 function resolveForcedView() {
   if (typeof window === "undefined") return null;
   const params = new URLSearchParams(window.location.search);
   const path = window.location.pathname.replace(/\/+$/, "");
+  const host = window.location.hostname.toLowerCase();
+  const surSousDomaineMobile = MOBILE_HOSTS.some((p) => host.startsWith(p));
+
   let forced = null;
-  if (path === "/mobile" || params.get("mobile") === "1") forced = "mobile";
+  if (surSousDomaineMobile || path === "/mobile" || params.get("mobile") === "1") forced = "mobile";
   else if (params.get("mobile") === "0") forced = "desktop";
 
   if (forced) {
@@ -2133,7 +2140,9 @@ function MobileView({
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => switchView("desktop")} style={{ color: "rgba(255,255,255,0.85)" }} title="Passer à la version bureau"><Home size={19} /></button>
+            {!MOBILE_HOSTS.some((p) => window.location.hostname.toLowerCase().startsWith(p)) && (
+              <button onClick={() => switchView("desktop")} style={{ color: "rgba(255,255,255,0.85)" }} title="Passer à la version bureau"><Home size={19} /></button>
+            )}
             <button onClick={() => setShowProfileForm(true)} style={{ color: "rgba(255,255,255,0.85)" }} title="Mon profil"><Settings size={19} /></button>
             <button onClick={onLogout} style={{ color: "rgba(255,255,255,0.85)" }} title="Déconnexion"><LogOut size={19} /></button>
           </div>
