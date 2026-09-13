@@ -222,14 +222,45 @@ function DateInput(props) {
   return <input type="date" {...props} className="font-mono" style={{ ...inputStyle, ...(props.style || {}) }} />;
 }
 
-function PhotoUpload({ value, onChange, label, shape = "circle" }) {
-  const ref = useRef(null);
-  const onFile = (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
+/* Lit un fichier image et le redimensionne/compresse avant de le convertir
+   en data URL : une photo prise au telephone pese souvent plusieurs Mo, ce
+   qui saturerait la base et le reseau. Cote 1200 px max, JPEG qualite 0.82.
+   Les QR codes gardent une compression plus douce pour rester lisibles. */
+function readImageFile(file, { maxSide = 1200, quality = 0.82 } = {}) {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = (ev) => onChange(ev.target.result);
-    reader.readAsDataURL(f);
+    reader.onerror = () => reject(new Error("Lecture du fichier impossible."));
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onerror = () => resolve(ev.target.result); // repli : on garde l'original
+      img.onload = () => {
+        try {
+          const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+          if (scale === 1 && file.size < 400 * 1024) return resolve(ev.target.result);
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext("2d");
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        } catch { resolve(ev.target.result); }
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function PhotoUpload({ value, onChange, label, shape = "circle" }) {
+  const ref = useRef(null);       // galerie / fichiers
+  const camRef = useRef(null);    // appareil photo
+  const onFile = async (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = ""; // permet de reprendre la meme photo deux fois de suite
+    if (!f) return;
+    onChange(await readImageFile(f));
   };
   const radius = shape === "circle" ? "9999px" : "10px";
   return (
@@ -249,17 +280,33 @@ function PhotoUpload({ value, onChange, label, shape = "circle" }) {
           <Camera size={20} color={C.slate} />
         )}
       </div>
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1.5" style={{ minWidth: 0 }}>
         <span className="font-body text-xs font-semibold" style={{ color: C.ink }}>{label}</span>
-        <button
-          type="button"
-          onClick={() => ref.current?.click()}
-          className="font-body text-xs font-semibold"
-          style={{ color: C.green, textAlign: "left" }}
-        >
-          {value ? "Changer la photo" : "Importer une photo"}
-        </button>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => camRef.current?.click()}
+            className="font-body text-xs font-semibold flex items-center gap-1 px-2.5 py-1.5 rounded-lg"
+            style={{ background: C.greenLight, color: C.greenDark }}
+          >
+            <Camera size={13} /> Appareil photo
+          </button>
+          <button
+            type="button"
+            onClick={() => ref.current?.click()}
+            className="font-body text-xs font-semibold flex items-center gap-1 px-2.5 py-1.5 rounded-lg"
+            style={{ background: C.orangeLight, color: C.orangeDark }}
+          >
+            <FileText size={13} /> Galerie
+          </button>
+          {value && (
+            <button type="button" onClick={() => onChange(null)} className="font-body text-xs font-semibold px-2 py-1.5" style={{ color: C.red }}>
+              Retirer
+            </button>
+          )}
+        </div>
       </div>
+      <input ref={camRef} type="file" accept="image/*" capture="environment" onChange={onFile} style={{ display: "none" }} />
       <input ref={ref} type="file" accept="image/*" onChange={onFile} style={{ display: "none" }} />
     </div>
   );
@@ -269,30 +316,40 @@ function PhotoUpload({ value, onChange, label, shape = "circle" }) {
    pas de formulaire). Utilisé pour le QR de paiement d'un chauffeur existant. */
 function FileUploadButton({ label, icon, onUpload, style }) {
   const ref = useRef(null);
+  const camRef = useRef(null);
   const [busy, setBusy] = useState(false);
-  const onFile = (e) => {
+  const [menu, setMenu] = useState(false);
+  const onFile = async (e) => {
     const f = e.target.files?.[0];
+    e.target.value = "";
+    setMenu(false);
     if (!f) return;
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      setBusy(true);
-      try {
-        await onUpload(ev.target.result);
-      } catch (err) {
-        alert(err.message || "Échec de l'envoi du fichier.");
-      } finally {
-        setBusy(false);
-      }
-    };
-    reader.readAsDataURL(f);
+    setBusy(true);
+    try {
+      // Qualite preservee : un QR trop compresse devient illisible.
+      await onUpload(await readImageFile(f, { maxSide: 1400, quality: 0.92 }));
+    } catch (err) {
+      alert(err.message || "Échec de l'envoi du fichier.");
+    } finally { setBusy(false); }
   };
   return (
-    <>
-      <button type="button" onClick={() => ref.current?.click()} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={style}>
+    <span style={{ position: "relative", display: "inline-block" }}>
+      <button type="button" onClick={() => setMenu((m) => !m)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={style}>
         {icon} {busy ? "Envoi…" : label}
       </button>
+      {menu && (
+        <span style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, background: "#fff", border: `1px solid ${C.border}`, borderRadius: 10, boxShadow: "0 8px 20px rgba(0,0,0,0.12)", zIndex: 40, display: "flex", flexDirection: "column", minWidth: 150 }}>
+          <button type="button" onClick={() => camRef.current?.click()} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-2" style={{ color: C.greenDark }}>
+            <Camera size={13} /> Appareil photo
+          </button>
+          <button type="button" onClick={() => ref.current?.click()} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-2" style={{ color: C.orangeDark, borderTop: `1px solid ${C.border}` }}>
+            <FileText size={13} /> Galerie
+          </button>
+        </span>
+      )}
+      <input ref={camRef} type="file" accept="image/*" capture="environment" onChange={onFile} style={{ display: "none" }} />
       <input ref={ref} type="file" accept="image/*" onChange={onFile} style={{ display: "none" }} />
-    </>
+    </span>
   );
 }
 
@@ -305,18 +362,12 @@ function AvatarUpload({ photo, nom, prenoms, size = 48, onUpload, shape = "circl
   const onFile = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      setUploading(true);
-      try {
-        await onUpload(ev.target.result);
-      } catch (err) {
-        alert(err.message || "Échec de l'envoi de la photo. Vérifiez la connexion à la base.");
-      } finally {
-        setUploading(false);
-      }
-    };
-    reader.readAsDataURL(f);
+    e.target.value = "";
+    setUploading(true);
+    readImageFile(f)
+      .then((dataUrl) => onUpload(dataUrl))
+      .catch((err) => alert(err.message || "Échec de l'envoi de la photo. Vérifiez la connexion à la base."))
+      .finally(() => setUploading(false));
   };
   return (
     <div
@@ -1504,18 +1555,91 @@ async function apiGet(path) {
   }
   return res.json();
 }
-async function apiPost(path, body) {
-  const res = await fetch(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify(body),
-  });
+/* ============================================================
+   FILE D'ATTENTE HORS-LIGNE
+   Sur le terrain le reseau est souvent absent. Les creations
+   (enrolements) qui echouent faute de connexion sont mises en file
+   dans le navigateur, puis rejouees des le retour du reseau.
+   On ne fabrique volontairement PAS d'identifiants locaux : les
+   enregistrements en attente n'apparaissent dans les listes qu'une
+   fois acceptes par le serveur, ce qui evite toute incoherence de
+   rattachement entre vehicule, transporteur et chauffeur.
+   ============================================================ */
+const QUEUE_KEY = "mugetranci_queue";
+
+function readQueue() {
+  try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]"); } catch { return []; }
+}
+function writeQueue(items) {
+  localStorage.setItem(QUEUE_KEY, JSON.stringify(items));
+  window.dispatchEvent(new CustomEvent("comixci-queue"));
+}
+function enqueueRequest(path, body, label) {
+  const items = readQueue();
+  items.push({ id: `q_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, path, body, label, createdAt: new Date().toISOString() });
+  writeQueue(items);
+}
+// Une panne reseau leve un TypeError ; une reponse HTTP (400, 500…) non.
+function isNetworkError(err) {
+  return err instanceof TypeError || /Failed to fetch|NetworkError|Load failed/i.test(err?.message || "");
+}
+
+class QueuedError extends Error {
+  constructor(label) {
+    super(`Pas de connexion — « ${label} » est enregistré hors-ligne et sera envoyé automatiquement au retour du réseau.`);
+    this.queued = true;
+  }
+}
+
+async function apiPost(path, body, queueLabel) {
+  let res;
+  try {
+    res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    if (queueLabel && isNetworkError(err)) {
+      enqueueRequest(path, body, queueLabel);
+      throw new QueuedError(queueLabel);
+    }
+    throw err;
+  }
   if (!res.ok) {
     handleUnauthorized(res.status);
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `${path} a répondu ${res.status}`);
   }
   return res.json();
+}
+
+/* Rejoue la file ; s'arrete a la premiere panne reseau pour preserver
+   l'ordre de creation. Une requete refusee par le serveur (donnee
+   invalide, doublon) est retiree de la file et signalee. */
+async function flushQueue() {
+  const items = readQueue();
+  if (!items.length) return { sent: 0, failed: 0, offline: false };
+  let sent = 0, failed = 0, offline = false;
+  const rest = [];
+  for (let i = 0; i < items.length; i++) {
+    if (offline) { rest.push(items[i]); continue; }
+    const it = items[i];
+    try {
+      const res = await fetch(it.path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify(it.body),
+      });
+      if (res.ok) sent++;
+      else failed++; // refus serveur : inutile de reessayer indefiniment
+    } catch (err) {
+      if (isNetworkError(err)) { offline = true; rest.push(it); }
+      else failed++;
+    }
+  }
+  writeQueue(rest);
+  return { sent, failed, offline };
 }
 async function apiPatch(path, body) {
   const res = await fetch(path, {
@@ -1631,6 +1755,31 @@ function useIsMobile(breakpoint = 1024) {
     return () => mq.removeEventListener("change", onChange);
   }, [breakpoint]);
   return isMobile;
+}
+
+function SyncBanner({ count, syncing, onSync, compact }) {
+  if (!count) return null;
+  return (
+    <div
+      className="flex items-center justify-between gap-3"
+      style={{ background: C.amberLight, border: `1px solid ${C.amber}`, borderRadius: 12, padding: compact ? "10px 12px" : "12px 16px", marginBottom: 12 }}
+    >
+      <div className="flex items-center gap-2" style={{ minWidth: 0 }}>
+        <AlertTriangle size={17} color={C.amber} style={{ flexShrink: 0 }} />
+        <span className="font-body" style={{ fontSize: 12.5, fontWeight: 700, color: C.amber }}>
+          {count} enrôlement{count > 1 ? "s" : ""} en attente d'envoi
+        </span>
+      </div>
+      <button
+        onClick={onSync}
+        disabled={syncing}
+        className="font-body"
+        style={{ fontSize: 12, fontWeight: 800, padding: "7px 12px", borderRadius: 9, background: syncing ? "#D8B48A" : C.orange, color: "#fff", flexShrink: 0 }}
+      >
+        {syncing ? "Envoi…" : "Synchroniser"}
+      </button>
+    </div>
+  );
 }
 
 function MobileTile({ icon, label, hint, accent, onClick }) {
@@ -1780,7 +1929,7 @@ function MobileElementSection({ el, syndicats }) {
 
 /* Vue detail : un dossier (vehicule + transporteur + chauffeurs) ou un element,
    avec navigation par section. */
-function MobileDetail({ result, vehicles, owners, drivers, syndicats, onBack }) {
+function MobileDetail({ result, vehicles, owners, drivers, syndicats, commissionsMixtes, associations, onCard, onBack }) {
   const [section, setSection] = useState(result.kind === "element" ? "element" : "complete");
 
   const v = result.kind === "vehicule" ? result.item
@@ -1811,7 +1960,24 @@ function MobileDetail({ result, vehicles, owners, drivers, syndicats, onBack }) 
         <button onClick={onBack} className="font-body flex items-center gap-1.5" style={{ fontSize: 14, fontWeight: 700, color: C.green, marginBottom: 8 }}>
           <ChevronLeft size={18} /> Retour
         </button>
-        <h2 className="font-display" style={{ fontSize: 22, fontWeight: 800, color: C.ink, letterSpacing: -0.4, lineHeight: 1.15 }}>{title}</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="font-display" style={{ fontSize: 22, fontWeight: 800, color: C.ink, letterSpacing: -0.4, lineHeight: 1.15, minWidth: 0 }}>{title}</h2>
+          {(() => {
+            const cardTarget = el ? { m: el, cat: "element" }
+              : result.kind === "chauffeur" ? { m: result.item, cat: "chauffeur" }
+              : owner ? { m: owner, cat: "transporteur" } : null;
+            if (!cardTarget) return null;
+            return (
+              <button
+                onClick={() => onCard(cardTarget.m, cardTarget.cat)}
+                className="font-body flex items-center gap-1.5 px-3 py-2 rounded-lg"
+                style={{ background: C.green, color: "#fff", fontSize: 12.5, fontWeight: 800, flexShrink: 0 }}
+              >
+                <CreditCard size={15} /> Carte
+              </button>
+            );
+          })()}
+        </div>
         <div className="flex gap-1.5 mt-3" style={{ overflowX: "auto", paddingBottom: 4 }}>
           {tabs.map((t) => (
             <button
@@ -1849,7 +2015,7 @@ function MobileDetail({ result, vehicles, owners, drivers, syndicats, onBack }) 
 }
 
 function MobileView({
-  auth, onLogout, vehicles, owners, drivers, elements, syndicats,
+  auth, onLogout, vehicles, owners, drivers, elements, syndicats, commissionsMixtes, associations, onCard, queueCount, syncing, onSync,
   setShowForm, setShowMemberFormFor, setShowDriverFormFor, setShowElementFormFor,
   setShowProfileForm,
 }) {
@@ -1930,9 +2096,10 @@ function MobileView({
 
       <div style={{ flex: 1, padding: "16px 16px 0" }}>
         {selected ? (
-          <MobileDetail result={selected} vehicles={vehicles} owners={owners} drivers={drivers} syndicats={syndicats} onBack={() => setSelected(null)} />
+          <MobileDetail result={selected} vehicles={vehicles} owners={owners} drivers={drivers} syndicats={syndicats} commissionsMixtes={commissionsMixtes} associations={associations} onCard={onCard} onBack={() => setSelected(null)} />
         ) : tab === "ajout" ? (
           <div style={{ paddingBottom: 90 }}>
+            <SyncBanner count={queueCount} syncing={syncing} onSync={onSync} compact />
             <h2 className="font-display" style={{ fontSize: 23, fontWeight: 800, color: C.ink, letterSpacing: -0.5 }}>Nouvel enrôlement</h2>
             <p className="font-body" style={{ fontSize: 13.5, color: C.slate, marginBottom: 16 }}>Choisissez ce que vous souhaitez enregistrer.</p>
             <div className="flex flex-col gap-3">
@@ -2124,6 +2291,39 @@ function Dashboard({ auth, onLogout }) {
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const isMobile = useIsMobile();
+  const [queueCount, setQueueCount] = useState(readQueue().length);
+  const [syncing, setSyncing] = useState(false);
+
+  React.useEffect(() => {
+    const refresh = () => setQueueCount(readQueue().length);
+    window.addEventListener("comixci-queue", refresh);
+    window.addEventListener("online", doSync);
+    return () => {
+      window.removeEventListener("comixci-queue", refresh);
+      window.removeEventListener("online", doSync);
+    };
+  });
+
+  const doSync = async () => {
+    if (syncing || readQueue().length === 0) return;
+    setSyncing(true);
+    try {
+      const { sent, failed, offline } = await flushQueue();
+      setQueueCount(readQueue().length);
+      if (sent > 0) {
+        const data = await apiGet("/api/bootstrap");
+        setOwners(data.proprietaires); setDrivers(data.chauffeurs); setElements(data.elements);
+        setVehicles(data.vehicules); setAchats(data.carburant);
+        setCommissionsMixtes(data.commissionsMixtes); setSyndicats(data.syndicats);
+        setGaresRoutieres(data.garesRoutieres); setLignes(data.lignes);
+        setAffectations(data.affectations); setAssociations(data.associations || []);
+      }
+      if (failed > 0) alert(`${failed} enregistrement(s) en attente ont été refusés par le serveur (doublon ou donnée invalide) et retirés de la file.`);
+      else if (offline) alert("Toujours hors-ligne — les enregistrements restent en attente.");
+    } catch (err) {
+      console.error("sync:", err);
+    } finally { setSyncing(false); }
+  };
   const [lignes, setLignes] = useState([]);
   const [affectations, setAffectations] = useState([]);
   const [showCommissionForm, setShowCommissionForm] = useState(false);
@@ -2229,12 +2429,12 @@ function Dashboard({ auth, onLogout }) {
   // Chaque fonction écrit d'abord en base (Neon), puis synchronise l'état local
   // avec l'enregistrement réel renvoyé par le serveur (id, valeurs par défaut…).
   const addOwner = async (o) => {
-    const created = await apiPost("/api/proprietaires", o);
+    const created = await apiPost("/api/proprietaires", o, `Transporteur ${o.prenoms || ""} ${o.nom || ""}`.trim());
     setOwners((s) => [...s, created]);
     return created;
   };
   const addDriver = async (d) => {
-    const created = await apiPost("/api/chauffeurs", d);
+    const created = await apiPost("/api/chauffeurs", d, `Chauffeur ${d.prenoms || ""} ${d.nom || ""}`.trim());
     setDrivers((s) => [...s, created]);
     return created;
   };
@@ -2269,7 +2469,7 @@ function Dashboard({ auth, onLogout }) {
     setOwners((s) => s.filter((o) => o.id !== ownerId));
   };
   const addElement = async (payload) => {
-    const created = await apiPost("/api/elements", payload);
+    const created = await apiPost("/api/elements", payload, `Élément ${payload.prenoms || ""} ${payload.nom || ""}`.trim());
     setElements((s) => [...s, created]);
     return created;
   };
@@ -2403,7 +2603,7 @@ function Dashboard({ auth, onLogout }) {
     setAffectations((s) => s.map((a) => (a.vehiculeId === vehiculeId ? { ...a, actif: false } : a)));
   };
   const addVehicle = async (v) => {
-    const created = await apiPost("/api/vehicules", v);
+    const created = await apiPost("/api/vehicules", v, `Véhicule ${v.immatriculation || ""}`);
     setVehicles((s) => [...s, created]);
     setShowForm(false);
     openFiche(created);
@@ -2473,6 +2673,16 @@ function Dashboard({ auth, onLogout }) {
           drivers={drivers}
           elements={elements}
           syndicats={syndicats}
+          commissionsMixtes={commissionsMixtes}
+          associations={associations}
+          queueCount={queueCount}
+          syncing={syncing}
+          onSync={doSync}
+          onCard={(member, category) => {
+            if (category === "transporteur") setCardOwner(member);
+            else if (category === "chauffeur") openCard(member);
+            else setCardElement(member);
+          }}
           setShowForm={setShowForm}
           setShowMemberFormFor={setShowMemberFormFor}
           setShowDriverFormFor={setShowDriverFormFor}
@@ -2638,6 +2848,8 @@ function Dashboard({ auth, onLogout }) {
               {loadError} — vérifiez que <code>DATABASE_URL</code> est bien configurée (Vercel en production, <code>.env.local</code> en local avec <code>vercel dev</code>).
             </div>
           )}
+
+          <SyncBanner count={queueCount} syncing={syncing} onSync={doSync} />
 
           {loading && !loadError && (
             <div className="font-body text-sm mb-5" style={{ color: C.slate }}>Chargement des données depuis la base…</div>
