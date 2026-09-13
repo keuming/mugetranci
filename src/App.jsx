@@ -409,14 +409,14 @@ function AvatarUpload({ photo, nom, prenoms, size = 48, onUpload, shape = "circl
 
 function SectionCard({ accent, title, icon, children, right }) {
   return (
-    <div style={{ background: C.paper, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
+    <div style={{ background: C.paper, border: `1.5px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
       <div
         className="flex items-center justify-between px-5 py-4"
-        style={{ borderBottom: `1px solid ${C.border}`, borderLeft: `4px solid ${accent}` }}
+        style={{ borderBottom: `1.5px solid ${C.border}`, borderLeft: `6px solid ${accent}`, background: accent + "0D" }}
       >
         <div className="flex items-center gap-2.5">
-          <span style={{ color: accent }}>{icon}</span>
-          <h3 className="font-display" style={{ fontSize: 17, fontWeight: 600, color: C.ink }}>{title}</h3>
+          <span style={{ width: 30, height: 30, borderRadius: 9, background: accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{icon}</span>
+          <h3 className="font-display" style={{ fontSize: 17, fontWeight: 800, color: C.ink, letterSpacing: -0.3 }}>{title}</h3>
         </div>
         {right}
       </div>
@@ -1514,12 +1514,12 @@ function HautConseilPanel({ vehicles, owners, commissionsMixtes, syndicats, gare
 
 function StatCard({ icon, label, value, accent }) {
   return (
-    <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 18, flex: 1 }}>
+    <div style={{ background: "#fff", border: `1.5px solid ${C.border}`, borderTop: `4px solid ${accent}`, borderRadius: 14, padding: 18, flex: 1, boxShadow: "0 2px 10px rgba(11,110,79,0.05)" }}>
       <div className="flex items-center justify-between mb-3">
-        <div style={{ width: 34, height: 34, borderRadius: 9, background: accent + "1A", display: "flex", alignItems: "center", justifyContent: "center", color: accent }}>{icon}</div>
+        <div style={{ width: 34, height: 34, borderRadius: 9, background: accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", boxShadow: `0 3px 9px ${accent}44` }}>{icon}</div>
       </div>
-      <div className="font-display" style={{ fontSize: 26, fontWeight: 700, color: C.ink }}>{value}</div>
-      <div className="font-body text-xs" style={{ color: C.slate }}>{label}</div>
+      <div className="font-display" style={{ fontSize: 28, fontWeight: 800, color: C.ink, letterSpacing: -0.6 }}>{value}</div>
+      <div className="font-body text-xs" style={{ color: C.slate, fontWeight: 700 }}>{label}</div>
     </div>
   );
 }
@@ -1715,12 +1715,13 @@ function LoginScreen({ onLogin }) {
   return (
     <div className="font-body flex items-center justify-center" style={{ minHeight: "100vh", background: C.cream }}>
       <style>{FONTS}</style>
-      <form onSubmit={handleSubmit} style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 16, padding: 32, width: 380, maxWidth: "92vw" }}>
+      <form onSubmit={handleSubmit} style={{ background: "#fff", border: `1.5px solid ${C.border}`, borderRadius: 16, padding: 32, width: 380, maxWidth: "92vw", position: "relative", overflow: "hidden", boxShadow: "0 10px 32px rgba(11,110,79,0.10)" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 5, background: `linear-gradient(90deg, ${C.orange} 0%, ${C.orange} 33%, #fff 33%, #fff 66%, ${C.green} 66%)` }} />
         <div className="flex flex-col items-center mb-6">
-          <div style={{ width: 44, height: 44, borderRadius: 11, background: C.green, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+          <div style={{ width: 46, height: 46, borderRadius: 13, background: C.orange, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12, boxShadow: `0 5px 14px ${C.orange}55` }}>
             <Car size={22} color="#fff" />
           </div>
-          <div className="font-display" style={{ fontSize: 18, fontWeight: 700, color: C.ink }}>COMIX-CI</div>
+          <div className="font-display" style={{ fontSize: 22, fontWeight: 800, color: C.ink, letterSpacing: -0.5 }}>COMIX-CI</div>
           <div className="text-xs text-center mt-1" style={{ color: C.slate }}>Commissions Mixtes de Côte d'Ivoire</div>
         </div>
 
@@ -2850,10 +2851,11 @@ function Dashboard({ auth, onLogout }) {
                 <Menu size={22} />
               </button>
               <div>
-                <h1 className="font-display comix-page-title" style={{ fontWeight: 700 }}>
+                <h1 className="font-display comix-page-title" style={{ fontWeight: 800, letterSpacing: -0.6 }}>
                   {{ dashboard: "Tableau de bord", vehicles: "Véhicules", owners: "Transporteurs", drivers: "Chauffeurs", elements: "Éléments", commissions: "Commissions Mixtes", syndicats: "Collectifs (Syndicats)", garesroutieres: "Gares Routières", carburant: "Carburant", alerts: "Alertes documents" }[page]}
                 </h1>
-                <p className="text-sm" style={{ color: C.slate }}>Registre unifié véhicules · transporteurs · chauffeurs</p>
+                <div style={{ width: 46, height: 4, borderRadius: 999, background: `linear-gradient(90deg, ${C.orange}, ${C.green})`, margin: "5px 0 5px" }} />
+                <p className="text-sm" style={{ color: C.slate, fontWeight: 600 }}>Registre unifié véhicules · transporteurs · chauffeurs</p>
               </div>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
@@ -3152,7 +3154,7 @@ function Dashboard({ auth, onLogout }) {
                     <div className="flex items-center gap-3 mb-3">
                       <AvatarUpload photo={o.photo} nom={o.nom} prenoms={o.prenoms} size={48} onUpload={(dataUrl) => updateOwnerPhoto(o.id, dataUrl)} />
                       <div>
-                        <div className="font-semibold text-sm">{o.prenoms} {o.nom}</div>
+                        <div className="font-display" style={{ fontSize: 15, fontWeight: 800, color: C.ink }}>{o.prenoms} {o.nom}</div>
                         <div className="text-xs" style={{ color: C.slate }}>{ownedCount} véhicule{ownedCount > 1 ? "s" : ""} · N° {o.carteTransporteurNumero || "—"}</div>
                       </div>
                     </div>
@@ -3255,7 +3257,7 @@ function Dashboard({ auth, onLogout }) {
                     <div className="flex items-center gap-3 mb-3">
                       <AvatarUpload photo={e.photo} nom={e.nom} prenoms={e.prenoms} size={48} onUpload={async (dataUrl) => { await updateElement(e.id, { photo: dataUrl }); }} />
                       <div>
-                        <div className="font-semibold text-sm">{e.prenoms} {e.nom}</div>
+                        <div className="font-display" style={{ fontSize: 15, fontWeight: 800, color: C.ink }}>{e.prenoms} {e.nom}</div>
                         <div className="text-xs" style={{ color: C.slate }}>{e.fonction || "—"} · N° {e.numeroCarte || "—"}</div>
                       </div>
                     </div>
@@ -3317,7 +3319,7 @@ function Dashboard({ auth, onLogout }) {
                   <div key={a.id} style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 18 }}>
                     <div className="flex items-center justify-between mb-3">
                       <div>
-                        <div className="font-semibold text-sm">{a.prenoms} {a.nom}</div>
+                        <div className="font-display" style={{ fontSize: 15, fontWeight: 800, color: C.ink }}>{a.prenoms} {a.nom}</div>
                         <div className="text-xs" style={{ color: C.slate }}>{a.login}</div>
                       </div>
                       <span className="font-body text-xs font-semibold px-2 py-1 rounded-full" style={{ background: a.actif ? C.greenLight : C.redLight, color: a.actif ? C.greenDark : C.red }}>
@@ -3409,7 +3411,7 @@ function Dashboard({ auth, onLogout }) {
                     <div className="flex items-center gap-3 mb-3">
                       <AvatarUpload photo={d.photo} nom={d.nom} prenoms={d.prenoms} size={48} onUpload={(dataUrl) => updateDriverPhoto(d.id, dataUrl)} />
                       <div>
-                        <div className="font-semibold text-sm">{d.prenoms} {d.nom}</div>
+                        <div className="font-display" style={{ fontSize: 15, fontWeight: 800, color: C.ink }}>{d.prenoms} {d.nom}</div>
                         <div className="text-xs" style={{ color: C.slate }}>{veh ? veh.immatriculation : "Non affecté"}</div>
                       </div>
                     </div>
@@ -3699,9 +3701,9 @@ function Dashboard({ auth, onLogout }) {
                   <table className="w-full font-body text-sm" style={{ borderCollapse: "collapse" }}>
                     <thead>
                       <tr style={{ color: C.slate, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.4 }}>
-                        <th className="text-left pb-2 font-medium">Date</th>
-                        <th className="text-left pb-2 font-medium">Chauffeur</th>
-                        <th className="text-left pb-2 font-medium">Carte grise</th>
+                        <th className="text-left pb-2" style={{ color: C.orangeDark, fontWeight: 800, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5 }}>Date</th>
+                        <th className="text-left pb-2" style={{ color: C.orangeDark, fontWeight: 800, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5 }}>Chauffeur</th>
+                        <th className="text-left pb-2" style={{ color: C.orangeDark, fontWeight: 800, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5 }}>Carte grise</th>
                         <th className="text-right pb-2 font-medium">Volume (L)</th>
                         <th className="text-right pb-2 font-medium">Montant</th>
                         <th className="text-right pb-2 font-medium">Commission</th>
@@ -5179,10 +5181,10 @@ function SyndicatMembersTable({ commissionSyndicats, owners, associations = [], 
             <table className="w-full font-body text-sm" style={{ borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ color: C.slate, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.4 }}>
-                  <th className="text-left pb-2 font-medium">Nom & prénoms</th>
-                  <th className="text-left pb-2 font-medium">CNI</th>
-                  <th className="text-left pb-2 font-medium">Carte transporteur</th>
-                  <th className="text-left pb-2 font-medium">Contact</th>
+                  <th className="text-left pb-2" style={{ color: C.orangeDark, fontWeight: 800, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5 }}>Nom & prénoms</th>
+                  <th className="text-left pb-2" style={{ color: C.orangeDark, fontWeight: 800, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5 }}>CNI</th>
+                  <th className="text-left pb-2" style={{ color: C.orangeDark, fontWeight: 800, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5 }}>Carte transporteur</th>
+                  <th className="text-left pb-2" style={{ color: C.orangeDark, fontWeight: 800, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5 }}>Contact</th>
                 </tr>
               </thead>
               <tbody>
@@ -5208,11 +5210,11 @@ function VehicleTable({ vehicles, owners, onFiche, onPhoto, commissionsMixtes, l
     <table className="w-full font-body text-sm" style={{ borderCollapse: "collapse" }}>
       <thead>
         <tr style={{ color: C.slate, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.4 }}>
-          <th className="text-left pb-2 font-medium">Véhicule</th>
-          <th className="text-left pb-2 font-medium">Immatriculation</th>
-          <th className="text-left pb-2 font-medium">Propriétaire</th>
-          <th className="text-left pb-2 font-medium">Commission / Ligne</th>
-          <th className="text-left pb-2 font-medium">Documents</th>
+          <th className="text-left pb-2" style={{ color: C.orangeDark, fontWeight: 800, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5 }}>Véhicule</th>
+          <th className="text-left pb-2" style={{ color: C.orangeDark, fontWeight: 800, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5 }}>Immatriculation</th>
+          <th className="text-left pb-2" style={{ color: C.orangeDark, fontWeight: 800, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5 }}>Propriétaire</th>
+          <th className="text-left pb-2" style={{ color: C.orangeDark, fontWeight: 800, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5 }}>Commission / Ligne</th>
+          <th className="text-left pb-2" style={{ color: C.orangeDark, fontWeight: 800, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5 }}>Documents</th>
           <th className="text-right pb-2 font-medium">Actions</th>
         </tr>
       </thead>
@@ -5277,7 +5279,7 @@ function Modal({ children, onClose, title, wide }) {
     <div className="comix-modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(20,24,20,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, overflowY: "auto" }}>
       <div className="modal-box comix-modal" style={{ background: C.cream, borderRadius: 16, width: wide ? 720 : 380, maxWidth: "94vw", maxHeight: "90vh", padding: 20, overflowY: "auto", display: "flex", flexDirection: "column" }}>
         <div className="flex items-center justify-between mb-4" style={{ flexShrink: 0 }}>
-          <h2 className="font-display" style={{ fontSize: 18, fontWeight: 700, color: C.ink }}>{title}</h2>
+          <h2 className="font-display" style={{ fontSize: 18.5, fontWeight: 800, color: C.ink, letterSpacing: -0.3 }}>{title}</h2>
           <button onClick={onClose} style={{ color: C.slate }}><X size={20} /></button>
         </div>
         {children}
