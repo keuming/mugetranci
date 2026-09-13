@@ -3582,6 +3582,10 @@ function Dashboard({ auth, onLogout }) {
                       <SyndicatMembersTable
                         commissionSyndicats={syndicats}
                         owners={owners}
+                        associations={associations}
+                        onAddAsso={setAssoFormForCollectif}
+                        onEditAsso={setEditAsso}
+                        onDeleteAsso={deleteAssociation}
                         onEdit={setEditSyndicat}
                         onDelete={async (id) => { try { await deleteSyndicat(id); } catch (err) { alert(err.message || "Suppression impossible."); } }}
                       />
@@ -4027,7 +4031,7 @@ function FuelPurchaseForm({ drivers, vehicles, onCancel, onSave }) {
 
       <div className="flex items-center justify-end gap-3">
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
-        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
+        <button onClick={onCancel} className="font-body" style={{ color: C.ink, fontSize: 14, fontWeight: 700, padding: "12px 16px", borderRadius: 11 }}>Annuler</button>
         <button
           onClick={handleSave}
           disabled={!canSave}
@@ -4122,7 +4126,7 @@ function CommissionMixteForm({ initialCommission, onCancel, onSave }) {
 
       <div className="flex items-center justify-end gap-3 pt-2">
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
-        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
+        <button onClick={onCancel} className="font-body" style={{ color: C.ink, fontSize: 14, fontWeight: 700, padding: "12px 16px", borderRadius: 11 }}>Annuler</button>
         <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.orange : "#D8B48A", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
           <Check size={16} /> {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Enregistrer la commission mixte"}
         </button>
@@ -4215,8 +4219,8 @@ function SyndicatForm({ commission, initialSyndicat, onCancel, onSave }) {
 
       <div className="flex items-center justify-end gap-3 pt-2">
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
-        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
-        <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
+        <button onClick={onCancel} className="font-body" style={{ color: C.ink, fontSize: 14, fontWeight: 700, padding: "12px 16px", borderRadius: 11 }}>Annuler</button>
+        <button onClick={handleSave} disabled={!canSave} className="font-body flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed", fontSize: 14.5, fontWeight: 800, padding: "12px 20px", borderRadius: 11, boxShadow: canSave ? `0 4px 12px ${C.green}55` : "none" }}>
           <Check size={16} /> {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Enregistrer le collectif (syndicat)"}
         </button>
       </div>
@@ -4522,8 +4526,8 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
 
       <div className="flex items-center justify-end gap-3 pt-2">
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
-        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
-        <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
+        <button onClick={onCancel} className="font-body" style={{ color: C.ink, fontSize: 14, fontWeight: 700, padding: "12px 16px", borderRadius: 11 }}>Annuler</button>
+        <button onClick={handleSave} disabled={!canSave} className="font-body flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed", fontSize: 14.5, fontWeight: 800, padding: "12px 20px", borderRadius: 11, boxShadow: canSave ? `0 4px 12px ${C.green}55` : "none" }}>
           <Check size={16} /> {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Enregistrer le transporteur"}
         </button>
       </div>
@@ -4622,8 +4626,8 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
 
       <div className="flex items-center justify-end gap-3 pt-2">
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
-        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
-        <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
+        <button onClick={onCancel} className="font-body" style={{ color: C.ink, fontSize: 14, fontWeight: 700, padding: "12px 16px", borderRadius: 11 }}>Annuler</button>
+        <button onClick={handleSave} disabled={!canSave} className="font-body flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed", fontSize: 14.5, fontWeight: 800, padding: "12px 20px", borderRadius: 11, boxShadow: canSave ? `0 4px 12px ${C.green}55` : "none" }}>
           <Check size={16} /> {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Enregistrer le chauffeur"}
         </button>
       </div>
@@ -4722,8 +4726,8 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
 
       <div className="flex items-center justify-end gap-3 pt-2">
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
-        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
-        <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
+        <button onClick={onCancel} className="font-body" style={{ color: C.ink, fontSize: 14, fontWeight: 700, padding: "12px 16px", borderRadius: 11 }}>Annuler</button>
+        <button onClick={handleSave} disabled={!canSave} className="font-body flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed", fontSize: 14.5, fontWeight: 800, padding: "12px 20px", borderRadius: 11, boxShadow: canSave ? `0 4px 12px ${C.green}55` : "none" }}>
           <Check size={16} /> {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Enregistrer l'élément"}
         </button>
       </div>
@@ -4769,8 +4773,8 @@ function AssociationForm({ initialAsso, collectif, onCancel, onSave }) {
       </div>
       <div className="flex items-center justify-end gap-3 pt-2">
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
-        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
-        <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
+        <button onClick={onCancel} className="font-body" style={{ color: C.ink, fontSize: 14, fontWeight: 700, padding: "12px 16px", borderRadius: 11 }}>Annuler</button>
+        <button onClick={handleSave} disabled={!canSave} className="font-body flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed", fontSize: 14.5, fontWeight: 800, padding: "12px 20px", borderRadius: 11, boxShadow: canSave ? `0 4px 12px ${C.green}55` : "none" }}>
           <Check size={16} /> {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Créer l'association"}
         </button>
       </div>
@@ -4817,8 +4821,8 @@ function AgentForm({ initialAgent, onCancel, onSave }) {
 
       <div className="flex items-center justify-end gap-3 pt-2">
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
-        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
-        <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
+        <button onClick={onCancel} className="font-body" style={{ color: C.ink, fontSize: 14, fontWeight: 700, padding: "12px 16px", borderRadius: 11 }}>Annuler</button>
+        <button onClick={handleSave} disabled={!canSave} className="font-body flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed", fontSize: 14.5, fontWeight: 800, padding: "12px 20px", borderRadius: 11, boxShadow: canSave ? `0 4px 12px ${C.green}55` : "none" }}>
           <Check size={16} /> {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Créer l'agent"}
         </button>
       </div>
@@ -4882,8 +4886,8 @@ function GareRoutiereForm({ syndicat, initialGare, onCancel, onSave }) {
 
       <div className="flex items-center justify-end gap-3 pt-2">
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
-        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
-        <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
+        <button onClick={onCancel} className="font-body" style={{ color: C.ink, fontSize: 14, fontWeight: 700, padding: "12px 16px", borderRadius: 11 }}>Annuler</button>
+        <button onClick={handleSave} disabled={!canSave} className="font-body flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed", fontSize: 14.5, fontWeight: 800, padding: "12px 20px", borderRadius: 11, boxShadow: canSave ? `0 4px 12px ${C.green}55` : "none" }}>
           <Check size={16} /> {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Enregistrer la gare routière"}
         </button>
       </div>
@@ -4931,8 +4935,8 @@ function LigneForm({ gare, initialLigne, onCancel, onSave }) {
 
       <div className="flex items-center justify-end gap-3 pt-2">
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
-        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
-        <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
+        <button onClick={onCancel} className="font-body" style={{ color: C.ink, fontSize: 14, fontWeight: 700, padding: "12px 16px", borderRadius: 11 }}>Annuler</button>
+        <button onClick={handleSave} disabled={!canSave} className="font-body flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed", fontSize: 14.5, fontWeight: 800, padding: "12px 20px", borderRadius: 11, boxShadow: canSave ? `0 4px 12px ${C.green}55` : "none" }}>
           <Check size={16} /> {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Enregistrer la ligne"}
         </button>
       </div>
@@ -5009,8 +5013,8 @@ function VehicleEditForm({ vehicle, onCancel, onSave }) {
 
       <div className="flex items-center justify-end gap-3 pt-2">
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
-        <button onClick={onCancel} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg" style={{ color: C.slate }}>Annuler</button>
-        <button onClick={handleSave} disabled={!canSave} className="font-body text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed" }}>
+        <button onClick={onCancel} className="font-body" style={{ color: C.ink, fontSize: 14, fontWeight: 700, padding: "12px 16px", borderRadius: 11 }}>Annuler</button>
+        <button onClick={handleSave} disabled={!canSave} className="font-body flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed", fontSize: 14.5, fontWeight: 800, padding: "12px 20px", borderRadius: 11, boxShadow: canSave ? `0 4px 12px ${C.green}55` : "none" }}>
           <Check size={16} /> {saving ? "Enregistrement…" : "Enregistrer les modifications"}
         </button>
       </div>
@@ -5144,7 +5148,7 @@ function SyndicatMembersTable({ commissionSyndicats, owners, associations = [], 
                 const assos = associations.filter((a) => a.syndicatId === s.id);
                 return (
                   <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 8, paddingTop: 8 }}>
-                    <span className="font-body text-xs font-semibold" style={{ color: C.ink }}>Associations ({assos.length})</span>
+                    <span className="font-display" style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>Associations / syndicats ({assos.length})</span>
                     {assos.map((a) => (
                       <div key={a.id} className="flex items-center justify-between mt-1.5">
                         <span className="font-body text-xs" style={{ color: C.slate }}>{a.sigle || a.nom}</span>
@@ -5160,8 +5164,8 @@ function SyndicatMembersTable({ commissionSyndicats, owners, associations = [], 
                         </div>
                       </div>
                     ))}
-                    <button onClick={() => onAddAsso(s.id)} className="w-full font-body text-xs font-semibold flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg mt-2" style={{ background: C.orangeLight, color: C.orangeDark }}>
-                      <Plus size={12} /> Association
+                    <button onClick={() => onAddAsso(s.id)} className="w-full font-body flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg mt-2" style={{ background: C.orange, color: "#fff", fontSize: 12, fontWeight: 800, boxShadow: `0 3px 9px ${C.orange}44` }}>
+                      <Plus size={14} /> Ajouter une association
                     </button>
                   </div>
                 );
@@ -5277,12 +5281,23 @@ function VehicleTable({ vehicles, owners, onFiche, onPhoto, commissionsMixtes, l
 function Modal({ children, onClose, title, wide }) {
   return (
     <div className="comix-modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(20,24,20,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, overflowY: "auto" }}>
-      <div className="modal-box comix-modal" style={{ background: C.cream, borderRadius: 16, width: wide ? 720 : 380, maxWidth: "94vw", maxHeight: "90vh", padding: 20, overflowY: "auto", display: "flex", flexDirection: "column" }}>
-        <div className="flex items-center justify-between mb-4" style={{ flexShrink: 0 }}>
-          <h2 className="font-display" style={{ fontSize: 18.5, fontWeight: 800, color: C.ink, letterSpacing: -0.3 }}>{title}</h2>
-          <button onClick={onClose} style={{ color: C.slate }}><X size={20} /></button>
+      <div className="modal-box comix-modal" style={{ background: C.cream, borderRadius: 18, width: wide ? 720 : 380, maxWidth: "94vw", maxHeight: "92vh", padding: 0, overflowY: "auto", display: "flex", flexDirection: "column", position: "relative", boxShadow: "0 18px 48px rgba(0,0,0,0.28)" }}>
+        <div style={{ height: 5, background: `linear-gradient(90deg, ${C.orange} 0%, ${C.orange} 40%, ${C.green} 40%)`, flexShrink: 0 }} />
+        <div
+          className="flex items-center justify-between"
+          style={{ flexShrink: 0, padding: "14px 18px", background: "#fff", borderBottom: `1.5px solid ${C.border}`, position: "sticky", top: 0, zIndex: 5 }}
+        >
+          <h2 className="font-display" style={{ fontSize: 18.5, fontWeight: 800, color: C.ink, letterSpacing: -0.35 }}>{title}</h2>
+          <button
+            onClick={onClose}
+            style={{ width: 30, height: 30, borderRadius: 999, background: C.cream, color: C.ink, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+          >
+            <X size={18} />
+          </button>
         </div>
+        <div style={{ padding: 18 }}>
         {children}
+        </div>
       </div>
     </div>
   );
