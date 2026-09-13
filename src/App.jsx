@@ -42,6 +42,11 @@ const FONTS = `
 
 .comix-modal-overlay { padding: 24px; }
 
+/* Rien ne doit deborder lateralement : la page ne doit defiler que
+   verticalement. */
+html, body { overflow-x: hidden; max-width: 100%; }
+#root { overflow-x: hidden; }
+
 @media (max-width: 1023px) {
   /* La barre latérale devient un tiroir qui glisse par-dessus le contenu */
   .comix-drawer {
@@ -1243,12 +1248,30 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
 
 function MemberCard({ member, category, logo1, logo2, numero, ficheValue, infoFields, versoQr, initialFace = "recto" }) {
   const [flipped, setFlipped] = useState(initialFace === "verso");
+  const wrapRef = useRef(null);
+  const [scale, setScale] = useState(1);
+
+  // La carte a une largeur fixe de 340 px. Sur un telephone etroit elle
+  // depassait l'ecran et provoquait un defilement lateral ; on la reduit
+  // pour qu'elle tienne toujours dans la largeur disponible.
+  React.useEffect(() => {
+    const ajuster = () => {
+      const dispo = wrapRef.current?.clientWidth || 340;
+      setScale(Math.min(1, dispo / 344));
+    };
+    ajuster();
+    window.addEventListener("resize", ajuster);
+    return () => window.removeEventListener("resize", ajuster);
+  }, []);
+
   if (!member) return null;
   const props = { member, category, logo1, logo2, numero, ficheValue, infoFields, versoQr };
   return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="no-print">
-        <MemberCardFace {...props} side={flipped ? "verso" : "recto"} />
+    <div className="flex flex-col items-center gap-3" ref={wrapRef} style={{ width: "100%" }}>
+      <div className="no-print" style={{ width: 340 * scale, height: 214 * scale, overflow: "hidden" }}>
+        <div style={{ width: 340, height: 214, transform: `scale(${scale})`, transformOrigin: "top left" }}>
+          <MemberCardFace {...props} side={flipped ? "verso" : "recto"} />
+        </div>
       </div>
       <div className="print-area print-card-duo flex items-center justify-center flex-wrap gap-4">
         <MemberCardFace {...props} side="recto" />
@@ -2138,7 +2161,7 @@ function MobileView({
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: C.cream, display: "flex", flexDirection: "column" }}>
+    <div style={{ minHeight: "100dvh", background: C.cream, display: "flex", flexDirection: "column", overflowX: "hidden" }}>
       {/* EN-TETE */}
       <header style={{ background: `linear-gradient(135deg, ${C.greenDark} 0%, ${C.green} 100%)`, padding: "18px 18px 22px", position: "relative" }}>
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 5, background: `linear-gradient(90deg, ${C.orange} 0%, ${C.orange} 50%, #fff 50%, #fff 100%)` }} />
@@ -5280,8 +5303,8 @@ function VehicleTable({ vehicles, owners, onFiche, onPhoto, commissionsMixtes, l
 
 function Modal({ children, onClose, title, wide }) {
   return (
-    <div className="comix-modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(20,24,20,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, overflowY: "auto" }}>
-      <div className="modal-box comix-modal" style={{ background: C.cream, borderRadius: 18, width: wide ? 720 : 380, maxWidth: "94vw", maxHeight: "92vh", padding: 0, overflowY: "auto", display: "flex", flexDirection: "column", position: "relative", boxShadow: "0 18px 48px rgba(0,0,0,0.28)" }}>
+    <div className="comix-modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(20,24,20,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 60, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+      <div className="modal-box comix-modal" style={{ background: C.cream, borderRadius: 18, width: wide ? 720 : 380, maxWidth: "94vw", padding: 0, marginBottom: 24, display: "flex", flexDirection: "column", position: "relative", boxShadow: "0 18px 48px rgba(0,0,0,0.28)" }}>
         <div style={{ height: 5, background: `linear-gradient(90deg, ${C.orange} 0%, ${C.orange} 40%, ${C.green} 40%)`, flexShrink: 0 }} />
         <div
           className="flex items-center justify-between"
