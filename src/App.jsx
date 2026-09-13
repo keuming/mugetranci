@@ -1750,18 +1750,56 @@ function LoginScreen({ onLogin }) {
    seule la presentation change. Typographie grasse, grandes zones
    tactiles, palette CI (orange / vert / blanc).
    ============================================================ */
+/* Choix de l'interface.
+   Par defaut la bascule est automatique sous 1024 px, mais on peut la
+   forcer par l'adresse :
+     /mobile   ou  ?mobile=1   -> interface mobile, quelle que soit la taille
+     ?mobile=0                 -> tableau de bord complet
+   Le choix est memorise : pratique pour les agents a qui l'on transmet le
+   lien mobile, et pour l'APK dont c'est le point d'entree. */
+const VIEW_KEY = "mugetranci_view";
+
+function resolveForcedView() {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  const path = window.location.pathname.replace(/\/+$/, "");
+  let forced = null;
+  if (path === "/mobile" || params.get("mobile") === "1") forced = "mobile";
+  else if (params.get("mobile") === "0") forced = "desktop";
+
+  if (forced) {
+    localStorage.setItem(VIEW_KEY, forced);
+    // On nettoie l'adresse pour ne pas la trainer dans la navigation.
+    if (params.has("mobile")) {
+      params.delete("mobile");
+      const qs = params.toString();
+      window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
+    }
+    return forced;
+  }
+  return localStorage.getItem(VIEW_KEY);
+}
+
 function useIsMobile(breakpoint = 1024) {
+  const forced = React.useMemo(() => resolveForcedView(), []);
   const [isMobile, setIsMobile] = React.useState(
-    typeof window !== "undefined" ? window.innerWidth < breakpoint : false
+    forced ? forced === "mobile" : (typeof window !== "undefined" ? window.innerWidth < breakpoint : false)
   );
   React.useEffect(() => {
+    if (forced) return; // choix explicite : on ne suit plus la taille d'ecran
     const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
     const onChange = (e) => setIsMobile(e.matches);
     setIsMobile(mq.matches);
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
-  }, [breakpoint]);
+  }, [breakpoint, forced]);
   return isMobile;
+}
+
+/* Permet de revenir a l'autre interface depuis l'application. */
+function switchView(target) {
+  localStorage.setItem(VIEW_KEY, target);
+  window.location.href = "/";
 }
 
 function SyncBanner({ count, syncing, onSync, compact }) {
@@ -2095,6 +2133,7 @@ function MobileView({
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <button onClick={() => switchView("desktop")} style={{ color: "rgba(255,255,255,0.85)" }} title="Passer à la version bureau"><Home size={19} /></button>
             <button onClick={() => setShowProfileForm(true)} style={{ color: "rgba(255,255,255,0.85)" }} title="Mon profil"><Settings size={19} /></button>
             <button onClick={onLogout} style={{ color: "rgba(255,255,255,0.85)" }} title="Déconnexion"><LogOut size={19} /></button>
           </div>
@@ -2753,6 +2792,9 @@ function Dashboard({ auth, onLogout }) {
                 </div>
               </div>
               <div className="flex items-center gap-1">
+                <button onClick={() => switchView("mobile")} title="Passer à la version mobile (enrôlement)" style={{ color: "rgba(255,255,255,0.7)" }}>
+                  <Search size={15} />
+                </button>
                 <button onClick={() => setShowProfileForm(true)} title="Mon profil" style={{ color: "rgba(255,255,255,0.7)" }}>
                   <Settings size={15} />
                 </button>

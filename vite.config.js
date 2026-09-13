@@ -17,7 +17,7 @@ export default defineConfig({
         background_color: "#FAF8F3",
         display: "standalone",
         orientation: "portrait",
-        start_url: "/",
+        start_url: "/mobile", // l'APK et l'installation mobile ouvrent directement l'interface d'enrolement
         scope: "/",
         lang: "fr",
         icons: [
