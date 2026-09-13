@@ -543,8 +543,8 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
                   <PhotoUpload value={newOwner.qrPaiement} onChange={(v) => setNewOwner({ ...newOwner, qrPaiement: v })} label="QR code Mobile Money (compte marchand)" shape="square" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <LogoSelector label="Premier collectif (logo en haut à droite)" type={newOwner.logo1Type} id={newOwner.logo1Id} onChange={(t, i) => setNewOwner({ ...newOwner, logo1Type: t, logo1Id: i })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} />
-                  <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={newOwner.logo2Type} id={newOwner.logo2Id} onChange={(t, i) => setNewOwner({ ...newOwner, logo2Type: t, logo2Id: i })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} />
+                  <LogoSelector label="Premier collectif (logo en haut à droite)" type={newOwner.logo1Type} id={newOwner.logo1Id} onChange={(t, i) => setNewOwner({ ...newOwner, logo1Type: t, logo1Id: i })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="transporteur" />
+                  <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={newOwner.logo2Type} id={newOwner.logo2Id} onChange={(t, i) => setNewOwner({ ...newOwner, logo2Type: t, logo2Id: i })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="transporteur" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Field label="Nom"><TextInput value={newOwner.nom} onChange={(e) => setNewOwner({ ...newOwner, nom: e.target.value })} /></Field>
@@ -616,8 +616,8 @@ function VehicleForm({ auth, owners, drivers, syndicats, garesRoutieres, commiss
                         <PhotoUpload value={row.draft.qrPaiement} onChange={(v) => updateDriverDraft(i, { qrPaiement: v })} label="QR code de paiement (wallet Mobile Money)" shape="square" />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
-                        <LogoSelector label="Premier collectif (logo en haut à droite)" type={row.draft.logo1Type} id={row.draft.logo1Id} onChange={(t, iId) => updateDriverDraft(i, { logo1Type: t, logo1Id: iId })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} />
-                        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={row.draft.logo2Type} id={row.draft.logo2Id} onChange={(t, iId) => updateDriverDraft(i, { logo2Type: t, logo2Id: iId })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} />
+                        <LogoSelector label="Premier collectif (logo en haut à droite)" type={row.draft.logo1Type} id={row.draft.logo1Id} onChange={(t, iId) => updateDriverDraft(i, { logo1Type: t, logo1Id: iId })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="chauffeur" />
+                        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={row.draft.logo2Type} id={row.draft.logo2Id} onChange={(t, iId) => updateDriverDraft(i, { logo2Type: t, logo2Id: iId })} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="chauffeur" />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <Field label="Nom"><TextInput value={row.draft.nom} onChange={(e) => updateDriverDraft(i, { nom: e.target.value })} /></Field>
@@ -3377,9 +3377,12 @@ function SyndicatForm({ commission, initialSyndicat, onCancel, onSave }) {
    et le "deuxième collectif" (gauche) affichés sur une carte de membre.
    Liste combinée Commissions Mixtes + Syndicats.
    ============================================================ */
-function LogoSelector({ label, type, id, onChange, commissionsMixtes, syndicats }) {
+function LogoSelector({ label, type, id, onChange, commissionsMixtes, syndicats, memberCategory }) {
   const value = type && id ? `${type}:${id}` : "";
   const entity = resolveLogoEntity(type, id, commissionsMixtes, syndicats);
+  const wantedType = memberCategory === "transporteur" ? "transporteurs" : memberCategory === "chauffeur" ? "chauffeurs" : null;
+  const recommandes = wantedType ? syndicats.filter((s) => s.type === wantedType) : [];
+  const autres = wantedType ? syndicats.filter((s) => s.type !== wantedType) : syndicats;
   return (
     <Field label={label}>
       <div className="flex items-center gap-2">
@@ -3401,8 +3404,13 @@ function LogoSelector({ label, type, id, onChange, commissionsMixtes, syndicats 
           <optgroup label="Commissions mixtes">
             {commissionsMixtes.map((c) => <option key={c.id} value={`commission_mixte:${c.id}`}>{c.sigle || c.nom}</option>)}
           </optgroup>
-          <optgroup label="Collectifs (Syndicats)">
-            {syndicats.map((s) => <option key={s.id} value={`syndicat:${s.id}`}>{s.sigle || s.nom}</option>)}
+          {recommandes.length > 0 && (
+            <optgroup label={`Collectifs des ${wantedType} (recommandé)`}>
+              {recommandes.map((s) => <option key={s.id} value={`syndicat:${s.id}`}>{s.sigle || s.nom}{s.commune ? ` — ${s.commune}` : ""}</option>)}
+            </optgroup>
+          )}
+          <optgroup label={recommandes.length > 0 ? "Autres collectifs" : "Collectifs (Syndicats)"}>
+            {autres.map((s) => <option key={s.id} value={`syndicat:${s.id}`}>{s.sigle || s.nom}{s.commune ? ` — ${s.commune}` : ""}</option>)}
           </optgroup>
         </select>
       </div>
@@ -3472,8 +3480,8 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, vehicles, onC
         </p>
       )}
       <div className="grid grid-cols-2 gap-4">
-        <LogoSelector label="Premier collectif (logo en haut à droite)" type={logo1Type} id={logo1Id} onChange={(t, i) => { setLogo1Type(t); setLogo1Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} />
-        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={logo2Type} id={logo2Id} onChange={(t, i) => { setLogo2Type(t); setLogo2Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} />
+        <LogoSelector label="Premier collectif (logo en haut à droite)" type={logo1Type} id={logo1Id} onChange={(t, i) => { setLogo1Type(t); setLogo1Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="transporteur" />
+        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={logo2Type} id={logo2Id} onChange={(t, i) => { setLogo2Type(t); setLogo2Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="transporteur" />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
@@ -3562,8 +3570,8 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, vehicles, onC
         </p>
       )}
       <div className="grid grid-cols-2 gap-4">
-        <LogoSelector label="Premier collectif (logo en haut à droite)" type={logo1Type} id={logo1Id} onChange={(t, i) => { setLogo1Type(t); setLogo1Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} />
-        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={logo2Type} id={logo2Id} onChange={(t, i) => { setLogo2Type(t); setLogo2Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} />
+        <LogoSelector label="Premier collectif (logo en haut à droite)" type={logo1Type} id={logo1Id} onChange={(t, i) => { setLogo1Type(t); setLogo1Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="chauffeur" />
+        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={logo2Type} id={logo2Id} onChange={(t, i) => { setLogo2Type(t); setLogo2Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="chauffeur" />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
@@ -3635,8 +3643,8 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, garesRoutie
         </p>
       )}
       <div className="grid grid-cols-2 gap-4">
-        <LogoSelector label="Premier collectif (logo en haut à droite)" type={logo1Type} id={logo1Id} onChange={(t, i) => { setLogo1Type(t); setLogo1Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} />
-        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={logo2Type} id={logo2Id} onChange={(t, i) => { setLogo2Type(t); setLogo2Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} />
+        <LogoSelector label="Premier collectif (logo en haut à droite)" type={logo1Type} id={logo1Id} onChange={(t, i) => { setLogo1Type(t); setLogo1Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="element" />
+        <LogoSelector label="Deuxième collectif (logo en haut à gauche)" type={logo2Type} id={logo2Id} onChange={(t, i) => { setLogo2Type(t); setLogo2Id(i); }} commissionsMixtes={commissionsMixtes} syndicats={syndicats} memberCategory="element" />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
