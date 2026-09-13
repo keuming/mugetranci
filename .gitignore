@@ -4,3 +4,13 @@ dist
 .env
 .env.local
 .DS_Store
+
+# Cles de signature Android : ne JAMAIS les versionner.
+# Sans le keystore, impossible de publier une mise a jour de l'APK ;
+# entre de mauvaises mains, il permet de signer une fausse application
+# a votre nom.
+*.keystore
+*.jks
+signing-key-info.txt
+*.aab
+*.apk

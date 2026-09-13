@@ -3,9 +3,9 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "ci.comixci.enrolement",
+      "package_name": "com.comix_ci.mobile.twa",
       "sha256_cert_fingerprints": [
-        "REMPLACER_PAR_EMPREINTE_SHA256_DU_KEYSTORE"
+        "BF:45:0A:E7:E1:77:2C:DB:E1:D0:50:6D:BC:8B:5A:64:76:8E:7F:B5:6F:38:A0:CE:EC:F0:93:D9:18:BD:15:1C"
       ]
     }
   }

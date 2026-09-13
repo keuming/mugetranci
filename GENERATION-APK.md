@@ -20,7 +20,7 @@ ou l'URL changent.
 | `manifest.webmanifest` complet | ✅ nom, `start_url`, `display: standalone`, `theme_color` |
 | Icônes 192 / 512 / maskable | ✅ dans `public/` |
 | Service worker (hors-ligne) | ✅ généré par `vite-plugin-pwa` |
-| `/.well-known/assetlinks.json` | ⚠️ à compléter (voir étape 3) |
+| `/.well-known/assetlinks.json` | ✅ renseigné (package `com.comix_ci.mobile.twa`) |
 
 ---
 
