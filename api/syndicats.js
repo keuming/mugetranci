@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { syndicats, proprietaires, associations } from "../db/schema.js";
+import { syndicats, proprietaires, associations, garesRoutieres, chauffeurs, elements, vehicules } from "../db/schema.js";
 import { requireAuth } from "../lib/auth.js";
 
 function toApi(row) {
@@ -190,9 +190,29 @@ export default async function handler(req, res) {
 
   if (req.method === "DELETE") {
     if (!(await assertOwnership())) return;
-    const members = await db.select().from(proprietaires).where(eq(proprietaires.syndicatId, id));
-    if (members.length > 0) {
-      return res.status(400).json({ error: `Impossible de supprimer : ${members.length} membre(s) sont rattachés à ce syndicat.` });
+    // Controle d'integrite complet : associations et gares routieres ont une
+    // contrainte de cle etrangere, leur oubli faisait echouer la suppression
+    // avec une erreur serveur brute au lieu d'un message comprehensible.
+    const [assos, gares, members, drivers, els, vehs] = await Promise.all([
+      db.select().from(associations).where(eq(associations.syndicatId, id)),
+      db.select().from(garesRoutieres).where(eq(garesRoutieres.syndicatId, id)),
+      db.select().from(proprietaires).where(eq(proprietaires.syndicatId, id)),
+      db.select().from(chauffeurs).where(eq(chauffeurs.syndicatId, id)),
+      db.select().from(elements).where(eq(elements.syndicatId, id)),
+      db.select().from(vehicules).where(eq(vehicules.syndicatId, id)),
+    ]);
+    const blocages = [
+      [assos.length, "association(s)"],
+      [gares.length, "gare(s) routière(s)"],
+      [members.length, "transporteur(s)"],
+      [drivers.length, "chauffeur(s)"],
+      [els.length, "élément(s)"],
+      [vehs.length, "véhicule(s)"],
+    ].filter(([n]) => n > 0).map(([n, lab]) => `${n} ${lab}`);
+    if (blocages.length > 0) {
+      return res.status(400).json({
+        error: `Impossible de supprimer ce collectif : ${blocages.join(", ")} y sont rattachés. Supprimez-les ou rattachez-les ailleurs d'abord.`,
+      });
     }
     const [deleted] = await db.delete(syndicats).where(eq(syndicats.id, id)).returning();
     if (!deleted) return res.status(404).json({ error: "Syndicat introuvable" });

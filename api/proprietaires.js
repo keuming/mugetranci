@@ -70,8 +70,16 @@ export default async function handler(req, res) {
         values.creatorType = "admin";
       }
 
-      const [created] = await db.insert(proprietaires).values(values).returning();
-      return res.status(201).json(toApi(created));
+      try {
+        const [created] = await db.insert(proprietaires).values(values).returning();
+        return res.status(201).json(toApi(created));
+      } catch (err) {
+        if (err.code === "23505") {
+          return res.status(400).json({ error: "Un enregistrement identique existe déjà." });
+        }
+        console.error("POST api/proprietaires.js:", err);
+        return res.status(500).json({ error: "Erreur lors de l'enregistrement du transporteur." });
+      }
     }
 
     res.setHeader("Allow", "GET, POST");
@@ -139,9 +147,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Aucun champ à mettre à jour" });
     }
 
-    const [updated] = await db.update(proprietaires).set(patch).where(eq(proprietaires.id, id)).returning();
-    if (!updated) return res.status(404).json({ error: "Membre introuvable" });
-    return res.status(200).json(toApi(updated));
+    try {
+      const [updated] = await db.update(proprietaires).set(patch).where(eq(proprietaires.id, id)).returning();
+      if (!updated) return res.status(404).json({ error: "Membre introuvable" });
+      return res.status(200).json(toApi(updated));
+    } catch (err) {
+      console.error("PATCH api/proprietaires.js:", err);
+      return res.status(500).json({ error: "Erreur lors de la mise à jour." });
+    }
   }
 
   if (req.method === "DELETE") {

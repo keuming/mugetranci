@@ -72,8 +72,16 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "L'association (collectif/syndicat) de rattachement de l'élément est requise." });
       }
 
-      const [created] = await db.insert(elements).values(values).returning();
-      return res.status(201).json(toApi(created));
+      try {
+        const [created] = await db.insert(elements).values(values).returning();
+        return res.status(201).json(toApi(created));
+      } catch (err) {
+        if (err.code === "23505") {
+          return res.status(400).json({ error: "Un enregistrement identique existe déjà." });
+        }
+        console.error("POST api/elements.js:", err);
+        return res.status(500).json({ error: "Erreur lors de l'enregistrement du élément." });
+      }
     }
 
     res.setHeader("Allow", "GET, POST");
@@ -138,9 +146,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Aucun champ à mettre à jour" });
     }
 
-    const [updated] = await db.update(elements).set(patch).where(eq(elements.id, id)).returning();
-    if (!updated) return res.status(404).json({ error: "Élément introuvable" });
-    return res.status(200).json(toApi(updated));
+    try {
+      const [updated] = await db.update(elements).set(patch).where(eq(elements.id, id)).returning();
+      if (!updated) return res.status(404).json({ error: "Élément introuvable" });
+      return res.status(200).json(toApi(updated));
+    } catch (err) {
+      console.error("PATCH api/elements.js:", err);
+      return res.status(500).json({ error: "Erreur lors de la mise à jour." });
+    }
   }
 
   if (req.method === "DELETE") {

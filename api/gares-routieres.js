@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { garesRoutieres, affectations } from "../db/schema.js";
+import { garesRoutieres, affectations, lignes, elements } from "../db/schema.js";
 import { requireAuth } from "../lib/auth.js";
 
 function toApi(row) {
@@ -96,6 +96,16 @@ export default async function handler(req, res) {
 
   if (req.method === "DELETE") {
     if (!(await assertOwnership())) return;
+    // Les lignes portent une cle etrangere vers la gare : les oublier
+    // faisait echouer la suppression avec une erreur serveur brute.
+    const lignesLiees = await db.select().from(lignes).where(eq(lignes.gareRoutiereId, id));
+    if (lignesLiees.length > 0) {
+      return res.status(400).json({ error: `Impossible de supprimer : ${lignesLiees.length} ligne(s) sont rattachée(s) à cette gare routière. Supprimez-les d'abord.` });
+    }
+    const elementsLies = await db.select().from(elements).where(eq(elements.gareRoutiereId, id));
+    if (elementsLies.length > 0) {
+      return res.status(400).json({ error: `Impossible de supprimer : ${elementsLies.length} élément(s) y sont rattaché(s).` });
+    }
     const used = await db.select().from(affectations).where(eq(affectations.gareRoutiereId, id));
     if (used.some((a) => a.actif)) {
       return res.status(400).json({ error: "Impossible de supprimer : des véhicules sont actuellement affectés à cette gare routière." });

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { chauffeurs, syndicats, garesRoutieres } from "../db/schema.js";
+import { chauffeurs, syndicats, garesRoutieres, vehiculeChauffeurs, achatsCarburant } from "../db/schema.js";
 import { requireAuth, agentPeutGerer } from "../lib/auth.js";
 import { genererNumeroCarte } from "../lib/cards.js";
 
@@ -67,8 +67,16 @@ export default async function handler(req, res) {
         values.creatorType = "admin";
       }
 
-      const [created] = await db.insert(chauffeurs).values(values).returning();
-      return res.status(201).json(toApi(created));
+      try {
+        const [created] = await db.insert(chauffeurs).values(values).returning();
+        return res.status(201).json(toApi(created));
+      } catch (err) {
+        if (err.code === "23505") {
+          return res.status(400).json({ error: "Un enregistrement identique existe déjà." });
+        }
+        console.error("POST api/chauffeurs.js:", err);
+        return res.status(500).json({ error: "Erreur lors de l'enregistrement du chauffeur." });
+      }
     }
 
     res.setHeader("Allow", "GET, POST");
@@ -132,13 +140,31 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Aucun champ à mettre à jour" });
     }
 
-    const [updated] = await db.update(chauffeurs).set(patch).where(eq(chauffeurs.id, id)).returning();
-    if (!updated) return res.status(404).json({ error: "Chauffeur introuvable" });
-    return res.status(200).json(toApi(updated));
+    try {
+      const [updated] = await db.update(chauffeurs).set(patch).where(eq(chauffeurs.id, id)).returning();
+      if (!updated) return res.status(404).json({ error: "Chauffeur introuvable" });
+      return res.status(200).json(toApi(updated));
+    } catch (err) {
+      console.error("PATCH api/chauffeurs.js:", err);
+      return res.status(500).json({ error: "Erreur lors de la mise à jour." });
+    }
   }
 
   if (req.method === "DELETE") {
     if (!(await assertOwnership())) return;
+    // Le chauffeur est reference par les affectations de vehicule et les
+    // achats de carburant : sans ce controle la suppression echouait avec
+    // une erreur serveur brute.
+    const [liens, achats] = await Promise.all([
+      db.select().from(vehiculeChauffeurs).where(eq(vehiculeChauffeurs.chauffeurId, id)),
+      db.select().from(achatsCarburant).where(eq(achatsCarburant.chauffeurId, id)),
+    ]);
+    if (liens.length > 0) {
+      return res.status(400).json({ error: "Impossible de supprimer ce chauffeur : il est rattaché à un véhicule. Retirez-le du dossier d'abord." });
+    }
+    if (achats.length > 0) {
+      return res.status(400).json({ error: `Impossible de supprimer ce chauffeur : ${achats.length} achat(s) de carburant lui sont associés.` });
+    }
     const [deleted] = await db.delete(chauffeurs).where(eq(chauffeurs.id, id)).returning();
     if (!deleted) return res.status(404).json({ error: "Chauffeur introuvable" });
     return res.status(200).json({ deleted: true });
