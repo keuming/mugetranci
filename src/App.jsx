@@ -47,6 +47,24 @@ const FONTS = `
 html, body { overflow-x: hidden; max-width: 100%; }
 #root { overflow-x: hidden; }
 
+/* ---------- Tenue sur iPhone ----------
+   Sans ces regles la fenetre "flotte" : rebond elastique en fin de
+   defilement, zoom au double-tap, et surtout agrandissement automatique
+   a chaque focus sur un champ. */
+html, body {
+  overscroll-behavior: none;          /* supprime le rebond elastique */
+  -webkit-text-size-adjust: 100%;     /* pas de reajustement auto du texte */
+  text-size-adjust: 100%;
+}
+body { touch-action: manipulation; }  /* supprime le zoom au double-tap */
+
+/* Tout champ saisissable reste a 16px : en dessous, iOS zoome. */
+input, select, textarea { font-size: 16px !important; }
+
+/* Respect de l'encoche et de la barre gestuelle */
+.comix-safe-top { padding-top: env(safe-area-inset-top); }
+.comix-safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
 @media (max-width: 1023px) {
   /* La barre latérale devient un tiroir qui glisse par-dessus le contenu */
   .comix-drawer {
@@ -213,7 +231,9 @@ const inputStyle = {
   border: `1.5px solid ${C.border}`,
   borderRadius: 10,
   padding: "10px 11px",
-  fontSize: 14,
+  // 16px minimum : en dessous, iOS zoome automatiquement a la prise de
+  // focus et fait sauter toute la mise en page.
+  fontSize: 16,
   fontWeight: 600,
   background: "#fff",
   color: C.ink,
@@ -1774,6 +1794,10 @@ function LoginScreen({ onLogin }) {
         >
           {busy ? "Connexion…" : "Se connecter"}
         </button>
+
+        <p className="font-body text-center" style={{ fontSize: 10.5, color: C.slate, marginTop: 18, letterSpacing: 0.2 }}>
+          © {new Date().getFullYear()} <strong style={{ color: C.ink, fontWeight: 700 }}>ORZAYAH SOLUTIONS</strong>
+        </p>
       </form>
     </div>
   );
@@ -2232,7 +2256,7 @@ function MobileView({
   return (
     <div style={{ minHeight: "100dvh", background: C.cream, display: "flex", flexDirection: "column", overflowX: "hidden" }}>
       {/* EN-TETE */}
-      <header style={{ background: `linear-gradient(135deg, ${C.greenDark} 0%, ${C.green} 100%)`, padding: "18px 18px 22px", position: "relative" }}>
+      <header className="comix-safe-top" style={{ background: `linear-gradient(135deg, ${C.greenDark} 0%, ${C.green} 100%)`, padding: "18px 18px 22px", position: "relative" }}>
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 5, background: `linear-gradient(90deg, ${C.orange} 0%, ${C.orange} 50%, #fff 50%, #fff 100%)` }} />
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5" style={{ minWidth: 0 }}>
@@ -2375,6 +2399,11 @@ function MobileView({
           </div>
         )}
       </div>
+
+      {/* MENTION DE PROPRIETE — au-dessus de la barre d'onglets */}
+      <p className="font-body text-center" style={{ fontSize: 10, color: C.slate, padding: "0 16px 96px", letterSpacing: 0.2 }}>
+        © {new Date().getFullYear()} <strong style={{ color: C.ink, fontWeight: 700 }}>ORZAYAH SOLUTIONS</strong>
+      </p>
 
       {/* BARRE D'ONGLETS */}
       <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: `1px solid ${C.border}`, display: "flex", zIndex: 30, paddingBottom: "env(safe-area-inset-bottom)" }}>
