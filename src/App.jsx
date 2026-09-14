@@ -79,8 +79,11 @@ input, select, textarea { font-size: 16px !important; }
   .comix-main { padding: 16px; max-width: 100% !important; }
   .comix-page-title { font-size: 19px; }
 
-  /* Grilles de cartes : une seule colonne sur téléphone */
+  /* Grilles de cartes : une seule colonne sur téléphone.
+     .comix-grid-2 en est exclue : certains groupes de boutons courts
+     restent plus lisibles sur deux colonnes que empiles. */
   .grid.grid-cols-3, .grid.grid-cols-2 { grid-template-columns: 1fr !important; }
+  .comix-grid-2 { grid-template-columns: 1fr 1fr !important; }
 
   /* Rangées de statistiques : passent à la ligne au lieu de déborder */
   .comix-stats-row { flex-wrap: wrap; }
@@ -1984,8 +1987,8 @@ function MobileTile({ icon, label, hint, accent, onClick }) {
 function MobileField({ label, value, mono }) {
   return (
     <div style={{ padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
-      <div className="font-body" style={{ fontSize: 10, color: C.orangeDark, textTransform: "uppercase", letterSpacing: 0.7, fontWeight: 800 }}>{label}</div>
-      <div className={mono ? "font-mono" : "font-body"} style={{ fontSize: 15.5, fontWeight: 800, color: C.ink, marginTop: 2, wordBreak: "break-word" }}>{value || "—"}</div>
+      <div className="font-body" style={{ fontSize: 12, color: C.slate, fontWeight: 600 }}>{label}</div>
+      <div className={mono ? "font-mono" : "font-body"} style={{ fontSize: 16, fontWeight: 700, color: C.ink, marginTop: 1, wordBreak: "break-word", letterSpacing: mono ? 0.2 : -0.1 }}>{value || "—"}</div>
     </div>
   );
 }
@@ -2042,7 +2045,7 @@ function MobileTransporteurSection({ owner }) {
         </div>
         <div style={{ minWidth: 0 }}>
           <div className="font-display" style={{ fontSize: 18, fontWeight: 800, color: C.ink, lineHeight: 1.15 }}>{owner.prenoms} {owner.nom}</div>
-          <div className="font-mono" style={{ fontSize: 12.5, fontWeight: 700, color: C.orangeDark }}>{owner.carteTransporteurNumero || "—"}</div>
+          <div className="font-body" style={{ fontSize: 12.5, color: C.slate }}>{[owner.quartier, owner.ville].filter(Boolean).join(", ") || "Résidence non renseignée"}</div>
         </div>
       </div>
       <MobileField label="N° CNI" value={owner.cni} mono />
@@ -2126,7 +2129,7 @@ function MobileDetail({ result, vehicles, owners, drivers, syndicats, commission
         { key: "vehicule", label: "Véhicule" },
         { key: "transporteur", label: "Transporteur" },
         { key: "chauffeurs", label: "Chauffeurs" },
-        { key: "complete", label: "Fiche complète" },
+        { key: "complete", label: "Tout" },
       ];
 
   const title = el ? `${el.prenoms} ${el.nom}`
@@ -2141,7 +2144,7 @@ function MobileDetail({ result, vehicles, owners, drivers, syndicats, commission
           <ChevronLeft size={18} /> Retour
         </button>
         <div className="flex items-center justify-between gap-2">
-          <h2 className="font-display" style={{ fontSize: 22, fontWeight: 800, color: C.ink, letterSpacing: -0.4, lineHeight: 1.15, minWidth: 0 }}>{title}</h2>
+          <h2 className="font-display" style={{ fontSize: 26, fontWeight: 800, color: C.ink, letterSpacing: -0.8, lineHeight: 1.05, minWidth: 0 }}>{title}</h2>
           {(() => {
             const cardTarget = el ? { m: el, cat: "element" }
               : result.kind === "chauffeur" ? { m: result.item, cat: "chauffeur" }
@@ -2158,6 +2161,19 @@ function MobileDetail({ result, vehicles, owners, drivers, syndicats, commission
             );
           })()}
         </div>
+        {(() => {
+          const num = el ? el.numeroCarte
+            : result.kind === "chauffeur" ? result.item.numeroCarte
+            : owner ? owner.carteTransporteurNumero : null;
+          const cat = el ? "Élément" : result.kind === "chauffeur" ? "Chauffeur" : owner ? "Transporteur" : "Dossier";
+          return (
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className="font-body" style={{ fontSize: 12.5, fontWeight: 700, color: C.greenDark, background: C.greenLight, padding: "3px 9px", borderRadius: 6 }}>{cat}</span>
+              {num && <span className="font-mono" style={{ fontSize: 13, fontWeight: 700, color: C.orangeDark, letterSpacing: 0.4 }}>{num}</span>}
+            </div>
+          );
+        })()}
+
         <div className="flex gap-1.5 mt-3" style={{ overflowX: "auto", paddingBottom: 4 }}>
           {tabs.map((t) => (
             <button
@@ -2165,7 +2181,7 @@ function MobileDetail({ result, vehicles, owners, drivers, syndicats, commission
               onClick={() => setSection(t.key)}
               className="font-body"
               style={{
-                whiteSpace: "nowrap", fontSize: 13, fontWeight: 700, padding: "8px 14px", borderRadius: 999,
+                whiteSpace: "nowrap", fontSize: 12.5, fontWeight: 700, padding: "8px 11px", borderRadius: 999,
                 background: section === t.key ? C.green : "#fff",
                 color: section === t.key ? "#fff" : C.ink,
                 border: `1.5px solid ${section === t.key ? C.green : C.border}`,
@@ -2304,7 +2320,7 @@ function MobileView({
             {/* 1 — Commune */}
             <div className="flex items-center gap-2" style={{ marginBottom: 7 }}>
               <span className="font-display" style={{ width: 21, height: 21, borderRadius: 999, background: C.green, color: "#fff", fontSize: 11.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>1</span>
-              <span className="font-display" style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>Commune</span>
+              <span className="font-display" style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>Commune</span>
             </div>
             <select
               value={communeF}
@@ -2324,16 +2340,16 @@ function MobileView({
             {/* 2 — Critere */}
             <div className="flex items-center gap-2" style={{ margin: "18px 0 7px" }}>
               <span className="font-display" style={{ width: 21, height: 21, borderRadius: 999, background: C.orange, color: "#fff", fontSize: 11.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>2</span>
-              <span className="font-display" style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>Critère de recherche</span>
+              <span className="font-display" style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>Critère de recherche</span>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="comix-grid-2 gap-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
               {CRITERES.map((cr) => (
                 <button
                   key={cr.key}
                   onClick={() => setCritere(cr.key)}
                   className="font-body"
                   style={{
-                    fontSize: 13.5, fontWeight: 800, padding: "11px 8px", borderRadius: 12,
+                    fontSize: 13.5, fontWeight: 700, padding: "12px 8px", borderRadius: 10,
                     background: critere === cr.key ? C.orange : "#fff",
                     color: critere === cr.key ? "#fff" : C.slate,
                     border: `1.5px solid ${critere === cr.key ? C.orange : C.border}`,
@@ -2347,7 +2363,7 @@ function MobileView({
             {/* 3 — Saisie */}
             <div className="flex items-center gap-2" style={{ margin: "18px 0 7px" }}>
               <span className="font-display" style={{ width: 21, height: 21, borderRadius: 999, background: C.greenDark, color: "#fff", fontSize: 11.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>3</span>
-              <span className="font-display" style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>{critereActif.label}</span>
+              <span className="font-display" style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{critereActif.label}</span>
             </div>
             <div className="flex items-center gap-2 px-3" style={{ background: "#fff", border: `1.5px solid ${C.border}`, borderRadius: 14, height: 50 }}>
               <Search size={19} color={C.slate} />
@@ -2362,7 +2378,7 @@ function MobileView({
               {q && <button onClick={() => setQ("")} style={{ color: C.slate }}><X size={17} /></button>}
             </div>
 
-            <div className="flex flex-col gap-2.5 mt-4">
+            <div className="flex flex-col mt-4" style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${C.border}` }}>
               {!query && (
                 <p className="font-body text-center" style={{ fontSize: 13.5, color: C.slate, padding: "28px 12px" }}>
                   Saisissez {critereActif.label.toLowerCase()} pour lancer la recherche.
@@ -2380,18 +2396,21 @@ function MobileView({
                     key={`${r.kind}-${r.item.id}-${i}`}
                     onClick={() => setSelected(r)}
                     className="w-full text-left flex items-center gap-3"
-                    style={{ background: "#fff", border: `1.5px solid ${C.border}`, borderLeft: `5px solid ${m.color}`, borderRadius: 14, padding: 14 }}
+                    style={{ background: "#fff", borderTop: i === 0 ? `1px solid ${C.border}` : "none", borderBottom: `1px solid ${C.border}`, padding: "13px 14px" }}
                   >
-                    <div style={{ width: 42, height: 42, borderRadius: 12, background: m.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <div style={{ width: 3, alignSelf: "stretch", background: m.color, borderRadius: 2, flexShrink: 0 }} />
+                    <div style={{ width: 34, height: 34, borderRadius: 9, background: m.color + "18", color: m.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                       {m.icon}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="font-display" style={{ fontSize: 16, fontWeight: 800, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</div>
-                      <div className="font-body" style={{ fontSize: 12.5, color: C.slate }}>
-                        <span style={{ color: m.color, fontWeight: 700 }}>{m.label}</span> · {r.sub}
+                      <div className="font-display" style={{ fontSize: 16.5, fontWeight: 700, color: C.ink, letterSpacing: -0.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</div>
+                      <div className="font-body flex items-center gap-1.5" style={{ fontSize: 12.5, color: C.slate }}>
+                        <span style={{ color: m.color, fontWeight: 700 }}>{m.label}</span>
+                        <span style={{ width: 3, height: 3, borderRadius: 999, background: C.border }} />
+                        <span className="font-mono" style={{ fontSize: 11.5 }}>{r.sub}</span>
                       </div>
                     </div>
-                    <ChevronRight size={18} color={C.slate} />
+                    <ChevronRight size={17} color={C.border} />
                   </button>
                 );
               })}
@@ -2987,7 +3006,7 @@ function Dashboard({ auth, onLogout }) {
                   {{ dashboard: "Tableau de bord", vehicles: "Véhicules", owners: "Transporteurs", drivers: "Chauffeurs", elements: "Éléments", commissions: "Commissions Mixtes", syndicats: "Collectifs (Syndicats)", garesroutieres: "Gares Routières", carburant: "Carburant", alerts: "Alertes documents" }[page]}
                 </h1>
                 <div style={{ width: 46, height: 4, borderRadius: 999, background: `linear-gradient(90deg, ${C.orange}, ${C.green})`, margin: "5px 0 5px" }} />
-                <p className="text-sm" style={{ color: C.slate, fontWeight: 600 }}>Registre unifié véhicules · transporteurs · chauffeurs</p>
+                <p className="text-sm" style={{ color: C.slate, fontWeight: 500 }}>Registre des transporteurs de Côte d'Ivoire</p>
               </div>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
