@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0B6E4F" />
+  <title>Installer COMIX-CI — Enrôlement</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <style>
+    :root {
+      --vert: #0B6E4F; --vert-fonce: #07422F; --vert-clair: #E4F1EC;
+      --orange: #E07A1F; --orange-fonce: #B35F14; --orange-clair: #FBEADA;
+      --creme: #FAF8F3; --encre: #20241F; --ardoise: #69726B; --bord: #E4E0D6;
+    }
+    * { box-sizing: border-box; -webkit-text-size-adjust: 100%; }
+    html, body { margin: 0; overflow-x: hidden; background: var(--creme); }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--encre); line-height: 1.5;
+    }
+    header {
+      background: linear-gradient(135deg, var(--vert-fonce), var(--vert));
+      padding: calc(env(safe-area-inset-top) + 26px) 20px 30px;
+      position: relative; color: #fff;
+    }
+    header::after {
+      content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 5px;
+      background: linear-gradient(90deg, var(--orange) 0 50%, #fff 50% 100%);
+    }
+    .marque { display: flex; align-items: center; gap: 12px; }
+    .logo {
+      width: 46px; height: 46px; border-radius: 13px; background: var(--orange);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      font-size: 24px;
+    }
+    h1 { font-size: 21px; font-weight: 800; margin: 0; letter-spacing: -0.4px; }
+    .sous { font-size: 12.5px; opacity: .8; margin: 0; }
+    main { padding: 20px 16px 40px; max-width: 560px; margin: 0 auto; }
+    h2 { font-size: 19px; font-weight: 800; letter-spacing: -0.3px; margin: 0 0 4px; }
+    .barre { width: 48px; height: 4px; border-radius: 99px;
+      background: linear-gradient(90deg, var(--orange), var(--vert)); margin-bottom: 14px; }
+    .bouton {
+      display: flex; align-items: center; justify-content: center; gap: 9px;
+      background: var(--vert); color: #fff; font-size: 16.5px; font-weight: 800;
+      padding: 16px; border-radius: 13px; text-decoration: none;
+      box-shadow: 0 5px 16px rgba(11,110,79,.35); margin: 18px 0 6px;
+    }
+    .bouton.secondaire {
+      background: #fff; color: var(--vert-fonce); border: 2px solid var(--vert);
+      box-shadow: none; font-size: 15px; padding: 13px;
+    }
+    .note { font-size: 12.5px; color: var(--ardoise); text-align: center; margin: 0 0 22px; }
+    ol { padding-left: 0; list-style: none; counter-reset: e; margin: 0; }
+    ol li {
+      counter-increment: e; position: relative; padding: 0 0 18px 44px;
+      font-size: 14.5px;
+    }
+    ol li::before {
+      content: counter(e); position: absolute; left: 0; top: -2px;
+      width: 29px; height: 29px; border-radius: 99px; background: var(--vert); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 14px;
+    }
+    ol li strong { font-weight: 800; }
+    .encadre {
+      background: var(--orange-clair); border-left: 5px solid var(--orange);
+      border-radius: 11px; padding: 13px 15px; font-size: 13.5px; margin: 18px 0;
+    }
+    .encadre b { font-weight: 800; }
+    .carte {
+      background: #fff; border: 1.5px solid var(--bord); border-radius: 15px;
+      padding: 18px; margin-bottom: 18px;
+    }
+    footer {
+      text-align: center; font-size: 11px; color: var(--ardoise);
+      padding: 10px 16px calc(env(safe-area-inset-bottom) + 26px);
+    }
+    footer b { color: var(--encre); font-weight: 700; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="marque">
+      <div class="logo">🚍</div>
+      <div>
+        <h1>COMIX-CI</h1>
+        <p class="sous">Application d'enrôlement — agents de terrain</p>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <h2>Installer l'application</h2>
+    <div class="barre"></div>
+    <p style="font-size:14.5px; margin-top:0;">
+      Cette application permet d'enrôler les transporteurs, chauffeurs et éléments,
+      et de générer leurs cartes de membre. Elle fonctionne même sans connexion :
+      les enrôlements sont envoyés automatiquement au retour du réseau.
+    </p>
+
+    <a class="bouton" href="/comix-ci.apk" download>⬇️ Télécharger l'application (Android)</a>
+    <p class="note">Environ 2 Mo · Android 6 ou plus récent</p>
+
+    <div class="carte">
+      <h2 style="font-size:16px;">Marche à suivre</h2>
+      <div class="barre" style="width:36px; height:3px;"></div>
+      <ol>
+        <li>Appuyez sur <strong>Télécharger l'application</strong> ci-dessus.</li>
+        <li>Ouvrez le fichier téléchargé (notification, ou dossier <strong>Téléchargements</strong>).</li>
+        <li>Android affichera un avertissement : autorisez <strong>« Installer des applications inconnues »</strong> pour votre navigateur. C'est normal — l'application ne passe pas par le Play Store.</li>
+        <li>Appuyez sur <strong>Installer</strong>, puis sur <strong>Ouvrir</strong>.</li>
+        <li>Connectez-vous avec l'<strong>identifiant et le code PIN</strong> remis par votre structure.</li>
+      </ol>
+    </div>
+
+    <div class="encadre">
+      <b>Sur iPhone ?</b> Il n'y a pas d'application à installer.
+      Ouvrez <b>mobile.comix-ci.com</b> dans Safari, appuyez sur le bouton
+      Partager, puis sur <b>« Sur l'écran d'accueil »</b>.
+    </div>
+
+    <a class="bouton secondaire" href="/mobile">Ou utiliser directement dans le navigateur</a>
+
+    <div class="encadre" style="background:var(--vert-clair); border-left-color:var(--vert);">
+      <b>Mises à jour automatiques.</b> Vous n'aurez pas à réinstaller :
+      l'application se met à jour toute seule à chaque ouverture.
+    </div>
+  </main>
+
+  <footer>
+    © <span id="annee"></span> <b>ORZAYAH SOLUTIONS</b>
+  </footer>
+  <script>document.getElementById("annee").textContent = new Date().getFullYear();</script>
+</body>
+</html>
