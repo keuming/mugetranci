@@ -4570,7 +4570,11 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
   const [quartier, setQuartier] = useState(initialMember?.quartier || "");
   const [photo, setPhoto] = useState(initialMember?.photo || null);
   const [qrPaiement, setQrPaiement] = useState(initialMember?.qrPaiement || null);
-  const [associationId, setAssociationId] = useState(initialMember?.associationId || "");
+  const [associationId, setAssociationId] = useState(
+    initialMember?.associationId
+    || (initialMember?.logo1Type === "association" ? initialMember.logo1Id : "")
+    || ""
+  );
   const [syndicatId, setSyndicatId] = useState(initialMember?.syndicatId || "");
   const [commune, setCommune] = useState(initialMember?.commune || "");
   const [commissionMixteId, setCommissionMixteId] = useState(initialMember?.commissionMixteId || "");
@@ -4674,7 +4678,11 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
   const [email, setEmail] = useState(initialDriver?.email || "");
   const [photo, setPhoto] = useState(initialDriver?.photo || null);
   const [qrPaiement, setQrPaiement] = useState(initialDriver?.qrPaiement || null);
-  const [associationId, setAssociationId] = useState(initialDriver?.associationId || "");
+  const [associationId, setAssociationId] = useState(
+    initialDriver?.associationId
+    || (initialDriver?.logo1Type === "association" ? initialDriver.logo1Id : "")
+    || ""
+  );
   const [syndicatId, setSyndicatId] = useState(initialDriver?.syndicatId || "");
   const [commune, setCommune] = useState(initialDriver?.commune || "");
   const [commissionMixteId, setCommissionMixteId] = useState(initialDriver?.commissionMixteId || "");
@@ -4773,7 +4781,11 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
   const [logo2Id, setLogo2Id] = useState(initialElement?.logo2Id || "");
   const [gareRoutiereId, setGareRoutiereId] = useState(initialElement?.gareRoutiereId || "");
   const [ligneId, setLigneId] = useState(initialElement?.ligneId || "");
-  const [associationId, setAssociationId] = useState(initialElement?.associationId || "");
+  const [associationId, setAssociationId] = useState(
+    initialElement?.associationId
+    || (initialElement?.logo1Type === "association" ? initialElement.logo1Id : "")
+    || ""
+  );
   const [syndicatId, setSyndicatId] = useState(initialElement?.syndicatId || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
