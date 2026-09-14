@@ -14,3 +14,6 @@ dist
 signing-key-info.txt
 *.aab
 *.apk
+
+# ...sauf l'APK publie pour les agents : il n'est pas secret.
+!public/comix-ci.apk
