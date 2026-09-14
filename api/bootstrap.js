@@ -164,7 +164,12 @@ export default async function handler(req, res) {
     : isSyndicat
     ? allVehicules.filter((v) => v.syndicatId === auth.syndicatId)
     : isCommission
-      ? allVehicules.filter((v) => mySyndicatIds.has(v.syndicatId) || visibleAffectations.some((a) => a.actif && a.vehiculeId === v.id))
+      // Un vehicule sans collectif reste visible pour sa commission mixte :
+      // sinon un dossier cree avant d'avoir choisi un transporteur devenait
+      // introuvable, y compris pour celui qui venait de le saisir.
+      ? allVehicules.filter((v) => mySyndicatIds.has(v.syndicatId)
+          || (!v.syndicatId && v.commissionMixteId === auth.commissionMixteId)
+          || visibleAffectations.some((a) => a.actif && a.vehiculeId === v.id))
       : isGare
         ? allVehicules.filter((v) => visibleAffectations.some((a) => a.actif && a.vehiculeId === v.id))
         : allVehicules;
