@@ -3025,11 +3025,24 @@ function Dashboard({ auth, onLogout }) {
                   </div>
                 )}
               </div>
-              {auth.role !== "commission_mixte" && (
-                <button onClick={() => setShowForm(true)} disabled={loading} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: loading ? "#D8B48A" : C.orange, color: "#fff", cursor: loading ? "not-allowed" : "pointer" }}>
-                  <Plus size={16} /> Ajouter un véhicule
-                </button>
-              )}
+              {auth.role !== "association" && (() => {
+                // Le bouton principal suit la page consultee : proposer
+                // "Ajouter un vehicule" depuis la page Transporteurs ou
+                // Elements n'avait aucun sens.
+                const actions = {
+                  owners: ["Ajouter un transporteur", () => setShowMemberFormFor(true)],
+                  drivers: ["Ajouter un chauffeur", () => setShowDriverFormFor(true)],
+                  elements: ["Ajouter un élément", () => setShowElementFormFor(true)],
+                };
+                const [libelle, action] = actions[page]
+                  || (auth.role === "commission_mixte" ? [null, null] : ["Ajouter un véhicule", () => setShowForm(true)]);
+                if (!libelle) return null;
+                return (
+                  <button onClick={action} disabled={loading} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: loading ? "#D8B48A" : C.orange, color: "#fff", cursor: loading ? "not-allowed" : "pointer" }}>
+                    <Plus size={16} /> {libelle}
+                  </button>
+                );
+              })()}
             </div>
           </div>
 
@@ -3233,7 +3246,7 @@ function Dashboard({ auth, onLogout }) {
                   >
                     <Printer size={13} /> Générer la planche PDF ({MEMBER_CARDS_PER_SHEET} cartes/feuille)
                   </button>
-                  {(auth.role === "syndicat" || auth.role === "commission_mixte" || auth.role === "gare") && (
+                  {auth.role !== "association" && (
                     <button onClick={() => setShowMemberFormFor(true)} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: C.green, color: "#fff" }}>
                       <Plus size={16} /> Ajouter un transporteur
                     </button>
@@ -3337,7 +3350,7 @@ function Dashboard({ auth, onLogout }) {
                   >
                     <Printer size={13} /> Générer la planche PDF ({MEMBER_CARDS_PER_SHEET} cartes/feuille)
                   </button>
-                  {(auth.role === "syndicat" || auth.role === "commission_mixte" || auth.role === "gare") && (
+                  {auth.role !== "association" && (
                     <button onClick={() => setShowElementFormFor(true)} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: C.green, color: "#fff" }}>
                       <Plus size={16} /> Ajouter un élément
                     </button>
