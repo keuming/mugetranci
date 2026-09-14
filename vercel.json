@@ -1,6 +1,8 @@
 {
   "rewrites": [
-    { "source": "/mobile", "destination": "/" }
+    { "source": "/mobile", "destination": "/" },
+    { "source": "/installer", "destination": "/installer.html" },
+    { "source": "/install", "destination": "/installer.html" }
   ],
   "headers": [
     {

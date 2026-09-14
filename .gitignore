@@ -14,3 +14,7 @@ dist
 signing-key-info.txt
 *.aab
 *.apk
+# ...sauf l'APK publie pour les agents : il n'est pas secret, il est
+# signe et destine a etre telecharge. Seule la cle de signature doit
+# rester privee.
+!public/comix-ci.apk
