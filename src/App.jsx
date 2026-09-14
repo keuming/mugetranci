@@ -2023,8 +2023,8 @@ function MobileVehiculeSection({ v }) {
         return (
           <div key={lab} className="flex items-center justify-between" style={{ padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
             <div>
-              <div className="font-body" style={{ fontSize: 10.5, color: C.slate, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>{lab}</div>
-              <div className="font-body" style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{d ? fmt(d) : "—"}</div>
+              <div className="font-body" style={{ fontSize: 12, color: C.slate, fontWeight: 600 }}>{lab}</div>
+              <div className="font-body" style={{ fontSize: 15, fontWeight: 700, color: C.ink, letterSpacing: -0.1 }}>{d ? fmt(d) : "—"}</div>
             </div>
             <Badge status={s} small />
           </div>
