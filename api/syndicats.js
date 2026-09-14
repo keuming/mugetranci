@@ -125,6 +125,25 @@ export default async function handler(req, res) {
       if (body.pinCode && !/^\d{4}$/.test(body.pinCode)) {
         return res.status(400).json({ error: "Le code PIN doit comporter exactement 4 chiffres" });
       }
+      // Une commune ne compte que DEUX collectifs : celui des transporteurs
+      // et celui des conducteurs. Toute autre structure est une association,
+      // a creer sous l'un de ces deux collectifs. Sans ce garde-fou, des
+      // associations finissaient enregistrees comme collectifs et polluaient
+      // le menu deroulant du logo de gauche.
+      if (body.commune && body.type) {
+        const existants = await db.select().from(syndicats);
+        const doublon = existants.find(
+          (s) => (s.commune || "").trim().toUpperCase() === body.commune.trim().toUpperCase()
+            && s.type === body.type
+        );
+        if (doublon) {
+          const libelle = body.type === "transporteurs" ? "des transporteurs" : "des conducteurs";
+          return res.status(400).json({
+            error: `Le collectif ${libelle} de ${body.commune} existe déjà (${doublon.sigle || doublon.nom}). Chaque commune n'en compte que deux. Si vous enregistrez une mutuelle ou un syndicat de base, créez-le comme association sous ce collectif.`,
+          });
+        }
+      }
+
       try {
         const [created] = await db.insert(syndicats).values({
           commissionMixteId,
