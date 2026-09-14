@@ -1,7 +1,7 @@
 import { eq, desc } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
-  vehicules, historiqueProprietaires, vehiculeChauffeurs, affectations, achatsCarburant, syndicats, chauffeurs,
+  vehicules, historiqueProprietaires, vehiculeChauffeurs, affectations, achatsCarburant, syndicats, chauffeurs, proprietaires,
 } from "../db/schema.js";
 import { requireAuth, agentPeutGerer } from "../lib/auth.js";
 
@@ -177,6 +177,19 @@ export default async function handler(req, res) {
       const dbValues = toDbVehicule(body);
       if (auth.role === "syndicat") dbValues.syndicatId = auth.syndicatId;
       if (auth.role === "agent" && auth.parentType === "syndicat") dbValues.syndicatId = auth.parentId;
+      // Un vehicule cree par une commission mixte, un agent de commission ou
+      // l'administrateur n'avait aucun collectif : il devenait invisible pour
+      // tout le monde, y compris son createur. On le fait donc heriter du
+      // rattachement de son transporteur, qui est la reference du dossier.
+      if (!dbValues.syndicatId && body.proprietaireId) {
+        const [prop] = await db.select().from(proprietaires).where(eq(proprietaires.id, body.proprietaireId));
+        if (prop) {
+          dbValues.syndicatId = prop.syndicatId || null;
+          if (!dbValues.associationId) dbValues.associationId = prop.associationId || null;
+          if (!dbValues.commune) dbValues.commune = prop.commune || null;
+          if (!dbValues.commissionMixteId) dbValues.commissionMixteId = prop.commissionMixteId || null;
+        }
+      }
 
       let vehicule;
       try {
@@ -268,6 +281,13 @@ export default async function handler(req, res) {
         // Rattachement d'un nouveau transporteur : on trace le changement
         // dans l'historique, comme à la création du dossier.
         if ("proprietaireId" in patch && patch.proprietaireId) {
+          const [prop] = await db.select().from(proprietaires).where(eq(proprietaires.id, patch.proprietaireId));
+          if (prop) {
+            if (!("syndicatId" in patch)) patch.syndicatId = prop.syndicatId || null;
+            if (!("associationId" in patch)) patch.associationId = prop.associationId || null;
+            if (!("commune" in patch)) patch.commune = prop.commune || null;
+            if (!("commissionMixteId" in patch)) patch.commissionMixteId = prop.commissionMixteId || null;
+          }
           await db.insert(historiqueProprietaires).values({
             vehiculeId: id,
             proprietaireId: patch.proprietaireId,
