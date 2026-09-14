@@ -10,7 +10,7 @@ function toApi(row) {
 }
 function toDb(body) {
   const { photo, qrPaiement, numeroCarte, ...rest } = body;
-  return { ...rest, photoUrl: photo ?? null, qrPaiementUrl: qrPaiement ?? null, commissionMixteId: rest.commissionMixteId || null, commune: rest.commune || null };
+  return { ...rest, photoUrl: photo ?? null, qrPaiementUrl: qrPaiement ?? null, commissionMixteId: rest.commissionMixteId || null, commune: rest.commune || null, associationId: rest.associationId || null };
 }
 
 export default async function handler(req, res) {
@@ -134,6 +134,7 @@ export default async function handler(req, res) {
     if ("logo1Type" in body) { patch.logo1Type = body.logo1Type || null; patch.logo1Id = body.logo1Id || null; }
     if ("logo2Type" in body) { patch.logo2Type = body.logo2Type || null; patch.logo2Id = body.logo2Id || null; }
     if ("commune" in body) patch.commune = body.commune || null;
+    if ("associationId" in body) patch.associationId = body.associationId || null;
     if ("commissionMixteId" in body) patch.commissionMixteId = body.commissionMixteId || null;
     if ("carteImprimee" in body) {
       patch.carteImprimee = !!body.carteImprimee;

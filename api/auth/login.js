@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { commissionsMixtes, syndicats, garesRoutieres, agents } from "../../db/schema.js";
+import { commissionsMixtes, syndicats, garesRoutieres, agents, associations } from "../../db/schema.js";
 import { signToken } from "../../lib/auth.js";
 
 const ADMIN_LOGIN = process.env.ADMIN_LOGIN || "admin";
@@ -38,6 +38,12 @@ export default async function handler(req, res) {
   if (gare && gare.pinCode && gare.pinCode === pin) {
     const token = signToken({ role: "gare", gareRoutiereId: gare.id, syndicatId: gare.syndicatId, nom: gare.nom });
     return res.status(200).json({ token, role: "gare", gareRoutiereId: gare.id, syndicatId: gare.syndicatId, nom: gare.nom, sigle: gare.sigle, logoUrl: gare.logoUrl });
+  }
+
+  const [asso] = await db.select().from(associations).where(eq(associations.login, login));
+  if (asso && asso.pinCode && asso.pinCode === pin) {
+    const token = signToken({ role: "association", associationId: asso.id, syndicatId: asso.syndicatId, nom: asso.nom });
+    return res.status(200).json({ token, role: "association", associationId: asso.id, syndicatId: asso.syndicatId, nom: asso.nom, sigle: asso.sigle, logoUrl: asso.logoUrl });
   }
 
   const [agent] = await db.select().from(agents).where(eq(agents.login, login));

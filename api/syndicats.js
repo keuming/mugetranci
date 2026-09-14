@@ -18,7 +18,7 @@ async function handleAssociations(req, res, id) {
   if (!id) {
     if (req.method === "GET") {
       const rows = await db.select().from(associations);
-      return res.status(200).json(rows);
+      return res.status(200).json(rows.map(({ pinCode, ...r }) => ({ ...r, pinConfigure: !!pinCode })));
     }
     if (req.method === "POST") {
       if (auth.role !== "admin" && auth.role !== "commission_mixte" && auth.role !== "syndicat") {
@@ -38,8 +38,11 @@ async function handleAssociations(req, res, id) {
         logoUrl: body.logoUrl || null,
         presidentNom: body.presidentNom || null,
         presidentContact: body.presidentContact || null,
+        login: body.login || null,
+        pinCode: body.pinCode || null,
       }).returning();
-      return res.status(201).json(created);
+      const { pinCode: _p, ...sansPin } = created;
+      return res.status(201).json({ ...sansPin, pinConfigure: !!created.pinCode });
     }
     res.setHeader("Allow", "GET, POST");
     return res.status(405).json({ error: "Méthode non autorisée" });
@@ -57,12 +60,19 @@ async function handleAssociations(req, res, id) {
   if (req.method === "PATCH") {
     const body = req.body || {};
     const patch = {};
-    ["nom", "sigle", "logoUrl", "presidentNom", "presidentContact"].forEach((k) => {
+    ["nom", "sigle", "logoUrl", "presidentNom", "presidentContact", "login"].forEach((k) => {
       if (k in body) patch[k] = body[k] || null;
     });
+    if ("pinCode" in body && body.pinCode) {
+      if (!/^\d{4}$/.test(body.pinCode)) {
+        return res.status(400).json({ error: "Le code PIN doit comporter exactement 4 chiffres" });
+      }
+      patch.pinCode = body.pinCode;
+    }
     if (Object.keys(patch).length === 0) return res.status(400).json({ error: "Aucun champ à mettre à jour" });
     const [updated] = await db.update(associations).set(patch).where(eq(associations.id, id)).returning();
-    return res.status(200).json(updated);
+    const { pinCode: _pp, ...sansPin } = updated;
+    return res.status(200).json({ ...sansPin, pinConfigure: !!updated.pinCode });
   }
 
   if (req.method === "DELETE") {

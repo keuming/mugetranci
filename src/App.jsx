@@ -536,7 +536,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
     try {
       let finalOwnerId = ownerMode === "existing" ? ownerId : "";
       if (ownerMode === "new") {
-        const base = { ...newOwner, commune, commissionMixteId };
+        const base = { ...newOwner, commune, commissionMixteId, associationId: newOwner.logo1Id || null, syndicatId: newOwner.logo2Id || null };
         const payload = isAdmin && syndicatIdSel ? { ...base, syndicatId: syndicatIdSel } : base;
         const created = await addOwner(payload); // POST /api/proprietaires — id réel renvoyé par Neon
         finalOwnerId = created.id;
@@ -547,7 +547,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
         if (row.mode === "existing") {
           if (row.id) finalDriverIds.push(row.id);
         } else {
-          const draftBase = { ...row.draft, commune, commissionMixteId };
+          const draftBase = { ...row.draft, commune, commissionMixteId, associationId: row.draft.logo1Id || null, syndicatId: row.draft.logo2Id || null };
           const draftPayload = isAdmin && syndicatIdSel ? { ...draftBase, syndicatId: syndicatIdSel } : draftBase;
           const created = await addDriver(draftPayload); // POST /api/chauffeurs
           finalDriverIds.push(created.id);
@@ -2815,7 +2815,17 @@ function Dashboard({ auth, onLogout }) {
   const searchResults = searchQuery ? vehicles.filter((v) => vehicleMatchesSearch(v, searchQuery)) : [];
 
   const isAgent = auth.role === "agent";
-  const nav = isAgent
+  const isAssociation = auth.role === "association";
+  const nav = isAssociation
+    ? [
+        { key: "dashboard", label: "Tableau de bord", icon: <Home size={17} /> },
+        { key: "vehicles", label: "Véhicules", icon: <Car size={17} /> },
+        { key: "owners", label: "Transporteurs", icon: <User size={17} /> },
+        { key: "drivers", label: "Chauffeurs", icon: <Users size={17} /> },
+        { key: "elements", label: "Éléments", icon: <BadgeCheck size={17} /> },
+        { key: "alerts", label: "Alertes documents", icon: <Bell size={17} />, count: critical.length },
+      ]
+    : isAgent
     ? [
         { key: "dashboard", label: "Tableau de bord", icon: <Home size={17} /> },
         { key: "vehicles", label: "Véhicules", icon: <Car size={17} /> },
@@ -2915,7 +2925,7 @@ function Dashboard({ auth, onLogout }) {
               <div>
                 <div className="font-body" style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>{auth.nom}</div>
                 <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 10 }}>
-                  {auth.role === "admin" ? "Administrateur général" : auth.role === "commission_mixte" ? "Commission Mixte" : auth.role === "syndicat" ? "Collectif (Syndicat)" : auth.role === "gare" ? "Gare Routière" : "Agent enrôleur"}
+                  {auth.role === "admin" ? "Administrateur général" : auth.role === "commission_mixte" ? "Commission Mixte" : auth.role === "syndicat" ? "Collectif (Syndicat)" : auth.role === "gare" ? "Gare Routière" : auth.role === "association" ? "Association (Syndicat)" : "Agent enrôleur"}
                 </div>
               </div>
               <div className="flex items-center gap-1">
@@ -4547,6 +4557,7 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
   const [quartier, setQuartier] = useState(initialMember?.quartier || "");
   const [photo, setPhoto] = useState(initialMember?.photo || null);
   const [qrPaiement, setQrPaiement] = useState(initialMember?.qrPaiement || null);
+  const [associationId, setAssociationId] = useState(initialMember?.associationId || "");
   const [syndicatId, setSyndicatId] = useState(initialMember?.syndicatId || "");
   const [commune, setCommune] = useState(initialMember?.commune || "");
   const [commissionMixteId, setCommissionMixteId] = useState(initialMember?.commissionMixteId || "");
@@ -4565,7 +4576,7 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId }, vehiculeId || null);
+      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -4581,11 +4592,11 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
       <AppartenanceBlock
         commune={commune}
         commissionMixteId={commissionMixteId}
-        onCommune={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); setLogo2Type(""); setLogo2Id(""); setLogo1Type(""); setLogo1Id(""); setSyndicatId(""); }}
+        onCommune={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); setLogo2Type(""); setLogo2Id(""); setLogo1Type(""); setLogo1Id(""); setSyndicatId(""); setAssociationId(""); }}
         logo2Id={logo2Id}
-        onCollectif={(v) => { setLogo2Type(v ? "syndicat" : ""); setLogo2Id(v); setSyndicatId(v); setLogo1Type(""); setLogo1Id(""); }}
+        onCollectif={(v) => { setLogo2Type(v ? "syndicat" : ""); setLogo2Id(v); setSyndicatId(v); setLogo1Type(""); setLogo1Id(""); setAssociationId(""); }}
         logo1Id={logo1Id}
-        onAssociation={(v) => { setLogo1Type(v ? "association" : ""); setLogo1Id(v); }}
+        onAssociation={(v) => { setLogo1Type(v ? "association" : ""); setLogo1Id(v); setAssociationId(v); }}
         commissionsMixtes={commissionsMixtes}
         syndicats={syndicats}
         associations={associations}
@@ -4650,6 +4661,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
   const [email, setEmail] = useState(initialDriver?.email || "");
   const [photo, setPhoto] = useState(initialDriver?.photo || null);
   const [qrPaiement, setQrPaiement] = useState(initialDriver?.qrPaiement || null);
+  const [associationId, setAssociationId] = useState(initialDriver?.associationId || "");
   const [syndicatId, setSyndicatId] = useState(initialDriver?.syndicatId || "");
   const [commune, setCommune] = useState(initialDriver?.commune || "");
   const [commissionMixteId, setCommissionMixteId] = useState(initialDriver?.commissionMixteId || "");
@@ -4667,7 +4679,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, permisNumero, permisDateFin, contact1, contact2, contact3, email, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId }, vehiculeId || null);
+      await onSave({ nom, prenoms, cni, permisNumero, permisDateFin, contact1, contact2, contact3, email, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -4683,11 +4695,11 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
       <AppartenanceBlock
         commune={commune}
         commissionMixteId={commissionMixteId}
-        onCommune={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); setLogo2Type(""); setLogo2Id(""); setLogo1Type(""); setLogo1Id(""); setSyndicatId(""); }}
+        onCommune={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); setLogo2Type(""); setLogo2Id(""); setLogo1Type(""); setLogo1Id(""); setSyndicatId(""); setAssociationId(""); }}
         logo2Id={logo2Id}
-        onCollectif={(v) => { setLogo2Type(v ? "syndicat" : ""); setLogo2Id(v); setSyndicatId(v); setLogo1Type(""); setLogo1Id(""); }}
+        onCollectif={(v) => { setLogo2Type(v ? "syndicat" : ""); setLogo2Id(v); setSyndicatId(v); setLogo1Type(""); setLogo1Id(""); setAssociationId(""); }}
         logo1Id={logo1Id}
-        onAssociation={(v) => { setLogo1Type(v ? "association" : ""); setLogo1Id(v); }}
+        onAssociation={(v) => { setLogo1Type(v ? "association" : ""); setLogo1Id(v); setAssociationId(v); }}
         commissionsMixtes={commissionsMixtes}
         syndicats={syndicats}
         associations={associations}
@@ -4748,6 +4760,7 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
   const [logo2Id, setLogo2Id] = useState(initialElement?.logo2Id || "");
   const [gareRoutiereId, setGareRoutiereId] = useState(initialElement?.gareRoutiereId || "");
   const [ligneId, setLigneId] = useState(initialElement?.ligneId || "");
+  const [associationId, setAssociationId] = useState(initialElement?.associationId || "");
   const [syndicatId, setSyndicatId] = useState(initialElement?.syndicatId || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -4759,7 +4772,7 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, fonction, contact1, contact2, contact3, email, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id, gareRoutiereId, ligneId, syndicatId, commune, commissionMixteId });
+      await onSave({ nom, prenoms, cni, fonction, contact1, contact2, contact3, email, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id, gareRoutiereId, ligneId, syndicatId, commune, commissionMixteId, associationId });
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -4775,11 +4788,11 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
       <AppartenanceBlock
         commune={commune}
         commissionMixteId={commissionMixteId}
-        onCommune={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); setLogo2Type(""); setLogo2Id(""); setLogo1Type(""); setLogo1Id(""); setSyndicatId(""); }}
+        onCommune={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); setLogo2Type(""); setLogo2Id(""); setLogo1Type(""); setLogo1Id(""); setSyndicatId(""); setAssociationId(""); }}
         logo2Id={logo2Id}
-        onCollectif={(v) => { setLogo2Type(v ? "syndicat" : ""); setLogo2Id(v); setSyndicatId(v); setLogo1Type(""); setLogo1Id(""); }}
+        onCollectif={(v) => { setLogo2Type(v ? "syndicat" : ""); setLogo2Id(v); setSyndicatId(v); setLogo1Type(""); setLogo1Id(""); setAssociationId(""); }}
         logo1Id={logo1Id}
-        onAssociation={(v) => { setLogo1Type(v ? "association" : ""); setLogo1Id(v); }}
+        onAssociation={(v) => { setLogo1Type(v ? "association" : ""); setLogo1Id(v); setAssociationId(v); }}
         commissionsMixtes={commissionsMixtes}
         syndicats={syndicats}
         associations={associations}
@@ -4840,14 +4853,17 @@ function AssociationForm({ initialAsso, collectif, onCancel, onSave }) {
   const [logoUrl, setLogoUrl] = useState(initialAsso?.logoUrl || null);
   const [presidentNom, setPresidentNom] = useState(initialAsso?.presidentNom || "");
   const [presidentContact, setPresidentContact] = useState(initialAsso?.presidentContact || "");
+  const [login, setLogin] = useState(initialAsso?.login || "");
+  const [pinCode, setPinCode] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-  const canSave = nom && !saving;
+  const pinValide = !pinCode || /^\d{4}$/.test(pinCode);
+  const canSave = nom && pinValide && !saving;
 
   const handleSave = async () => {
     setSaving(true); setError(null);
     try {
-      await onSave({ syndicatId: collectif.id, nom, sigle, logoUrl, presidentNom, presidentContact });
+      await onSave({ syndicatId: collectif.id, nom, sigle, logoUrl, presidentNom, presidentContact, login, pinCode });
     } catch (err) { setError(err.message || "Erreur lors de l'enregistrement."); setSaving(false); }
   };
 
@@ -4864,6 +4880,19 @@ function AssociationForm({ initialAsso, collectif, onCancel, onSave }) {
         <Field label="Nom du président"><TextInput value={presidentNom} onChange={(e) => setPresidentNom(e.target.value)} /></Field>
         <Field label="Contact du président"><TextInput value={presidentContact} onChange={(e) => setPresidentContact(e.target.value)} /></Field>
       </div>
+      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
+        <p className="font-body text-xs font-semibold mb-3" style={{ color: C.ink }}>
+          Compte de connexion (optionnel) — permet à l'association de consulter ses propres enrôlements
+        </p>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Identifiant"><TextInput value={login} onChange={(e) => setLogin(e.target.value)} placeholder="ex. numéro de téléphone" /></Field>
+          <Field label={initialAsso ? "Nouveau code PIN (vide = inchangé)" : "Code PIN (4 chiffres)"}>
+            <TextInput value={pinCode} onChange={(e) => setPinCode(e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="••••" />
+          </Field>
+        </div>
+        {!pinValide && <p className="font-body text-xs mt-1" style={{ color: C.red }}>Le code PIN doit comporter 4 chiffres.</p>}
+      </div>
+
       <div className="flex items-center justify-end gap-3 pt-2">
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
         <button onClick={onCancel} className="font-body" style={{ color: C.ink, fontSize: 14, fontWeight: 700, padding: "12px 16px", borderRadius: 11 }}>Annuler</button>

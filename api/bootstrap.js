@@ -109,6 +109,7 @@ export default async function handler(req, res) {
   const isSyndicat = auth.role === "syndicat";
   const isCommission = auth.role === "commission_mixte";
   const isGare = auth.role === "gare";
+  const isAssociation = auth.role === "association";
 
   const mySyndicatIds = isCommission
     ? new Set(allSyndicats.filter((s) => s.commissionMixteId === auth.commissionMixteId).map((s) => s.id))
@@ -122,7 +123,9 @@ export default async function handler(req, res) {
   // ne fuitent pas : toApiSyndicat retire le code PIN.
   const visibleSyndicats = allSyndicats;
 
-  const visibleOwners = isSyndicat
+  const visibleOwners = isAssociation
+    ? allOwners.filter((o) => o.associationId === auth.associationId)
+    : isSyndicat
     ? allOwners.filter((o) => o.syndicatId === auth.syndicatId)
     : isCommission
       ? allOwners.filter((o) => mySyndicatIds.has(o.syndicatId) || (o.creatorType === "commission_mixte" && o.creatorId === auth.commissionMixteId))
@@ -130,7 +133,9 @@ export default async function handler(req, res) {
         ? allOwners.filter((o) => o.creatorType === "gare" && o.creatorId === auth.gareRoutiereId)
         : allOwners;
 
-  const visibleDrivers = isSyndicat
+  const visibleDrivers = isAssociation
+    ? allDrivers.filter((d) => d.associationId === auth.associationId)
+    : isSyndicat
     ? allDrivers.filter((d) => d.syndicatId === auth.syndicatId)
     : isCommission
       ? allDrivers.filter((d) => mySyndicatIds.has(d.syndicatId) || (d.creatorType === "commission_mixte" && d.creatorId === auth.commissionMixteId))
@@ -138,7 +143,9 @@ export default async function handler(req, res) {
         ? allDrivers.filter((d) => d.creatorType === "gare" && d.creatorId === auth.gareRoutiereId)
         : allDrivers;
 
-  const visibleElements = isSyndicat
+  const visibleElements = isAssociation
+    ? allElements.filter((e) => e.associationId === auth.associationId)
+    : isSyndicat
     ? allElements.filter((e) => e.syndicatId === auth.syndicatId)
     : isCommission
       ? allElements.filter((e) => mySyndicatIds.has(e.syndicatId) || (e.creatorType === "commission_mixte" && e.creatorId === auth.commissionMixteId))
@@ -152,7 +159,9 @@ export default async function handler(req, res) {
       ? allAffectations.filter((a) => a.gareRoutiereId === auth.gareRoutiereId)
       : allAffectations;
 
-  const visibleVehicules = isSyndicat
+  const visibleVehicules = isAssociation
+    ? allVehicules.filter((v) => v.associationId === auth.associationId)
+    : isSyndicat
     ? allVehicules.filter((v) => v.syndicatId === auth.syndicatId)
     : isCommission
       ? allVehicules.filter((v) => mySyndicatIds.has(v.syndicatId) || visibleAffectations.some((a) => a.actif && a.vehiculeId === v.id))

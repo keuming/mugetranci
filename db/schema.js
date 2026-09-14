@@ -66,6 +66,7 @@ export const proprietaires = pgTable("proprietaires", {
   qrPaiementUrl: text("qr_paiement_url"),
   syndicatId: uuid("syndicat_id"),
   commune: varchar("commune", { length: 60 }), // commune de rattachement — pilote le choix de la commission mixte
+  associationId: uuid("association_id"), // association (syndicat de base) de rattachement du membre
   commissionMixteId: uuid("commission_mixte_id"), // commission mixte de la commune (une par commune)
   gareRoutiereId: uuid("gare_routiere_id"), // gare routière de rattachement du membre
   creatorType: varchar("creator_type", { length: 20 }), // admin | commission_mixte | syndicat | gare
@@ -100,6 +101,7 @@ export const chauffeurs = pgTable("chauffeurs", {
   carteImprimeeAt: timestamp("carte_imprimee_at"),
   syndicatId: uuid("syndicat_id"),
   commune: varchar("commune", { length: 60 }), // commune de rattachement — pilote le choix de la commission mixte
+  associationId: uuid("association_id"), // association (syndicat de base) de rattachement du membre
   commissionMixteId: uuid("commission_mixte_id"), // commission mixte de la commune (une par commune)
   gareRoutiereId: uuid("gare_routiere_id"),
   creatorType: varchar("creator_type", { length: 20 }),
@@ -131,6 +133,7 @@ export const elements = pgTable("elements", {
   carteImprimeeAt: timestamp("carte_imprimee_at"),
   syndicatId: uuid("syndicat_id"),
   commune: varchar("commune", { length: 60 }), // commune de rattachement — pilote le choix de la commission mixte
+  associationId: uuid("association_id"), // association (syndicat de base) de rattachement du membre
   commissionMixteId: uuid("commission_mixte_id"), // commission mixte de la commune (une par commune)
   gareRoutiereId: uuid("gare_routiere_id"),
   ligneId: uuid("ligne_id"),
@@ -163,6 +166,7 @@ export const vehicules = pgTable("vehicules", {
   proprietaireId: uuid("proprietaire_id").references(() => proprietaires.id),
   syndicatId: uuid("syndicat_id"),
   commune: varchar("commune", { length: 60 }), // commune de rattachement — pilote le choix de la commission mixte
+  associationId: uuid("association_id"), // association (syndicat de base) de rattachement du membre
   commissionMixteId: uuid("commission_mixte_id"), // commission mixte de la commune (une par commune)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -241,6 +245,8 @@ export const associations = pgTable("associations", {
   logoUrl: text("logo_url"),
   presidentNom: varchar("president_nom", { length: 160 }),
   presidentContact: varchar("president_contact", { length: 30 }),
+  login: varchar("login", { length: 20 }).unique(),
+  pinCode: varchar("pin_code", { length: 4 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
