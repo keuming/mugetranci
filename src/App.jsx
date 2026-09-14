@@ -4624,7 +4624,13 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
             <option value="">— Aucun pour l'instant —</option>
             {vehiculesSansProprietaire.map((v) => <option key={v.id} value={v.id}>{v.immatriculation} — {v.carteGrise}</option>)}
           </select>
-          {vehiculesSansProprietaire.length === 0 && <p className="font-body text-xs mt-1" style={{ color: C.slate }}>Aucun véhicule sans transporteur disponible pour l'instant.</p>}
+          {vehiculesSansProprietaire.length === 0 && (
+            <p className="font-body text-xs mt-1" style={{ color: C.slate }}>
+              {(vehicles || []).length === 0
+                ? "Aucun véhicule enregistré pour le moment — créez d'abord le dossier véhicule."
+                : `Les ${vehicles.length} véhicule(s) enregistré(s) ont déjà un transporteur. Un véhicule n'en a qu'un seul : créez le dossier véhicule d'abord, ou changez son transporteur depuis sa fiche.`}
+            </p>
+          )}
         </Field>
       )}
       {isEdit && initialMember?.carteTransporteurNumero && (
