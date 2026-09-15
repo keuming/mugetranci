@@ -1095,12 +1095,19 @@ const MEMBER_CARD_THEMES = {
   element: {
     barTop: `linear-gradient(90deg, ${C.green} 0%, ${C.orange} 50%, ${C.green} 100%)`,
     barBottom: `linear-gradient(90deg, ${C.orange} 0%, ${C.green} 50%, ${C.orange} 100%)`,
-    numColor: C.ink,
+    numColor: "#FFD9A8",
     label: "Élément agréé",
     photoShape: "squircle",
     badgeIcon: BadgeCheck,
-    badgeColor: C.ink,
-    footerTint: C.greenLight,
+    badgeColor: C.orange,
+    footerTint: "rgba(255,255,255,0.10)",
+    // Recto sur fond vert dégradé : l'élément est un agent administratif,
+    // sa carte se distingue au premier regard de celles des transporteurs
+    // et des chauffeurs, qui restent sur fond clair.
+    cardBackground: `linear-gradient(145deg, ${C.greenDark} 0%, ${C.green} 55%, #0d8560 100%)`,
+    textColor: "#fff",
+    textMuted: "rgba(255,255,255,0.72)",
+    photoBorder: "rgba(255,255,255,0.55)",
   },
 };
 
@@ -1157,11 +1164,16 @@ function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles, a
 function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, infoFields = [], versoQr = true, side, scale = 1 }) {
   const isRecto = side === "recto";
   const theme = MEMBER_CARD_THEMES[category];
+  // Sur fond colore, les textes passent en clair pour rester lisibles.
+  const surFondColore = isRecto && !!theme.cardBackground;
+  const tPrincipal = surFondColore ? theme.textColor : C.ink;
+  const tSecondaire = surFondColore ? theme.textMuted : C.slate;
   const card = (
     <div
       style={{
         width: 340, height: 214, borderRadius: 16, position: "relative", flexShrink: 0, overflow: "hidden",
-        background: "#fff", border: `1px solid ${C.border}`,
+        background: isRecto && theme.cardBackground ? theme.cardBackground : "#fff",
+        border: `1px solid ${isRecto && theme.cardBackground ? "transparent" : C.border}`,
         boxShadow: scale === 1 ? "0 12px 28px rgba(11,110,79,0.2)" : "none",
       }}
     >
@@ -1176,14 +1188,14 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
               <div style={{ width: 28, height: 28, borderRadius: 7, overflow: "hidden", background: C.cream, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 {logo2?.logoUrl ? <img src={logo2.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Building2 size={14} color={C.green} />}
               </div>
-              <div className="font-display" style={{ fontSize: 7.3, fontWeight: 700, color: C.greenDark, lineHeight: 1.05 }}>{logo2 ? (logo2.sigle || logo2.nom) : "COMIX-CI"}</div>
+              <div className="font-display" style={{ fontSize: 7.3, fontWeight: 700, color: surFondColore ? "#fff" : C.greenDark, lineHeight: 1.05 }}>{logo2 ? (logo2.sigle || logo2.nom) : "COMIX-CI"}</div>
             </div>
-            <div style={{ width: 1, height: 22, background: C.border }} />
+            <div style={{ width: 1, height: 22, background: surFondColore ? "rgba(255,255,255,0.35)" : C.border }} />
             <div className="flex items-center gap-1.5 flex-row-reverse" style={{ maxWidth: "48%" }}>
               <div style={{ width: 28, height: 28, borderRadius: 7, overflow: "hidden", background: C.cream, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 {logo1?.logoUrl ? <img src={logo1.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Building2 size={14} color={C.orangeDark} />}
               </div>
-              <div className="font-display text-right" style={{ fontSize: 7.3, fontWeight: 700, color: C.orangeDark, lineHeight: 1.05 }}>{logo1 ? (logo1.sigle || logo1.nom) : "—"}</div>
+              <div className="font-display text-right" style={{ fontSize: 7.3, fontWeight: 700, color: surFondColore ? "#FFD9A8" : C.orangeDark, lineHeight: 1.05 }}>{logo1 ? (logo1.sigle || logo1.nom) : "—"}</div>
             </div>
           </div>
 
@@ -1194,7 +1206,9 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
                   width: 42, height: 42,
                   borderRadius: theme.photoShape === "squircle" ? 11 : 999,
                   overflow: "hidden", background: C.cream,
-                  border: theme.photoShape === "circle-ring" ? `2px dashed ${theme.badgeColor}` : `2px solid ${C.border}`,
+                  border: theme.photoShape === "circle-ring"
+                    ? `2px dashed ${theme.badgeColor}`
+                    : `2px solid ${surFondColore ? theme.photoBorder : C.border}`,
                 }}
               >
                 {member.photo ? <img src={member.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-bold text-sm" style={{ color: C.slate }}>{initials(member.nom, member.prenoms)}</div>}
@@ -1204,23 +1218,23 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
               </div>
             </div>
             <div className="font-body">
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink, lineHeight: 1.15 }}>{member.prenoms} {member.nom}</div>
-              <div style={{ fontSize: 9, color: C.slate }}>{theme.label}</div>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: tPrincipal, lineHeight: 1.15 }}>{member.prenoms} {member.nom}</div>
+              <div style={{ fontSize: 9, color: tSecondaire }}>{theme.label}</div>
             </div>
           </div>
 
-          <div className="font-body flex items-center gap-4" style={{ fontSize: 8, color: C.slate }}>
+          <div className="font-body flex items-center gap-4" style={{ fontSize: 8, color: tSecondaire }}>
             {infoFields.map((f, i) => (
               <div key={i}>
-                <span style={{ fontSize: 7 }}>{f.label}</span>
-                <div className="font-mono" style={{ fontSize: 9, color: C.ink, fontWeight: 600, lineHeight: 1.2 }}>{f.value || "—"}</div>
+                <span style={{ fontSize: 7, color: tSecondaire }}>{f.label}</span>
+                <div className="font-mono" style={{ fontSize: 9, color: tPrincipal, fontWeight: 600, lineHeight: 1.2 }}>{f.value || "—"}</div>
               </div>
             ))}
           </div>
 
           <div className="flex items-end justify-between" style={{ background: theme.footerTint, padding: "4px 8px", borderRadius: 8 }}>
             <div className="font-body">
-              <div style={{ fontSize: 7.5, color: C.slate }}>N° Carte</div>
+              <div style={{ fontSize: 7.5, color: tSecondaire }}>N° Carte</div>
               <div className="font-mono" style={{ fontWeight: 700, fontSize: 12, color: theme.numColor }}>{numero || "—"}</div>
             </div>
             <div style={{ background: "#fff", borderRadius: 6, padding: 3, border: `1px solid ${C.border}`, flexShrink: 0 }}>
