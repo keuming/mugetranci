@@ -130,6 +130,16 @@ const COMMUNES = [
   "YAMOUSSOUKRO", "BOUAKÉ", "KORHOGO", "FERKESSÉDOUGOU", "DALOA", "MAN", "GUIGLO", "DUÉKOUÉ", "ISSIA", "GAGNOA",
   "SAN-PÉDRO", "DIVO", "DABOU", "AGBOVILLE", "GRAND-BASSAM", "BONOUA", "ABOISSO", "ABENGOUROU", "BONDOUKOU", "KATIOLA", "GRAND-LAHOU",
 ];
+// Fonctions courantes dans un collectif ou une association de transport.
+// La liste n'est pas figee : le formulaire y ajoute celles deja saisies
+// ailleurs, et permet d'en creer de nouvelles a la volee.
+const FONCTIONS_COURANTES = [
+  "Président", "Vice-président", "Secrétaire général", "Secrétaire adjoint",
+  "Trésorier", "Trésorier adjoint", "Commissaire aux comptes",
+  "Chargé de communication", "Agent recenseur", "Contrôleur",
+  "Chef de gare", "Régulateur", "Délégué de ligne",
+];
+
 const SYNDICAT_TYPES = [
   { value: "transporteurs", label: "Collectif des syndicats des transporteurs" },
   { value: "chauffeurs", label: "Collectif des syndicats des chauffeurs" },
@@ -4092,11 +4102,11 @@ function Dashboard({ auth, onLogout }) {
       </Modal>}
 
       {showElementFormFor && <Modal onClose={() => setShowElementFormFor(false)} title="Ajouter un élément" wide>
-        <ElementForm commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} garesRoutieres={garesRoutieres} lignes={lignes} onCancel={() => setShowElementFormFor(false)} onSave={async (payload) => { await addElement(payload); setShowElementFormFor(false); }} />
+        <ElementForm commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} elements={elements} garesRoutieres={garesRoutieres} lignes={lignes} onCancel={() => setShowElementFormFor(false)} onSave={async (payload) => { await addElement(payload); setShowElementFormFor(false); }} />
       </Modal>}
 
       {editElement && <Modal onClose={() => setEditElement(null)} title={`Modifier — ${editElement.prenoms} ${editElement.nom}`} wide>
-        <ElementForm initialElement={editElement} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} garesRoutieres={garesRoutieres} lignes={lignes} onCancel={() => setEditElement(null)} onSave={async (payload) => { await updateElement(editElement.id, payload); setEditElement(null); }} />
+        <ElementForm initialElement={editElement} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} elements={elements} garesRoutieres={garesRoutieres} lignes={lignes} onCancel={() => setEditElement(null)} onSave={async (payload) => { await updateElement(editElement.id, payload); setEditElement(null); }} />
       </Modal>}
 
       {editGareRoutiere && <Modal onClose={() => setEditGareRoutiere(null)} title={`Modifier — ${editGareRoutiere.nom}`} wide>
@@ -4829,12 +4839,21 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
   );
 }
 
-function ElementForm({ initialElement, commissionsMixtes, syndicats, associations, garesRoutieres, lignes, onCancel, onSave }) {
+function ElementForm({ initialElement, commissionsMixtes, syndicats, associations, garesRoutieres, lignes, elements = [], onCancel, onSave }) {
   const isEdit = !!initialElement;
   const [nom, setNom] = useState(initialElement?.nom || "");
   const [prenoms, setPrenoms] = useState(initialElement?.prenoms || "");
   const [cni, setCni] = useState(initialElement?.cni || "");
   const [fonction, setFonction] = useState(initialElement?.fonction || "");
+  const [nouvelleFonction, setNouvelleFonction] = useState(false);
+
+  // Liste proposee : fonctions courantes + toutes celles deja utilisees,
+  // sans doublon, classees alphabetiquement.
+  const fonctionsProposees = Array.from(new Set([
+    ...FONCTIONS_COURANTES,
+    ...elements.map((e) => e.fonction).filter(Boolean),
+    ...(initialElement?.fonction ? [initialElement.fonction] : []),
+  ])).sort((a, b) => a.localeCompare(b, "fr"));
   const [contact1, setContact1] = useState(initialElement?.contact1 || "");
   const [contact2, setContact2] = useState(initialElement?.contact2 || "");
   const [contact3, setContact3] = useState(initialElement?.contact3 || "");
@@ -4899,7 +4918,35 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
         <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
         <Field label="Numéro CNI"><TextInput value={cni} onChange={(e) => setCni(e.target.value)} /></Field>
-        <Field label="Fonction / Poste"><TextInput value={fonction} onChange={(e) => setFonction(e.target.value)} placeholder="Agent recenseur, Secrétaire…" /></Field>
+        <Field label="Fonction / Poste" hint={nouvelleFonction ? "Elle sera proposée aux prochains enrôlements." : undefined}>
+          {nouvelleFonction ? (
+            <div className="flex items-center gap-2">
+              <TextInput value={fonction} onChange={(e) => setFonction(e.target.value)} placeholder="Ex. Chef de parc" autoFocus />
+              <button
+                type="button"
+                onClick={() => { setNouvelleFonction(false); setFonction(""); }}
+                className="font-body"
+                style={{ color: C.slate, fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}
+              >
+                Annuler
+              </button>
+            </div>
+          ) : (
+            <select
+              style={inputStyle}
+              className="font-body"
+              value={fonction}
+              onChange={(e) => {
+                if (e.target.value === "__nouvelle__") { setNouvelleFonction(true); setFonction(""); }
+                else setFonction(e.target.value);
+              }}
+            >
+              <option value="">— Sélectionner —</option>
+              {fonctionsProposees.map((f) => <option key={f} value={f}>{f}</option>)}
+              <option value="__nouvelle__">+ Ajouter une autre fonction…</option>
+            </select>
+          )}
+        </Field>
         <Field label="Adresse email"><TextInput value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
         <Field label="Contact 1"><TextInput value={contact1} onChange={(e) => setContact1(e.target.value)} /></Field>
         <Field label="Contact 2"><TextInput value={contact2} onChange={(e) => setContact2(e.target.value)} /></Field>
