@@ -36,22 +36,14 @@ export default defineConfig({
         skipWaiting: true,
         clientsClaim: true,
         cleanupOutdatedCaches: true,
-        // Les appels API ne sont jamais servis depuis le cache par defaut :
-        // les donnees d'enrolement doivent rester fraiches. On garde
-        // neanmoins une copie de secours du bootstrap pour permettre la
-        // consultation hors-ligne (reseau d'abord, cache en repli).
-        runtimeCaching: [
-          {
-            urlPattern: /\/api\/bootstrap/,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "comixci-bootstrap",
-              networkTimeoutSeconds: 8,
-              expiration: { maxEntries: 1, maxAgeSeconds: 60 * 60 * 24 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-        ],
+        // Aucun appel API n'est mis en cache. La copie de secours du
+        // bootstrap permettait de consulter le registre hors-ligne, mais
+        // elle pouvait renvoyer des donnees vieilles de 24 heures apres un
+        // deploiement ou une correction en base : un registre faux est plus
+        // dangereux qu'un registre vide, et le diagnostic en devient
+        // impossible. L'enrolement hors-ligne reste assure par la file
+        // d'attente, qui n'a jamais dependu de ce cache.
+        runtimeCaching: [],
         navigateFallbackDenylist: [/^\/api\//],
       },
     }),
