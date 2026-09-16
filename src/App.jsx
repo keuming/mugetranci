@@ -4809,6 +4809,11 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
             <option value="">— Aucun pour l'instant —</option>
             {vehicles.map((v) => <option key={v.id} value={v.id}>{v.immatriculation} — {v.carteGrise}</option>)}
           </select>
+          <p className="font-body text-xs mt-1" style={{ color: vehicles.length ? C.slate : C.amber }}>
+            {vehicles.length === 0
+              ? "Aucun véhicule visible depuis ce compte. Si des véhicules existent, rechargez la page (ou réinstallez l'application) : les données affichées peuvent dater."
+              : `${vehicles.length} véhicule(s) disponible(s).`}
+          </p>
         </Field>
       )}
       {isEdit && initialDriver?.numeroCarte && (
