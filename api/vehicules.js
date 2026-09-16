@@ -176,7 +176,11 @@ export default async function handler(req, res) {
 
       const dbValues = toDbVehicule(body);
       if (auth.role === "syndicat") dbValues.syndicatId = auth.syndicatId;
-      if (auth.role === "agent" && auth.parentType === "syndicat") dbValues.syndicatId = auth.parentId;
+      // L'agent peut enroler pour n'importe quel collectif : on n'impose le
+      // sien qu'a defaut d'indication, sans jamais ecraser un choix explicite.
+      if (auth.role === "agent" && auth.parentType === "syndicat" && !dbValues.syndicatId) {
+        dbValues.syndicatId = auth.parentId;
+      }
       // Un vehicule cree par une commission mixte, un agent de commission ou
       // l'administrateur n'avait aucun collectif : il devenait invisible pour
       // tout le monde, y compris son createur. On le fait donc heriter du
