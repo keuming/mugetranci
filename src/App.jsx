@@ -2886,7 +2886,10 @@ function Dashboard({ auth, onLogout }) {
   });
   const searchResults = searchQuery ? vehicles.filter((v) => vehicleMatchesSearch(v, searchQuery)) : [];
 
-  const isAgent = auth.role === "agent";
+  // Un agent cree par l'administrateur general partage son profil :
+  // menu complet et acces aux pages d'administration.
+  const estAdminGeneral = auth.role === "admin" || (auth.role === "agent" && auth.parentType === "admin");
+  const isAgent = auth.role === "agent" && !estAdminGeneral;
   const isAssociation = auth.role === "association";
   const nav = isAssociation
     ? [
@@ -2911,10 +2914,10 @@ function Dashboard({ auth, onLogout }) {
         { key: "owners", label: "Transporteurs", icon: <User size={17} /> },
         { key: "drivers", label: "Chauffeurs", icon: <Users size={17} /> },
         { key: "elements", label: "Éléments", icon: <BadgeCheck size={17} /> },
-        ...(auth.role === "admin" ? [{ key: "commissions", label: "Commissions Mixtes", icon: <MapPin size={17} /> }] : []),
-        ...(auth.role === "admin" || auth.role === "commission_mixte" ? [{ key: "syndicats", label: "Collectifs (Syndicats)", icon: <Building2 size={17} /> }] : []),
-        ...(auth.role === "syndicat" ? [{ key: "garesroutieres", label: "Gares Routières", icon: <MapPin size={17} /> }] : []),
-        ...(auth.role === "admin" || auth.role === "commission_mixte" || auth.role === "syndicat" ? [{ key: "agents", label: "Agents enrôleurs", icon: <BadgeCheck size={17} /> }] : []),
+        ...(estAdminGeneral ? [{ key: "commissions", label: "Commissions Mixtes", icon: <MapPin size={17} /> }] : []),
+        ...(estAdminGeneral || auth.role === "commission_mixte" ? [{ key: "syndicats", label: "Collectifs (Syndicats)", icon: <Building2 size={17} /> }] : []),
+        ...(estAdminGeneral || auth.role === "syndicat" ? [{ key: "garesroutieres", label: "Gares Routières", icon: <MapPin size={17} /> }] : []),
+        ...(estAdminGeneral || auth.role === "commission_mixte" || auth.role === "syndicat" ? [{ key: "agents", label: "Agents enrôleurs", icon: <BadgeCheck size={17} /> }] : []),
         { key: "carburant", label: "Carburant", icon: <Fuel size={17} /> },
         { key: "alerts", label: "Alertes documents", icon: <Bell size={17} />, count: critical.length },
       ];
@@ -2997,7 +3000,7 @@ function Dashboard({ auth, onLogout }) {
               <div>
                 <div className="font-body" style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>{auth.nom}</div>
                 <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 10 }}>
-                  {auth.role === "admin" ? "Administrateur général" : auth.role === "commission_mixte" ? "Commission Mixte" : auth.role === "syndicat" ? "Collectif (Syndicat)" : auth.role === "gare" ? "Gare Routière" : auth.role === "association" ? "Association (Syndicat)" : "Agent enrôleur"}
+                  {auth.role === "admin" ? "Administrateur général" : auth.role === "commission_mixte" ? "Commission Mixte" : auth.role === "syndicat" ? "Collectif (Syndicat)" : auth.role === "gare" ? "Gare Routière" : auth.role === "association" ? "Association (Syndicat)" : estAdminGeneral ? "Agent — profil administrateur" : "Agent enrôleur"}
                 </div>
               </div>
               <div className="flex items-center gap-1">

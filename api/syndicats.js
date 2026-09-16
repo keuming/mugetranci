@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { syndicats, proprietaires, associations, garesRoutieres, chauffeurs, elements, vehicules } from "../db/schema.js";
-import { requireAuth } from "../lib/auth.js";
+import { requireAuth , estAdministrateur } from "../lib/auth.js";
 
 function toApi(row) {
   const { pinCode, ...rest } = row;
@@ -21,7 +21,7 @@ async function handleAssociations(req, res, id) {
       return res.status(200).json(rows.map(({ pinCode, ...r }) => ({ ...r, pinConfigure: !!pinCode })));
     }
     if (req.method === "POST") {
-      if (auth.role !== "admin" && auth.role !== "commission_mixte" && auth.role !== "syndicat") {
+      if (!estAdministrateur(auth) && auth.role !== "commission_mixte" && auth.role !== "syndicat") {
         return res.status(403).json({ error: "Réservé à l'admin général, à une commission mixte ou à un collectif." });
       }
       const body = req.body || {};
@@ -53,7 +53,7 @@ async function handleAssociations(req, res, id) {
   if (auth.role === "syndicat" && existing.syndicatId !== auth.syndicatId) {
     return res.status(403).json({ error: "Cette association n'appartient pas à votre collectif." });
   }
-  if (auth.role !== "admin" && auth.role !== "commission_mixte" && auth.role !== "syndicat") {
+  if (!estAdministrateur(auth) && auth.role !== "commission_mixte" && auth.role !== "syndicat") {
     return res.status(403).json({ error: "Modification non autorisée." });
   }
 
