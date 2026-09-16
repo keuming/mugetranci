@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { agents } from "../db/schema.js";
-import { requireAuth } from "../lib/auth.js";
+import { requireAuth , estAdministrateur } from "../lib/auth.js";
 
 function toApi(row) {
   const { pinCode, ...rest } = row;
@@ -24,7 +24,7 @@ export default async function handler(req, res) {
   const auth = requireAuth(req, res);
   if (!auth) return;
 
-  if (auth.role !== "admin" && auth.role !== "commission_mixte" && auth.role !== "syndicat") {
+  if (!estAdministrateur(auth) && auth.role !== "commission_mixte" && auth.role !== "syndicat") {
     return res.status(403).json({ error: "Réservé à l'administrateur général, à une commission mixte ou à un collectif (syndicat)." });
   }
 
@@ -76,7 +76,7 @@ export default async function handler(req, res) {
   }
 
   async function assertOwnership() {
-    if (auth.role === "admin") return true;
+    if (estAdministrateur(auth)) return true;
     const [a] = await db.select().from(agents).where(eq(agents.id, id));
     if (!a) { res.status(404).json({ error: "Agent introuvable" }); return false; }
     const restriction = allowedParent(auth);

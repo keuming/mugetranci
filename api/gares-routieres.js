@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { garesRoutieres, affectations, lignes, elements } from "../db/schema.js";
-import { requireAuth } from "../lib/auth.js";
+import { requireAuth , estAdministrateur } from "../lib/auth.js";
 
 function toApi(row) {
   const { pinCode, ...rest } = row;
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
 
     if (req.method === "POST") {
       // Créée par le syndicat lui-même (ou par l'admin pour n'importe quel syndicat).
-      if (auth.role !== "admin" && auth.role !== "syndicat") {
+      if (!estAdministrateur(auth) && auth.role !== "syndicat") {
         return res.status(403).json({ error: "Réservé à l'administrateur général ou à un syndicat." });
       }
       const body = req.body || {};
