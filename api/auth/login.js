@@ -3,8 +3,28 @@ import { db } from "../../db/index.js";
 import { commissionsMixtes, syndicats, garesRoutieres, agents, associations } from "../../db/schema.js";
 import { signToken } from "../../lib/auth.js";
 
+/* Comptes administrateurs.
+   ADMIN_LOGIN / ADMIN_PIN definissent le compte historique.
+   ADMIN_ACCOUNTS permet d'en declarer plusieurs, separes par des
+   virgules, chacun au format "login:pin" — par exemple :
+     0707400716:1234,0712247755:0712
+   Les identifiants ne sont jamais stockes en base : ils restent dans
+   les variables d'environnement Vercel. */
 const ADMIN_LOGIN = process.env.ADMIN_LOGIN || "admin";
 const ADMIN_PIN = process.env.ADMIN_PIN || "1234";
+
+const COMPTES_ADMIN = [
+  { login: ADMIN_LOGIN, pin: ADMIN_PIN },
+  ...(process.env.ADMIN_ACCOUNTS || "")
+    .split(",")
+    .map((paire) => paire.trim())
+    .filter(Boolean)
+    .map((paire) => {
+      const i = paire.lastIndexOf(":");
+      return i === -1 ? null : { login: paire.slice(0, i).trim(), pin: paire.slice(i + 1).trim() };
+    })
+    .filter((x) => x && x.login && x.pin),
+];
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -17,7 +37,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Identifiant et code PIN requis" });
   }
 
-  if (login === ADMIN_LOGIN && pin === ADMIN_PIN) {
+  if (COMPTES_ADMIN.some((a) => a.login === login && a.pin === pin)) {
     const token = signToken({ role: "admin" });
     return res.status(200).json({ token, role: "admin", nom: "Administrateur général COMIX-CI" });
   }
