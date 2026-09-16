@@ -81,10 +81,14 @@ export default async function handler(req, res) {
   // Un agent enrôleur hérite exactement du périmètre de visibilité de son
   // entité de rattachement — on réutilise donc telle quelle toute la
   // logique de portée ci-dessous en substituant son rôle "virtuel".
+  // Un agent enroleur voit l'ensemble du registre, quel que soit son
+  // rattachement : sur le terrain il enrole des membres de n'importe
+  // quelle association et doit pouvoir les retrouver tous. Son perimetre
+  // de rattachement ne sert plus qu'a pre-remplir les formulaires ; ce
+  // sont les pages d'administration, absentes de son menu, qui restent
+  // hors de sa portee.
   if (auth.role === "agent") {
-    if (auth.parentType === "syndicat") auth = { role: "syndicat", syndicatId: auth.parentId };
-    else if (auth.parentType === "commission_mixte") auth = { role: "commission_mixte", commissionMixteId: auth.parentId };
-    else auth = { role: "admin" };
+    auth = { role: "admin" };
   }
 
   const [
