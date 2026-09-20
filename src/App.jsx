@@ -2235,6 +2235,30 @@ function MobileDetail({ result, vehicles, owners, drivers, syndicats, commission
   );
 }
 
+/* Historique des enrolements : tout ce qui a ete enregistre, du plus
+   recent au plus ancien, regroupe par jour. C'est la vue que consulte
+   l'agent en fin de journee pour verifier son travail. */
+function grouperParJour(entrees) {
+  const groupes = new Map();
+  for (const e of entrees) {
+    const d = e.date ? new Date(e.date) : null;
+    const cle = d && !isNaN(d) ? d.toISOString().slice(0, 10) : "sans-date";
+    if (!groupes.has(cle)) groupes.set(cle, []);
+    groupes.get(cle).push(e);
+  }
+  return Array.from(groupes.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+}
+
+function libelleJour(cle) {
+  if (cle === "sans-date") return "Date inconnue";
+  const jour = new Date(cle + "T00:00:00");
+  const aujourdhui = new Date(); aujourdhui.setHours(0, 0, 0, 0);
+  const hier = new Date(aujourdhui); hier.setDate(hier.getDate() - 1);
+  if (jour.getTime() === aujourdhui.getTime()) return "Aujourd'hui";
+  if (jour.getTime() === hier.getTime()) return "Hier";
+  return jour.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+}
+
 function MobileView({
   auth, onLogout, vehicles, owners, drivers, elements, syndicats, commissionsMixtes, associations, onCard, queueCount, syncing, onSync,
   setShowForm, setShowMemberFormFor, setShowDriverFormFor, setShowElementFormFor,
@@ -2276,6 +2300,20 @@ function MobileView({
             .map((e) => ({ kind: "element", item: e, title: `${e.prenoms} ${e.nom}`, sub: e.fonction || "Élément" })),
         ]
   );
+
+  // Historique : les quatre categories reunies, datees et triees.
+  const historique = [
+    ...vehiculesF.map((v) => ({ kind: "vehicule", item: v, date: v.createdAt,
+      title: v.immatriculation, sub: [v.marque, v.modele].filter(Boolean).join(" ") || "Véhicule" })),
+    ...ownersF.map((o) => ({ kind: "transporteur", item: o, date: o.createdAt,
+      title: `${o.prenoms} ${o.nom}`, sub: o.carteTransporteurNumero || "Transporteur" })),
+    ...driversF.map((d) => ({ kind: "chauffeur", item: d, date: d.createdAt,
+      title: `${d.prenoms} ${d.nom}`, sub: d.numeroCarte || "Chauffeur" })),
+    ...elementsF.map((e) => ({ kind: "element", item: e, date: e.createdAt,
+      title: `${e.prenoms} ${e.nom}`, sub: e.fonction || "Élément" })),
+  ].sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+
+  const historiqueGroupe = grouperParJour(historique);
 
   const CRITERES = [
     { key: "nom", label: "Nom complet", ph: "Ex. Moussa KONE" },
@@ -2334,6 +2372,68 @@ function MobileView({
               <MobileTile icon={<Users size={24} />} accent={C.greenDark} label="Chauffeur" hint="Conducteur rattaché à un véhicule" onClick={() => setShowDriverFormFor(true)} />
               <MobileTile icon={<BadgeCheck size={24} />} accent={C.ink} label="Élément" hint="Agent administratif d'une association" onClick={() => setShowElementFormFor(true)} />
             </div>
+          </div>
+        ) : tab === "historique" ? (
+          <div style={{ paddingBottom: 90 }}>
+            <h2 className="font-display" style={{ fontSize: 25, fontWeight: 800, color: C.ink, letterSpacing: -0.6 }}>Enrôlements</h2>
+            <div style={{ width: 52, height: 4, borderRadius: 999, background: `linear-gradient(90deg, ${C.green}, ${C.orange})`, margin: "6px 0 8px" }} />
+            <p className="font-body" style={{ fontSize: 13.5, color: C.slate, marginBottom: 14, fontWeight: 500 }}>
+              {historique.length === 0
+                ? "Aucun enrôlement enregistré pour le moment."
+                : `${historique.length} enregistrement${historique.length > 1 ? "s" : ""}, du plus récent au plus ancien.`}
+            </p>
+
+            <select
+              value={communeF}
+              onChange={(e) => setCommuneF(e.target.value)}
+              className="font-body"
+              style={{ width: "100%", height: 46, borderRadius: 12, border: `1.5px solid ${communeF ? C.green : C.border}`, background: "#fff", padding: "0 12px", fontSize: 15, fontWeight: 700, color: C.ink, marginBottom: 16 }}
+            >
+              <option value="">Toutes les communes</option>
+              {COMMUNES.map((cm) => <option key={cm} value={cm}>{cm}</option>)}
+            </select>
+
+            {historiqueGroupe.map(([cle, lignes]) => (
+              <div key={cle} style={{ marginBottom: 18 }}>
+                <div className="flex items-center gap-2" style={{ marginBottom: 7 }}>
+                  <span className="font-display" style={{ fontSize: 13.5, fontWeight: 800, color: C.ink, textTransform: "capitalize" }}>{libelleJour(cle)}</span>
+                  <span style={{ flex: 1, height: 1, background: C.border }} />
+                  <span className="font-body" style={{ fontSize: 11.5, color: C.slate, fontWeight: 600 }}>{lignes.length}</span>
+                </div>
+                <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${C.border}` }}>
+                  {lignes.map((r, i) => {
+                    const m = kindMeta[r.kind];
+                    const h = r.date ? new Date(r.date) : null;
+                    return (
+                      <button
+                        key={`${r.kind}-${r.item.id}`}
+                        onClick={() => setSelected(r)}
+                        className="w-full text-left flex items-center gap-3"
+                        style={{ background: "#fff", borderTop: i === 0 ? "none" : `1px solid ${C.border}`, padding: "12px 14px" }}
+                      >
+                        <div style={{ width: 3, alignSelf: "stretch", background: m.color, borderRadius: 2, flexShrink: 0 }} />
+                        <div style={{ width: 32, height: 32, borderRadius: 9, background: m.color + "18", color: m.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          {m.icon}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="font-display" style={{ fontSize: 15.5, fontWeight: 700, color: C.ink, letterSpacing: -0.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</div>
+                          <div className="font-body" style={{ fontSize: 12, color: C.slate }}>
+                            <span style={{ color: m.color, fontWeight: 700 }}>{m.label}</span>
+                            {r.sub ? ` · ${r.sub}` : ""}
+                          </div>
+                        </div>
+                        {h && !isNaN(h) && (
+                          <span className="font-mono" style={{ fontSize: 11, color: C.slate, flexShrink: 0 }}>
+                            {h.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        )}
+                        <ChevronRight size={16} color={C.border} />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <div style={{ paddingBottom: 90 }}>
@@ -2450,7 +2550,7 @@ function MobileView({
 
       {/* BARRE D'ONGLETS */}
       <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: `1px solid ${C.border}`, display: "flex", zIndex: 30, paddingBottom: "env(safe-area-inset-bottom)" }}>
-        {[["ajout", "Ajout", <Plus size={22} key="a" />], ["recherche", "Recherche", <Search size={22} key="r" />]].map(([k, lab, ic]) => (
+        {[["ajout", "Ajout", <Plus size={22} key="a" />], ["historique", "Enrôlements", <FileText size={22} key="h" />], ["recherche", "Recherche", <Search size={22} key="r" />]].map(([k, lab, ic]) => (
           <button
             key={k}
             onClick={() => { setTab(k); setSelected(null); }}
