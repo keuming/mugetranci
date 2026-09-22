@@ -179,11 +179,12 @@ function uid(prefix) {
 function initials(nom, prenoms) {
   return `${(prenoms || "?")[0] || ""}${(nom || "?")[0] || ""}`.toUpperCase();
 }
+// Adresse PUBLIQUE (sans authentification) de la fiche d'identification du
+// vehicule : c'est elle qui est encodee dans le QR code imprime sur les
+// cartes, pour qu'un controle routier puisse l'ouvrir en scannant, sans
+// identifiant ni PIN.
 function ficheUrl(vehicleId) {
-  return `${window.location.origin}${window.location.pathname}?vehicule=${vehicleId}`;
-}
-function transporteurFicheUrl(ownerId) {
-  return `${window.location.origin}${window.location.pathname}?transporteur=${ownerId}`;
+  return `${window.location.origin}/fiche?id=${vehicleId}`;
 }
 // Résout l'entité (commission mixte, syndicat ou gare routière) qui a créé
 // un transporteur donné — utilisé pour personnaliser l'entête de la fiche
@@ -1153,10 +1154,11 @@ function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles, a
   const logo2 = resolveLogoEntity(member.logo2Type, member.logo2Id, commissionsMixtes, syndicats, associations) || autoCommission;
 
   if (category === "transporteur") {
+    const vehiculeDuProprietaire = vehicles.find((v) => v.proprietaireId === member.id);
     return {
       logo1, logo2,
       numero: member.carteTransporteurNumero,
-      ficheValue: transporteurFicheUrl(member.id),
+      ficheValue: vehiculeDuProprietaire ? ficheUrl(vehiculeDuProprietaire.id) : `transporteur:${member.id}`,
       infoFields: [{ label: "N° Permis", value: member.numeroPermis }, { label: "Téléphone", value: member.contact1 }],
       versoQr: false, // pas de QR au verso — seulement l'accès à la fiche, au recto
     };

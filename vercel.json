@@ -1,16 +1,38 @@
 {
   "rewrites": [
-    { "source": "/mobile", "destination": "/" },
-    { "source": "/installer", "destination": "/installer.html" },
-    { "source": "/install", "destination": "/installer.html" }
+    {
+      "source": "/mobile",
+      "destination": "/"
+    },
+    {
+      "source": "/installer",
+      "destination": "/installer.html"
+    },
+    {
+      "source": "/install",
+      "destination": "/installer.html"
+    },
+    {
+      "source": "/fiche",
+      "destination": "/fiche.html"
+    }
   ],
   "headers": [
     {
       "source": "/.well-known/assetlinks.json",
       "headers": [
-        { "key": "Content-Type", "value": "application/json" },
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Cache-Control", "value": "public, max-age=300" }
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=300"
+        }
       ]
     }
   ]

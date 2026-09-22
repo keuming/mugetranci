@@ -126,9 +126,92 @@ function toDbVehicule(body) {
   };
 }
 
+/* Fiche publique du vehicule : c'est le contenu du QR code imprime sur les
+   cartes de membre. Volontairement SANS authentification -- un controle
+   routier ou un agent au bord de la voie doit pouvoir l'ouvrir en scannant,
+   sans identifiant ni PIN. En retour, seules des informations deja visibles
+   sur les documents physiques (immatriculation, identite, validite des
+   documents) sont exposees ; aucun code PIN, aucun identifiant de connexion. */
+async function handleFichePublique(req, res, vehiculeId) {
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET");
+    return res.status(405).json({ error: "Méthode non autorisée" });
+  }
+  const [v] = await db.select().from(vehicules).where(eq(vehicules.id, vehiculeId));
+  if (!v) return res.status(404).json({ error: "Dossier introuvable." });
+
+  const [proprio] = v.proprietaireId
+    ? await db.select().from(proprietaires).where(eq(proprietaires.id, v.proprietaireId))
+    : [null];
+
+  const liens = await db.select().from(vehiculeChauffeurs).where(eq(vehiculeChauffeurs.vehiculeId, vehiculeId));
+  const chauffeurIds = liens.filter((l) => l.actif).map((l) => l.chauffeurId);
+  const chauffeursDuVehicule = chauffeurIds.length
+    ? await db.select().from(chauffeurs).where(eq(chauffeurs.id, chauffeurIds[0]))
+    : [];
+  // (une seule requete par id : liste courte, au plus 3 chauffeurs)
+  const tousChauffeurs = [];
+  for (const cid of chauffeurIds) {
+    const [c] = await db.select().from(chauffeurs).where(eq(chauffeurs.id, cid));
+    if (c) tousChauffeurs.push(c);
+  }
+
+  const [aff] = await db.select().from(affectations).where(eq(affectations.vehiculeId, vehiculeId));
+  let gare = null, ligne = null;
+  if (aff?.actif && aff.gareRoutiereId) {
+    const { garesRoutieres, lignes } = await import("../db/schema.js");
+    const [g] = await db.select().from(garesRoutieres).where(eq(garesRoutieres.id, aff.gareRoutiereId));
+    gare = g || null;
+    if (aff.ligneId) {
+      const [l] = await db.select().from(lignes).where(eq(lignes.id, aff.ligneId));
+      ligne = l || null;
+    }
+  }
+
+  return res.status(200).json({
+    vehicule: {
+      immatriculation: v.immatriculation,
+      carteGrise: v.carteGrise,
+      marque: v.marque,
+      modele: v.modele,
+      categorie: v.categorie,
+      nombrePlaces: v.nombrePlaces,
+      chassis: v.chassis,
+      photoUrl: v.photoUrl,
+      documents: {
+        visiteTechnique: v.visiteTechniqueDateFin,
+        assuranceAuto: v.assuranceAutoDateFin,
+        vignette: v.vignetteDateFin,
+        carteStationnement: v.carteStationnementDateFin,
+      },
+    },
+    transporteur: proprio ? {
+      nom: proprio.nom, prenoms: proprio.prenoms,
+      carteTransporteurNumero: proprio.carteTransporteurNumero,
+      contact1: proprio.contact1, photoUrl: proprio.photoUrl,
+    } : null,
+    chauffeurs: tousChauffeurs.map((c) => ({
+      nom: c.nom, prenoms: c.prenoms, numeroCarte: c.numeroCarte,
+      contact1: c.contact1, photoUrl: c.photoUrl, permisDateFin: c.permisDateFin,
+    })),
+    pointFocal: gare ? {
+      gare: gare.nom, commune: gare.commune,
+      chefGareNom: gare.responsableNom, chefGareContact: gare.responsableContact,
+      ligne: ligne ? `${ligne.lieuDepart} — ${ligne.lieuArrivee}` : null,
+      chefLigneNom: ligne?.chefNom || null, chefLigneContact: ligne?.chefContact || null,
+    } : null,
+  });
+}
+
 export default async function handler(req, res) {
   const idParam = req.query.id;
   const id = Array.isArray(idParam) ? idParam[0] : idParam;
+
+  // Seule route publique de ce fichier : verifiee AVANT requireAuth.
+  if (req.query.resource === "fiche-publique") {
+    return handleFichePublique(req, res, id);
+  }
+
   const auth = requireAuth(req, res);
   if (!auth) return;
 

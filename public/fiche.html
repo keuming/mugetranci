@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0B6E4F" />
+  <title>Fiche d'identification — COMIX-CI</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <style>
+    :root {
+      --vert: #0B6E4F; --vert-fonce: #07422F; --vert-clair: #E4F1EC;
+      --orange: #E07A1F; --orange-fonce: #B35F14; --orange-clair: #FBEADA;
+      --creme: #FAF8F3; --encre: #20241F; --ardoise: #69726B; --bord: #E4E0D6;
+      --rouge: #B93B2E; --rouge-clair: #F8E7E4;
+    }
+    * { box-sizing: border-box; -webkit-text-size-adjust: 100%; }
+    html, body { margin: 0; overflow-x: hidden; background: var(--creme); overscroll-behavior: none; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--encre); line-height: 1.5; touch-action: manipulation; }
+    header {
+      background: linear-gradient(135deg, var(--vert-fonce), var(--vert));
+      padding: calc(env(safe-area-inset-top) + 22px) 20px 26px; position: relative; color: #fff;
+    }
+    header::after { content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 5px; background: linear-gradient(90deg, var(--orange) 0 50%, #fff 50% 100%); }
+    .marque { display: flex; align-items: center; gap: 12px; }
+    .logo { width: 42px; height: 42px; border-radius: 12px; background: var(--orange); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 22px; }
+    h1 { font-size: 18px; font-weight: 800; margin: 0; letter-spacing: -0.3px; }
+    .sous { font-size: 12px; opacity: .8; margin: 2px 0 0; }
+    main { padding: 18px 16px 40px; max-width: 560px; margin: 0 auto; }
+    .section { background: #fff; border: 1.5px solid var(--bord); border-radius: 15px; padding: 16px; margin-bottom: 14px; }
+    .section h2 { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--vert-fonce); margin: 0 0 12px; display: flex; align-items: center; gap: 7px; }
+    .section h2 .puce { width: 8px; height: 8px; border-radius: 99px; background: var(--orange); flex-shrink: 0; }
+    .ligne { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--bord); font-size: 14px; }
+    .ligne:last-child { border-bottom: none; }
+    .cle { color: var(--ardoise); flex-shrink: 0; }
+    .val { font-weight: 700; text-align: right; word-break: break-word; }
+    .val.mono { font-family: ui-monospace, monospace; }
+    .badge { display: inline-block; font-size: 11px; font-weight: 800; padding: 2px 9px; border-radius: 99px; }
+    .badge.ok { background: var(--vert-clair); color: var(--vert-fonce); }
+    .badge.bientot { background: #FBF0D8; color: #A9740B; }
+    .badge.perime { background: var(--rouge-clair); color: var(--rouge); }
+    .badge.inconnu { background: #EEEDE7; color: var(--ardoise); }
+    .personne { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .avatar { width: 46px; height: 46px; border-radius: 99px; background: var(--creme); border: 2px solid var(--bord); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--ardoise); overflow: hidden; }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .nom { font-size: 15.5px; font-weight: 800; }
+    .num { font-family: ui-monospace, monospace; font-size: 12.5px; color: var(--orange-fonce); font-weight: 700; }
+    .vide { text-align: center; color: var(--ardoise); font-size: 13.5px; padding: 10px 0; }
+    .placeholder { background: var(--creme); border: 1.5px dashed var(--bord); color: var(--ardoise); font-size: 13px; text-align: center; padding: 16px; border-radius: 11px; }
+    footer { text-align: center; font-size: 11px; color: var(--ardoise); padding: 10px 16px calc(env(safe-area-inset-bottom) + 26px); }
+    footer b { color: var(--encre); font-weight: 700; }
+    #etat { text-align: center; padding: 60px 20px; color: var(--ardoise); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="marque">
+      <div class="logo">🚍</div>
+      <div>
+        <h1>Fiche d'identification</h1>
+        <p class="sous">Véhicule · Transporteur · Chauffeur(s)</p>
+      </div>
+    </div>
+  </header>
+
+  <main id="contenu">
+    <div id="etat">Chargement de la fiche…</div>
+  </main>
+
+  <footer>© <span id="annee"></span> <b>ORZAYAH SOLUTIONS</b></footer>
+
+  <script>
+    document.getElementById("annee").textContent = new Date().getFullYear();
+
+    function badgeDocument(dateStr) {
+      if (!dateStr) return '<span class="badge inconnu">Non renseigné</span>';
+      const d = new Date(dateStr);
+      const jours = Math.round((d - new Date()) / 86400000);
+      const affichee = d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+      if (jours < 0) return `<span class="badge perime">Périmé — ${affichee}</span>`;
+      if (jours <= 30) return `<span class="badge bientot">Valide (${jours} j) — ${affichee}</span>`;
+      return `<span class="badge ok">Valide — ${affichee}</span>`;
+    }
+
+    function avatarHtml(photoUrl, nom, prenoms) {
+      const init = ((prenoms || "?")[0] || "") + ((nom || "?")[0] || "");
+      return photoUrl
+        ? `<div class="avatar"><img src="${photoUrl}" alt="" /></div>`
+        : `<div class="avatar">${init.toUpperCase()}</div>`;
+    }
+
+    async function charger() {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get("id");
+      const zone = document.getElementById("contenu");
+      if (!id) { zone.innerHTML = '<div id="etat">Adresse incomplète — aucun identifiant de dossier fourni.</div>'; return; }
+
+      let data;
+      try {
+        const r = await fetch(`/api/vehicules?resource=fiche-publique&id=${encodeURIComponent(id)}`);
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || "Dossier introuvable.");
+        data = await r.json();
+      } catch (err) {
+        zone.innerHTML = `<div id="etat">${err.message || "Ce dossier n'existe pas ou n'est plus accessible."}</div>`;
+        return;
+      }
+
+      const v = data.vehicule, t = data.transporteur, chs = data.chauffeurs || [], pf = data.pointFocal;
+
+      let html = "";
+
+      // Section 1 — Véhicule
+      html += `<div class="section">
+        <h2><span class="puce"></span>Véhicule</h2>
+        <div class="ligne"><span class="cle">Immatriculation</span><span class="val mono">${v.immatriculation || "—"}</span></div>
+        <div class="ligne"><span class="cle">Carte grise</span><span class="val mono">${v.carteGrise || "—"}</span></div>
+        ${v.marque || v.modele ? `<div class="ligne"><span class="cle">Marque / Modèle</span><span class="val">${[v.marque, v.modele].filter(Boolean).join(" ")}</span></div>` : ""}
+        ${v.categorie ? `<div class="ligne"><span class="cle">Catégorie</span><span class="val">${v.categorie}</span></div>` : ""}
+        ${v.nombrePlaces ? `<div class="ligne"><span class="cle">Nombre de places</span><span class="val">${v.nombrePlaces}</span></div>` : ""}
+        <div class="ligne"><span class="cle">Visite technique</span><span class="val">${badgeDocument(v.documents.visiteTechnique)}</span></div>
+        <div class="ligne"><span class="cle">Assurance</span><span class="val">${badgeDocument(v.documents.assuranceAuto)}</span></div>
+        <div class="ligne"><span class="cle">Vignette</span><span class="val">${badgeDocument(v.documents.vignette)}</span></div>
+      </div>`;
+
+      // Section 2 — Transporteur + Chauffeur(s)
+      html += `<div class="section"><h2><span class="puce"></span>Transporteur & chauffeur(s)</h2>`;
+      if (t) {
+        html += `<div class="personne">${avatarHtml(t.photoUrl, t.nom, t.prenoms)}<div><div class="nom">${t.prenoms} ${t.nom}</div><div class="num">${t.carteTransporteurNumero || "—"}</div></div></div>`;
+      } else {
+        html += `<div class="vide">Transporteur non renseigné.</div>`;
+      }
+      if (chs.length) {
+        chs.forEach((c) => {
+          html += `<div class="personne" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--bord);">${avatarHtml(c.photoUrl, c.nom, c.prenoms)}<div><div class="nom">${c.prenoms} ${c.nom}</div><div class="num">${c.numeroCarte || "—"}</div></div></div>`;
+        });
+      } else {
+        html += `<div class="vide" style="margin-top:8px;">Aucun chauffeur rattaché.</div>`;
+      }
+      html += `</div>`;
+
+      // Section 3 — Agent administratif (Point Focal de la gare/ligne)
+      html += `<div class="section"><h2><span class="puce"></span>Agent administratif — Point Focal</h2>`;
+      if (pf) {
+        html += `<div class="ligne"><span class="cle">Gare</span><span class="val">${pf.gare || "—"}${pf.commune ? " — " + pf.commune : ""}</span></div>`;
+        if (pf.chefGareNom) html += `<div class="ligne"><span class="cle">Chef de gare</span><span class="val">${pf.chefGareNom}${pf.chefGareContact ? " · " + pf.chefGareContact : ""}</span></div>`;
+        if (pf.ligne) html += `<div class="ligne"><span class="cle">Ligne</span><span class="val">${pf.ligne}</span></div>`;
+        if (pf.chefLigneNom) html += `<div class="ligne"><span class="cle">Chef de ligne</span><span class="val">${pf.chefLigneNom}${pf.chefLigneContact ? " · " + pf.chefLigneContact : ""}</span></div>`;
+      } else {
+        html += `<div class="vide">Aucune affectation active à une gare pour ce dossier.</div>`;
+      }
+      html += `</div>`;
+
+      // Section 4 — Compte ORZAYAH (aucune donnée existante pour l'instant)
+      html += `<div class="section"><h2><span class="puce"></span>Compte ORZAYAH</h2>
+        <div class="placeholder">Cette section sera activée dès l'intégration du compte ORZAYAH du transporteur.</div>
+      </div>`;
+
+      zone.innerHTML = html;
+    }
+
+    charger();
+  </script>
+</body>
+</html>
