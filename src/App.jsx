@@ -122,7 +122,7 @@ input, select, textarea { font-size: 16px !important; }
 `;
 
 const TODAY = new Date("2026-07-27");
-const TRANSPORT_CATEGORIES = ["VTC", "Minibus", "Taxi brousse", "Taxi compteur"];
+const TRANSPORT_CATEGORIES = ["VTC", "Minibus", "Taxi brousse", "Taxi compteur", "Taxi communal", "Taxi intercommunal"];
 // Communes d'Abidjan + principales villes de Côte d'Ivoire — liste par
 // défaut proposée à la création d'un collectif (syndicat).
 const COMMUNES = [
