@@ -138,7 +138,15 @@ const FONCTIONS_COURANTES = [
   "Trésorier", "Trésorier adjoint", "Commissaire aux comptes",
   "Chargé de communication", "Agent recenseur", "Contrôleur",
   "Chef de gare", "Régulateur", "Délégué de ligne",
+  "Chef de ligne", "Chargeur", "Chauffeur", "Transporteur", "Vendeur de ticket",
 ];
+
+// Qualites operationnelles d'un agent de gare/ligne : la carte de l'element
+// affiche alors la mention "Point Focal" suivie de sa commune d'exercice.
+const QUALITES_POINT_FOCAL = new Set([
+  "Chef de gare", "Chef de ligne", "Chargeur", "Chauffeur",
+  "Transporteur", "Vendeur de ticket", "Contrôleur",
+]);
 
 const SYNDICAT_TYPES = [
   { value: "transporteurs", label: "Collectif des syndicats des transporteurs" },
@@ -1236,7 +1244,10 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
             </div>
             <div className="font-body">
               <div style={{ fontSize: 13.5, fontWeight: 700, color: tPrincipal, lineHeight: 1.15 }}>{member.prenoms} {member.nom}</div>
-              <div style={{ fontSize: 9, color: tSecondaire }}>{theme.label}</div>
+              <div style={{ fontSize: 9, color: tSecondaire }}>{category === "element" && member.fonction ? member.fonction : theme.label}</div>
+              {category === "element" && member.fonction && QUALITES_POINT_FOCAL.has(member.fonction) && member.commune && (
+                <div style={{ fontSize: 6.6, color: tSecondaire, fontWeight: 700, marginTop: 0.5 }}>Point Focal — {member.commune}</div>
+              )}
             </div>
           </div>
 
