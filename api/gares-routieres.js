@@ -27,14 +27,16 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      // Créée par le syndicat lui-même (ou par l'admin pour n'importe quel syndicat).
-      if (!estAdministrateur(auth) && auth.role !== "syndicat") {
-        return res.status(403).json({ error: "Réservé à l'administrateur général ou à un syndicat." });
+      // Une gare rattache DEUX collectifs (transporteurs + chauffeurs) : sa
+      // creation revient donc a l'administrateur, a la commission mixte, ou
+      // a un syndicat (qui fournit alors le second collectif lui-meme).
+      if (!estAdministrateur(auth) && auth.role !== "syndicat" && auth.role !== "commission_mixte") {
+        return res.status(403).json({ error: "Réservé à l'administrateur général, à une commission mixte ou à un collectif." });
       }
       const body = req.body || {};
       const syndicatId = auth.role === "syndicat" ? auth.syndicatId : body.syndicatId;
       if (!body.nom || !syndicatId) {
-        return res.status(400).json({ error: "nom et syndicatId sont requis" });
+        return res.status(400).json({ error: "Le nom de la gare et le collectif des transporteurs sont requis" });
       }
       if (body.pinCode && !/^\d{4}$/.test(body.pinCode)) {
         return res.status(400).json({ error: "Le code PIN doit comporter exactement 4 chiffres" });
@@ -42,6 +44,12 @@ export default async function handler(req, res) {
       try {
         const [created] = await db.insert(garesRoutieres).values({
           syndicatId,
+          syndicatChauffeursId: body.syndicatChauffeursId || null,
+          commissionMixteId: body.commissionMixteId || null,
+          commune: body.commune || null,
+          quartier: body.quartier || null,
+          responsableNom: body.responsableNom || null,
+          responsableContact: body.responsableContact || null,
           nom: body.nom,
           sigle: body.sigle || null,
           logoUrl: body.logoUrl || null,
@@ -82,7 +90,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Le code PIN doit comporter exactement 4 chiffres" });
     }
     const patch = {};
-    ["nom", "sigle", "logoUrl", "login"].forEach((k) => {
+    ["nom", "sigle", "logoUrl", "login", "syndicatChauffeursId", "commissionMixteId", "commune", "quartier", "responsableNom", "responsableContact"].forEach((k) => {
       if (k in body) patch[k] = body[k] || null;
     });
     if (body.pinCode) patch.pinCode = body.pinCode;

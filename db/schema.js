@@ -222,7 +222,17 @@ export const lignes = pgTable("lignes", {
    connexion optionnel (login/PIN) pour un futur accès dédié. */
 export const garesRoutieres = pgTable("gares_routieres", {
   id: uuid("id").defaultRandom().primaryKey(),
+  // Collectif des transporteurs (conserve sous le nom historique syndicatId
+  // pour ne pas casser tout le code deja ecrit contre ce champ).
   syndicatId: uuid("syndicat_id").references(() => syndicats.id).notNull(),
+  // Une gare est rattachee aux DEUX collectifs de sa commune : celui des
+  // transporteurs (ci-dessus) et celui des chauffeurs (ci-dessous).
+  syndicatChauffeursId: uuid("syndicat_chauffeurs_id").references(() => syndicats.id),
+  commissionMixteId: uuid("commission_mixte_id").references(() => commissionsMixtes.id),
+  commune: varchar("commune", { length: 60 }),
+  quartier: varchar("quartier", { length: 160 }),
+  responsableNom: varchar("responsable_nom", { length: 160 }),
+  responsableContact: varchar("responsable_contact", { length: 30 }),
   nom: varchar("nom", { length: 160 }).notNull(),
   sigle: varchar("sigle", { length: 20 }),
   logoUrl: text("logo_url"),
