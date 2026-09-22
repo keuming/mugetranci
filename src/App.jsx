@@ -3917,7 +3917,7 @@ function Dashboard({ auth, onLogout }) {
               </div>
               {garesRoutieres.length === 0 ? (
                 <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 24 }} className="font-body text-sm text-center">
-                  <span style={{ color: C.slate }}>Aucune gare routière enregistrée — ajoutez le premier lieu d'exploitation de vos véhicules.</span>
+                  <span style={{ color: C.slate }}>Aucune gare routière enregistrée pour l'instant. Créez-en une d'abord avec le bouton ci-dessus : c'est depuis sa fiche que vous pourrez ensuite lui ajouter des lignes.</span>
                 </div>
               ) : (
                 <div className="grid grid-cols-3 gap-4">
