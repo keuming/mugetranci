@@ -132,12 +132,26 @@ function toDbVehicule(body) {
    sans identifiant ni PIN. En retour, seules des informations deja visibles
    sur les documents physiques (immatriculation, identite, validite des
    documents) sont exposees ; aucun code PIN, aucun identifiant de connexion. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 async function handleFichePublique(req, res, vehiculeId) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
     return res.status(405).json({ error: "Méthode non autorisée" });
   }
-  const [v] = await db.select().from(vehicules).where(eq(vehicules.id, vehiculeId));
+  // Un identifiant mal forme (lien tronque, QR abime, adresse copiee a la
+  // main) ne doit jamais provoquer une erreur serveur brute : Postgres
+  // rejette un UUID invalide avant meme la requete, ce qui remontait en 500.
+  if (!vehiculeId || !UUID_RE.test(vehiculeId)) {
+    return res.status(400).json({ error: "Adresse de fiche invalide : ce lien ne correspond à aucun dossier." });
+  }
+  let v;
+  try {
+    [v] = await db.select().from(vehicules).where(eq(vehicules.id, vehiculeId));
+  } catch (err) {
+    console.error("GET fiche-publique:", err);
+    return res.status(400).json({ error: "Adresse de fiche invalide." });
+  }
   if (!v) return res.status(404).json({ error: "Dossier introuvable." });
 
   const [proprio] = v.proprietaireId
