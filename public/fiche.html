@@ -121,19 +121,24 @@
         <div class="ligne"><span class="cle">Vignette</span><span class="val">${badgeDocument(v.documents.vignette)}</span></div>
       </div>`;
 
-      // Section 2 — Transporteur + Chauffeur(s)
-      html += `<div class="section"><h2><span class="puce"></span>Transporteur & chauffeur(s)</h2>`;
+      // Section 2 — Transporteur
+      html += `<div class="section"><h2><span class="puce"></span>Transporteur</h2>`;
       if (t) {
-        html += `<div class="personne">${avatarHtml(t.photoUrl, t.nom, t.prenoms)}<div><div class="nom">${t.prenoms} ${t.nom}</div><div class="num">${t.carteTransporteurNumero || "—"}</div></div></div>`;
+        html += `<div class="personne">${avatarHtml(t.photoUrl, t.nom, t.prenoms)}<div><div class="nom">${t.prenoms} ${t.nom}</div><div class="num">${t.carteTransporteurNumero || "—"}</div>${t.contact1 ? `<div class="cle" style="margin-top:2px;">${t.contact1}</div>` : ""}</div></div>`;
       } else {
         html += `<div class="vide">Transporteur non renseigné.</div>`;
       }
+      html += `</div>`;
+
+      // Section 3 — Chauffeur(s), toujours sa propre section meme quand
+      // elle est vide : c'est ce qui la rend reperable d'un coup d'oeil.
+      html += `<div class="section"><h2><span class="puce"></span>Chauffeur${chs.length > 1 ? "s" : ""} (${chs.length})</h2>`;
       if (chs.length) {
-        chs.forEach((c) => {
-          html += `<div class="personne" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--bord);">${avatarHtml(c.photoUrl, c.nom, c.prenoms)}<div><div class="nom">${c.prenoms} ${c.nom}</div><div class="num">${c.numeroCarte || "—"}</div></div></div>`;
+        chs.forEach((c, i) => {
+          html += `<div class="personne"${i > 0 ? ' style="margin-top:10px; padding-top:10px; border-top:1px solid var(--bord);"' : ""}>${avatarHtml(c.photoUrl, c.nom, c.prenoms)}<div><div class="nom">${c.prenoms} ${c.nom}</div><div class="num">${c.numeroCarte || "—"}</div>${c.contact1 ? `<div class="cle" style="margin-top:2px;">${c.contact1}</div>` : ""}</div></div>`;
         });
       } else {
-        html += `<div class="vide" style="margin-top:8px;">Aucun chauffeur rattaché.</div>`;
+        html += `<div class="vide">Aucun chauffeur rattaché à ce dossier pour l'instant.</div>`;
       }
       html += `</div>`;
 

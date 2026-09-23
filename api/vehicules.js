@@ -160,10 +160,7 @@ async function handleFichePublique(req, res, vehiculeId) {
 
   const liens = await db.select().from(vehiculeChauffeurs).where(eq(vehiculeChauffeurs.vehiculeId, vehiculeId));
   const chauffeurIds = liens.filter((l) => l.actif).map((l) => l.chauffeurId);
-  const chauffeursDuVehicule = chauffeurIds.length
-    ? await db.select().from(chauffeurs).where(eq(chauffeurs.id, chauffeurIds[0]))
-    : [];
-  // (une seule requete par id : liste courte, au plus 3 chauffeurs)
+  // Une requete par id : la liste est courte, au plus 3 chauffeurs par dossier.
   const tousChauffeurs = [];
   for (const cid of chauffeurIds) {
     const [c] = await db.select().from(chauffeurs).where(eq(chauffeurs.id, cid));
