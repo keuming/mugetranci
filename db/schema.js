@@ -155,8 +155,14 @@ export const vehicules = pgTable("vehicules", {
   carteGrise: varchar("carte_grise", { length: 60 }).notNull(), // obligatoire — pièce d'identité minimale du dossier
   nomCarteGrise: varchar("nom_carte_grise", { length: 160 }),
   categorie: varchar("categorie", { length: 40 }), // VTC, Minibus, Taxi brousse, Taxi compteur…
-  nombrePlaces: integer("nombre_places"), // capacite du vehicule
+  nombrePlaces: integer("nombre_places"), // capacite du vehicule — "Places Assises" sur la carte de droit de ligne
   immatriculation: varchar("immatriculation", { length: 30 }).notNull().unique(), // obligatoire
+  // Champs de la carte physique "Droit d'exploitation de ligne"
+  energie: varchar("energie", { length: 30 }), // Essence, Diesel, Hybride, Electrique…
+  couleur: varchar("couleur", { length: 40 }),
+  typeTechnique: varchar("type_technique", { length: 30 }), // code technique du vehicule
+  puissanceFiscale: varchar("puissance_fiscale", { length: 10 }), // "Types Fiscal" — puissance en CV
+  numeroCarteLigne: varchar("numero_carte_ligne", { length: 20 }), // N° de la carte de droit de ligne (genere a la creation)
   dateMiseCirculation: date("date_mise_circulation"),
   photoUrl: text("photo_url"),
   visiteTechniqueDateFin: date("visite_technique_date_fin"),

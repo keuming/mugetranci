@@ -4,6 +4,7 @@ import {
   vehicules, historiqueProprietaires, vehiculeChauffeurs, affectations, achatsCarburant, syndicats, chauffeurs, proprietaires,
 } from "../db/schema.js";
 import { requireAuth, agentPeutGerer } from "../lib/auth.js";
+import { genererNumeroLigne } from "../lib/cards.js";
 
 // Taux de commission de la mutuelle sur chaque achat de carburant.
 const COMMISSION_RATE = 0.02; // 2%
@@ -187,6 +188,11 @@ async function handleFichePublique(req, res, vehiculeId) {
       modele: v.modele,
       categorie: v.categorie,
       nombrePlaces: v.nombrePlaces,
+      energie: v.energie,
+      couleur: v.couleur,
+      typeTechnique: v.typeTechnique,
+      puissanceFiscale: v.puissanceFiscale,
+      numeroCarteLigne: v.numeroCarteLigne,
       chassis: v.chassis,
       photoUrl: v.photoUrl,
       documents: {
@@ -269,6 +275,7 @@ export default async function handler(req, res) {
       }
 
       const dbValues = toDbVehicule(body);
+      dbValues.numeroCarteLigne = await genererNumeroLigne(vehicules);
       if (auth.role === "syndicat") dbValues.syndicatId = auth.syndicatId;
       // L'agent peut enroler pour n'importe quel collectif : on n'impose le
       // sien qu'a defaut d'indication, sans jamais ecraser un choix explicite.
@@ -363,6 +370,10 @@ export default async function handler(req, res) {
     if ("associationId" in body) patch.associationId = body.associationId || null;
     if ("commissionMixteId" in body) patch.commissionMixteId = body.commissionMixteId || null;
     if ("nombrePlaces" in body) patch.nombrePlaces = body.nombrePlaces ? Number(body.nombrePlaces) : null;
+    if ("energie" in body) patch.energie = body.energie || null;
+    if ("couleur" in body) patch.couleur = body.couleur || null;
+    if ("typeTechnique" in body) patch.typeTechnique = body.typeTechnique || null;
+    if ("puissanceFiscale" in body) patch.puissanceFiscale = body.puissanceFiscale || null;
     if ("proprietaireId" in body) patch.proprietaireId = body.proprietaireId || null;
     if ("visiteTechnique" in documents) patch.visiteTechniqueDateFin = documents.visiteTechnique || null;
     if ("assuranceAuto" in documents) patch.assuranceAutoDateFin = documents.assuranceAuto || null;

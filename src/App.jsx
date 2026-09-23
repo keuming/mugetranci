@@ -123,6 +123,7 @@ input, select, textarea { font-size: 16px !important; }
 
 const TODAY = new Date("2026-07-27");
 const TRANSPORT_CATEGORIES = ["VTC", "Minibus", "Taxi brousse", "Taxi compteur", "Taxi communal", "Taxi intercommunal"];
+const TYPES_ENERGIE = ["Essence", "Diesel", "Hybride", "Électrique", "GPL"];
 // Communes d'Abidjan + principales villes de Côte d'Ivoire — liste par
 // défaut proposée à la création d'un collectif (syndicat).
 const COMMUNES = [
@@ -533,6 +534,10 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
   const [modele, setModele] = useState("");
   const [categorie, setCategorie] = useState("");
   const [nombrePlaces, setNombrePlaces] = useState("");
+  const [energie, setEnergie] = useState("");
+  const [couleur, setCouleur] = useState("");
+  const [typeTechnique, setTypeTechnique] = useState("");
+  const [puissanceFiscale, setPuissanceFiscale] = useState("");
   const [commune, setCommune] = useState("");
   const [commissionMixteId, setCommissionMixteId] = useState("");
   const [chassis, setChassis] = useState("");
@@ -603,7 +608,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
       }
 
       const createdVehicle = await onSave({
-        marque, modele, categorie, nombrePlaces, commune, commissionMixteId, chassis, carteGrise, nomCarteGrise, immatriculation, dateMiseCirculation, photo,
+        marque, modele, categorie, nombrePlaces, energie, couleur, typeTechnique, puissanceFiscale, commune, commissionMixteId, chassis, carteGrise, nomCarteGrise, immatriculation, dateMiseCirculation, photo,
         documents: docs,
         proprietaireId: finalOwnerId || null,
         chauffeurIds: finalDriverIds,
@@ -655,6 +660,15 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
                 </select>
               </Field>
               <Field label="Nombre de places"><TextInput value={nombrePlaces} onChange={(e) => setNombrePlaces(e.target.value.replace(/\D/g, ""))} placeholder="18" /></Field>
+              <Field label="Énergie">
+                <select style={inputStyle} className="font-body" value={energie} onChange={(e) => setEnergie(e.target.value)}>
+                  <option value="">— Sélectionner —</option>
+                  {TYPES_ENERGIE.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </Field>
+              <Field label="Couleur"><TextInput value={couleur} onChange={(e) => setCouleur(e.target.value)} placeholder="Bleu" /></Field>
+              <Field label="Type technique" hint="Code technique du véhicule"><TextInput value={typeTechnique} onChange={(e) => setTypeTechnique(e.target.value)} placeholder="54AEA1" /></Field>
+              <Field label="Puissance fiscale (CV)"><TextInput value={puissanceFiscale} onChange={(e) => setPuissanceFiscale(e.target.value)} placeholder="9" /></Field>
               <Field label="Numéro de châssis (optionnel)"><TextInput value={chassis} onChange={(e) => setChassis(e.target.value)} placeholder="JT731HB0900123456" /></Field>
               <Field label="Numéro carte grise *"><TextInput value={carteGrise} onChange={(e) => setCarteGrise(e.target.value)} placeholder="CG-2024-000000" /></Field>
               <Field label="Nom sur la carte grise" hint="Peut différer du propriétaire actuel"><TextInput value={nomCarteGrise} onChange={(e) => setNomCarteGrise(e.target.value)} placeholder="Nom du titulaire inscrit sur le document" /></Field>
@@ -5459,6 +5473,10 @@ function VehicleEditForm({ vehicle, onCancel, onSave }) {
   const [modele, setModele] = useState(vehicle.modele || "");
   const [categorie, setCategorie] = useState(vehicle.categorie || "");
   const [nombrePlaces, setNombrePlaces] = useState(vehicle.nombrePlaces ?? "");
+  const [energie, setEnergie] = useState(vehicle.energie || "");
+  const [couleur, setCouleur] = useState(vehicle.couleur || "");
+  const [typeTechnique, setTypeTechnique] = useState(vehicle.typeTechnique || "");
+  const [puissanceFiscale, setPuissanceFiscale] = useState(vehicle.puissanceFiscale || "");
   const [chassis, setChassis] = useState(vehicle.chassis || "");
   const [carteGrise, setCarteGrise] = useState(vehicle.carteGrise || "");
   const [nomCarteGrise, setNomCarteGrise] = useState(vehicle.nomCarteGrise || "");
@@ -5479,7 +5497,7 @@ function VehicleEditForm({ vehicle, onCancel, onSave }) {
     setSaving(true);
     setError(null);
     try {
-      await onSave({ marque, modele, categorie, nombrePlaces, chassis, carteGrise, nomCarteGrise, immatriculation, dateMiseCirculation, documents: docs });
+      await onSave({ marque, modele, categorie, nombrePlaces, energie, couleur, typeTechnique, puissanceFiscale, chassis, carteGrise, nomCarteGrise, immatriculation, dateMiseCirculation, documents: docs });
     } catch (err) {
       setError(err.message || "Erreur lors de la mise à jour.");
       setSaving(false);
@@ -5498,6 +5516,15 @@ function VehicleEditForm({ vehicle, onCancel, onSave }) {
           </select>
         </Field>
         <Field label="Nombre de places"><TextInput value={nombrePlaces} onChange={(e) => setNombrePlaces(e.target.value.replace(/\D/g, ""))} placeholder="18" /></Field>
+        <Field label="Énergie">
+          <select style={inputStyle} className="font-body" value={energie} onChange={(e) => setEnergie(e.target.value)}>
+            <option value="">— Sélectionner —</option>
+            {TYPES_ENERGIE.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </Field>
+        <Field label="Couleur"><TextInput value={couleur} onChange={(e) => setCouleur(e.target.value)} placeholder="Bleu" /></Field>
+        <Field label="Type technique" hint="Code technique du véhicule"><TextInput value={typeTechnique} onChange={(e) => setTypeTechnique(e.target.value)} placeholder="54AEA1" /></Field>
+        <Field label="Puissance fiscale (CV)"><TextInput value={puissanceFiscale} onChange={(e) => setPuissanceFiscale(e.target.value)} placeholder="9" /></Field>
         <Field label="Numéro de châssis"><TextInput value={chassis} onChange={(e) => setChassis(e.target.value)} /></Field>
         <Field label="Numéro d'immatriculation"><TextInput value={immatriculation} onChange={(e) => setImmatriculation(e.target.value)} /></Field>
         <Field label="Numéro carte grise"><TextInput value={carteGrise} onChange={(e) => setCarteGrise(e.target.value)} /></Field>
