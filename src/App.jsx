@@ -1137,11 +1137,93 @@ function fuelQrData(driverId, carteGrise) {
 }
 
 /* ============================================================
+   ORZAYAH — QR DE PAIEMENT MARCHAND (verso de TOUTES les cartes)
+   Permet au titulaire de la carte d'encaisser ses passagers via
+   ORZAYAH : Orange Money, MTN MoMo, Moov Money, Wave, Visa, Mastercard.
+
+   PROVISOIRE : en attendant le service de génération des QR marchands
+   ORZAYAH, le QR encode une URL STABLE construite à partir de l'id du
+   titulaire (ex. https://orzayah.com/payer?m=CMX-C-<uuid>). Les cartes
+   imprimées dès maintenant resteront donc valides : il suffira que
+   orzayah.com/payer résolve la référence marchand. Quand l'API sera
+   prête, seul orzayahPayValue() est à remplacer (ex. lire le payload
+   EMV/QR renvoyé par ORZAYAH et stocké sur le membre / véhicule).
+   ============================================================ */
+const ORZAYAH = {
+  navy: "#141B34",
+  gold: "#F2A33A",
+  chipBg: "#F6F7FA",
+  chipBorder: "#E3E6EE",
+  payBase: "https://orzayah.com/payer",
+};
+const ORZAYAH_MOYENS = [
+  { label: "Orange Money", dot: "#FF7900" },
+  { label: "MTN MoMo", dot: "#FFCB05" },
+  { label: "Moov Money", dot: "#005CA9" },
+  { label: "Wave", dot: "#1DC8F2" },
+  { label: "Visa", dot: "#1A1F71" },
+  { label: "Mastercard", dot: "#EB001B" },
+];
+const ORZAYAH_PREFIXES = { transporteur: "T", chauffeur: "C", element: "E", vehicule: "V" };
+function orzayahMerchantRef(kind, id) {
+  return `CMX-${ORZAYAH_PREFIXES[kind] || "X"}-${id}`;
+}
+function orzayahPayValue(kind, id) {
+  return `${ORZAYAH.payBase}?m=${encodeURIComponent(orzayahMerchantRef(kind, id))}`;
+}
+// Pastille centrale du QR (niveau de correction Q => le centre peut être masqué sans gêner la lecture).
+const ORZAYAH_QR_LOGO = "data:image/svg+xml;utf8," + encodeURIComponent(
+  "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><rect width='40' height='40' rx='9' fill='#141B34'/><circle cx='20' cy='20' r='10.5' fill='none' stroke='#F2A33A' stroke-width='5'/></svg>"
+);
+
+// Contenu du verso (remplit la carte 340 x 214 ; les bandeaux décoratifs
+// de la carte hôte restent dessinés par-dessus).
+function OrzayahPaiementVerso({ kind, id, beneficiaire, reference }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, height: "100%", padding: "14px 16px", boxSizing: "border-box", background: "#fff" }}>
+      <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+        <div style={{ background: "#fff", borderRadius: 10, padding: 5, border: `1.5px solid ${ORZAYAH.navy}` }}>
+          <QRCodeSVG
+            value={orzayahPayValue(kind, id)}
+            size={124}
+            bgColor="#ffffff"
+            fgColor={ORZAYAH.navy}
+            level="Q"
+            imageSettings={{ src: ORZAYAH_QR_LOGO, height: 22, width: 22, excavate: true }}
+          />
+        </div>
+        <div className="font-body" style={{ fontSize: 7, fontWeight: 700, color: ORZAYAH.navy, letterSpacing: 1.2 }}>SCANNEZ · PAYEZ</div>
+      </div>
+
+      <div className="font-body" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 5 }}>
+        <div>
+          <div className="font-display" style={{ fontSize: 19, fontWeight: 800, color: ORZAYAH.navy, letterSpacing: 2, lineHeight: 1 }}>ORZAYAH</div>
+          <div style={{ fontSize: 6.8, fontWeight: 700, color: ORZAYAH.gold, letterSpacing: 0.8, textTransform: "uppercase", marginTop: 2 }}>Paiement marchand</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 6.5, color: C.slate }}>Bénéficiaire</div>
+          <div style={{ fontSize: 9.5, fontWeight: 700, color: C.ink, lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{beneficiaire || "—"}</div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3 }}>
+          {ORZAYAH_MOYENS.map((m) => (
+            <div key={m.label} style={{ display: "flex", alignItems: "center", gap: 3, background: ORZAYAH.chipBg, border: `1px solid ${ORZAYAH.chipBorder}`, borderRadius: 5, padding: "2px 4px", fontSize: 6.8, fontWeight: 600, color: ORZAYAH.navy, whiteSpace: "nowrap", overflow: "hidden" }}>
+              <span style={{ width: 5, height: 5, borderRadius: 999, background: m.dot, flexShrink: 0 }} />
+              {m.label}
+            </div>
+          ))}
+        </div>
+        <div className="font-mono" style={{ fontSize: 6.5, color: C.slate, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Réf. {reference || "—"}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
    CARTE DE MEMBRE UNIFIÉE — Transporteur / Chauffeur / Élément
    Recto : double logo (collectif 1 en haut à droite, collectif 2 en
    haut à gauche — sélection explicite depuis le formulaire), photo,
    nom complet, infos secondaires, n° de carte + QR vers la fiche.
-   Verso : grand QR code du compte marchand Mobile Money.
+   Verso : QR de paiement marchand ORZAYAH (voir OrzayahPaiementVerso).
    Couleurs 100% palette CI (orange/vert/blanc) — l'orientation des
    bandeaux et la couleur d'accent du n° de carte diffèrent par
    catégorie pour permettre une identification visuelle rapide.
@@ -1216,7 +1298,6 @@ function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles, a
       numero: member.carteTransporteurNumero,
       ficheValue: vehiculeDuProprietaire ? ficheUrl(vehiculeDuProprietaire.id) : `transporteur:${member.id}`,
       infoFields: [{ label: "N° Permis", value: member.numeroPermis }, { label: "Téléphone", value: member.contact1 }],
-      versoQr: false, // pas de QR au verso — seulement l'accès à la fiche, au recto
     };
   }
   if (category === "chauffeur") {
@@ -1226,7 +1307,6 @@ function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles, a
       numero: member.numeroCarte, // sert aussi d'identifiant unique pour la consommation carburant (lu/saisi tel quel, pas de QR dédié)
       ficheValue: vehicule ? ficheUrl(vehicule.id) : `chauffeur:${member.id}`, // QR d'accès à la fiche du transporteur
       infoFields: [{ label: "N° Permis", value: member.permisNumero }, { label: "Téléphone", value: member.contact1 }],
-      versoQr: true, // + QR marchand Mobile Money au verso = 2 QR au total (fiche + marchand)
     };
   }
   // element
@@ -1235,11 +1315,10 @@ function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles, a
     numero: member.numeroCarte,
     ficheValue: fniaUrl(member.id),
     infoFields: [{ label: "Fonction", value: member.fonction }, { label: "Téléphone", value: member.contact1 }],
-    versoQr: false,
   };
 }
 
-function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, infoFields = [], versoQr = true, side, scale = 1 }) {
+function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, infoFields = [], side, scale = 1 }) {
   const isRecto = side === "recto";
   const theme = MEMBER_CARD_THEMES[category];
   // Sur fond colore, les textes passent en clair pour rester lisibles.
@@ -1327,32 +1406,12 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
           </div>
         </div>
       ) : (
-        <div className="flex flex-col h-full items-center justify-center gap-1.5" style={{ padding: "9px 18px 11px", background: C.cream }}>
-          {versoQr ? (
-            <>
-              {member.qrPaiement ? (
-                <div style={{ background: "#fff", borderRadius: 10, padding: 5, border: `1px solid ${C.border}` }}>
-                  <img src={member.qrPaiement} alt="QR Mobile Money" style={{ width: 142, height: 142, objectFit: "contain" }} />
-                </div>
-              ) : (
-                <div className="flex items-center justify-center font-body text-center" style={{ width: 142, height: 142, background: "#fff", borderRadius: 10, border: `1px dashed ${C.border}`, color: C.slate, fontSize: 9, padding: 10 }}>
-                  QR Mobile Money non renseigné
-                </div>
-              )}
-              <div className="font-body text-center" style={{ fontSize: 8.5, color: C.slate, lineHeight: 1.25 }}>
-                Scannez et Payez par Mobile-Pay — <strong style={{ color: C.ink }}>{member.prenoms} {member.nom}</strong>
-              </div>
-            </>
-          ) : (
-            <div className="flex flex-col items-center gap-3">
-              <div style={{ width: 62, height: 62, borderRadius: 999, overflow: "hidden", background: "#fff", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {logo2?.logoUrl || logo1?.logoUrl ? <img src={(logo2 || logo1).logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Building2 size={28} color={C.greenDark} />}
-              </div>
-              <div className="font-display text-center" style={{ fontSize: 11, fontWeight: 700, color: C.greenDark }}>{(logo2 || logo1) ? (logo2 || logo1).nom : "COMIX-CI"}</div>
-              <div className="font-body text-center" style={{ fontSize: 8, color: C.slate }}>Carte {theme.label.toLowerCase()} — n° {numero || "—"}</div>
-            </div>
-          )}
-        </div>
+        <OrzayahPaiementVerso
+          kind={category}
+          id={member.id}
+          beneficiaire={`${member.prenoms || ""} ${member.nom || ""}`.trim()}
+          reference={numero}
+        />
       )}
     </div>
   );
@@ -1469,7 +1528,34 @@ function CarteDroitDeLigneFace({ vehicule, owner, collectifTransporteurs, collec
   );
 }
 
+// Verso de la carte de droit de ligne : QR ORZAYAH du véhicule, pour
+// l'encaissement des passagers de cette ligne.
+function CarteDroitDeLigneVerso({ vehicule, owner, scale = 1 }) {
+  const beneficiaire = [[owner?.prenoms, owner?.nom].filter(Boolean).join(" "), vehicule.immatriculation].filter(Boolean).join(" · ");
+  return (
+    <div style={{ width: 340 * scale, height: 214 * scale, overflow: "hidden", flexShrink: 0 }}>
+      <div
+        style={{
+          width: 340, height: 214, borderRadius: 16, position: "relative", overflow: "hidden",
+          background: "#fff", border: `1px solid ${C.border}`,
+          boxShadow: scale === 1 ? "0 12px 28px rgba(11,110,79,0.2)" : "none",
+          transform: `scale(${scale})`, transformOrigin: "top left",
+        }}
+      >
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 6, background: `linear-gradient(90deg, ${C.orange} 0%, ${C.orange} 50%, ${C.green} 50%, ${C.green} 100%)` }} />
+        <div style={{ height: "100%", paddingBottom: 12, boxSizing: "border-box" }}>
+          <OrzayahPaiementVerso kind="vehicule" id={vehicule.id} beneficiaire={beneficiaire} reference={vehicule.numeroCarteLigne || vehicule.immatriculation} />
+        </div>
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: ORZAYAH.navy, color: "#fff", textAlign: "center", fontSize: 8.5, fontWeight: 800, padding: "3px 0", letterSpacing: 0.5 }}>
+          ENCAISSEMENT DES PASSAGERS · ORZAYAH
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CarteDroitDeLigne({ vehicule, owner, collectifTransporteurs, collectifChauffeurs, onClose }) {
+  const [flipped, setFlipped] = useState(false);
   const wrapRef = useRef(null);
   const [scale, setScale] = useState(1);
   React.useEffect(() => {
@@ -1482,23 +1568,31 @@ function CarteDroitDeLigne({ vehicule, owner, collectifTransporteurs, collectifC
   return (
     <div className="flex flex-col items-center gap-3" ref={wrapRef} style={{ width: "100%" }}>
       <div className="no-print">
-        <CarteDroitDeLigneFace vehicule={vehicule} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} scale={scale} />
+        {flipped
+          ? <CarteDroitDeLigneVerso vehicule={vehicule} owner={owner} scale={scale} />
+          : <CarteDroitDeLigneFace vehicule={vehicule} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} scale={scale} />}
       </div>
-      <div className="print-card-duo" style={{ display: "none" }}>
+      <div className="print-card-duo flex-wrap gap-4" style={{ display: "none" }}>
         <CarteDroitDeLigneFace vehicule={vehicule} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} />
+        <CarteDroitDeLigneVerso vehicule={vehicule} owner={owner} />
       </div>
-      <button
-        onClick={() => window.print()}
-        className="no-print font-body flex items-center gap-2"
-        style={{ background: C.orange, color: "#fff", fontSize: 13, fontWeight: 800, padding: "10px 18px", borderRadius: 10 }}
-      >
-        <Printer size={15} /> Imprimer
-      </button>
+      <div className="no-print flex items-center gap-2">
+        <button onClick={() => setFlipped((f) => !f)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-2 rounded-full" style={{ border: `1px solid ${C.border}`, color: C.ink, background: "#fff" }}>
+          <RotateCw size={13} /> {flipped ? "Voir le recto" : "Voir le verso"}
+        </button>
+        <button
+          onClick={() => window.print()}
+          className="font-body flex items-center gap-2"
+          style={{ background: C.orange, color: "#fff", fontSize: 13, fontWeight: 800, padding: "10px 18px", borderRadius: 10 }}
+        >
+          <Printer size={15} /> Imprimer (recto + verso)
+        </button>
+      </div>
     </div>
   );
 }
 
-function MemberCard({ member, category, logo1, logo2, numero, ficheValue, infoFields, versoQr, initialFace = "recto" }) {
+function MemberCard({ member, category, logo1, logo2, numero, ficheValue, infoFields, initialFace = "recto" }) {
   const [flipped, setFlipped] = useState(initialFace === "verso");
   const wrapRef = useRef(null);
   const [scale, setScale] = useState(1);
@@ -1517,7 +1611,7 @@ function MemberCard({ member, category, logo1, logo2, numero, ficheValue, infoFi
   }, []);
 
   if (!member) return null;
-  const props = { member, category, logo1, logo2, numero, ficheValue, infoFields, versoQr };
+  const props = { member, category, logo1, logo2, numero, ficheValue, infoFields };
   return (
     <div className="flex flex-col items-center gap-3" ref={wrapRef} style={{ width: "100%" }}>
       <div className="no-print" style={{ width: 340 * scale, height: 214 * scale, overflow: "hidden" }}>
@@ -1541,8 +1635,8 @@ function MemberCard({ member, category, logo1, logo2, numero, ficheValue, infoFi
   );
 }
 
-const LIGNE_CARDS_PER_ROW = 2;
-const LIGNE_CARDS_PER_SHEET = 6; // 3 rangees de 2 cartes, une seule face
+const LIGNE_CARDS_PER_SHEET = 6; // 6 cartes par feuille, recto + verso cote a cote sur chaque ligne
+const LIGNE_SHEET_SCALE = 254 / 340;
 
 // `items` : { key, name, vehicule, owner, collectifTransporteurs, collectifChauffeurs }
 function LigneCardSheet({ items, title }) {
@@ -1552,29 +1646,22 @@ function LigneCardSheet({ items, title }) {
 
   return (
     <div className="print-area print-card-sheet">
-      {groups.map((group, gi) => {
-        const rangees = [];
-        for (let i = 0; i < group.length; i += LIGNE_CARDS_PER_ROW) rangees.push(group.slice(i, i + LIGNE_CARDS_PER_ROW));
-        return (
-          <div key={gi} className="card-sheet-page" style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: gi === 0 ? 0 : 10 }}>
-            {gi === 0 && (
-              <div className="font-body" style={{ fontSize: 11, color: C.slate, marginBottom: 4 }}>
-                COMIX-CI — {title} ({items.length} carte{items.length > 1 ? "s" : ""} de droit d'exploitation de ligne, {LIGNE_CARDS_PER_SHEET} par feuille.
-              </div>
-            )}
-            {rangees.map((rangee, ri) => (
-              <div key={ri} className="flex items-start gap-5">
-                {rangee.map((it) => (
-                  <div key={it.key} className="flex flex-col items-center" style={{ gap: 3 }}>
-                    <CarteDroitDeLigneFace vehicule={it.vehicule} owner={it.owner} collectifTransporteurs={it.collectifTransporteurs} collectifChauffeurs={it.collectifChauffeurs} scale={1} />
-                    <div className="font-body" style={{ fontSize: 9, color: C.slate }}>{it.name}</div>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        );
-      })}
+      {groups.map((group, gi) => (
+        <div key={gi} className="card-sheet-page" style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: gi === 0 ? 0 : 10 }}>
+          {gi === 0 && (
+            <div className="font-body" style={{ fontSize: 11, color: C.slate, marginBottom: 4 }}>
+              COMIX-CI — {title} ({items.length} carte{items.length > 1 ? "s" : ""} de droit d'exploitation de ligne) — recto/verso par ligne, {LIGNE_CARDS_PER_SHEET} cartes/feuille.
+            </div>
+          )}
+          {group.map((it) => (
+            <div key={it.key} className="flex items-center gap-4" style={{ borderBottom: `1px dashed ${C.border}`, paddingBottom: 8 }}>
+              <CarteDroitDeLigneFace vehicule={it.vehicule} owner={it.owner} collectifTransporteurs={it.collectifTransporteurs} collectifChauffeurs={it.collectifChauffeurs} scale={LIGNE_SHEET_SCALE} />
+              <CarteDroitDeLigneVerso vehicule={it.vehicule} owner={it.owner} scale={LIGNE_SHEET_SCALE} />
+              <div className="font-body" style={{ fontSize: 10, color: C.slate }}>{it.name}</div>
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }
@@ -1600,8 +1687,8 @@ function MemberCardSheet({ items, title }) {
           )}
           {group.map((it) => (
             <div key={it.key} className="flex items-center gap-4" style={{ borderBottom: `1px dashed ${C.border}`, paddingBottom: 8 }}>
-              <MemberCardFace member={it.member} category={it.category} logo1={it.logo1} logo2={it.logo2} numero={it.numero} ficheValue={it.ficheValue} infoFields={it.infoFields} versoQr={it.versoQr} side="recto" scale={MEMBER_SHEET_SCALE} />
-              <MemberCardFace member={it.member} category={it.category} logo1={it.logo1} logo2={it.logo2} numero={it.numero} ficheValue={it.ficheValue} infoFields={it.infoFields} versoQr={it.versoQr} side="verso" scale={MEMBER_SHEET_SCALE} />
+              <MemberCardFace member={it.member} category={it.category} logo1={it.logo1} logo2={it.logo2} numero={it.numero} ficheValue={it.ficheValue} infoFields={it.infoFields} side="recto" scale={MEMBER_SHEET_SCALE} />
+              <MemberCardFace member={it.member} category={it.category} logo1={it.logo1} logo2={it.logo2} numero={it.numero} ficheValue={it.ficheValue} infoFields={it.infoFields} side="verso" scale={MEMBER_SHEET_SCALE} />
               <div className="font-body" style={{ fontSize: 10, color: C.slate }}>{it.name}</div>
             </div>
           ))}
