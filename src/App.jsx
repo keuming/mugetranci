@@ -1203,7 +1203,7 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 8, background: theme.barBottom }} />
 
       {isRecto ? (
-        <div className="flex flex-col h-full justify-between" style={{ padding: "11px 18px 13px" }}>
+        <div className="flex flex-col h-full justify-between" style={{ padding: "9px 18px 11px" }}>
           {/* Double logo : collectif (gauche) + association (droite). Un
               membre peut n'appartenir a aucune association : dans ce cas la
               case de droite et le separateur disparaissent entierement,
@@ -1230,18 +1230,16 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
             <div style={{ position: "relative", flexShrink: 0 }}>
               <div
                 style={{
-                  width: 42, height: 42,
-                  borderRadius: theme.photoShape === "squircle" ? 11 : 999,
+                  width: 48, height: 48,
+                  borderRadius: 9,
                   overflow: "hidden", background: C.cream,
-                  border: theme.photoShape === "circle-ring"
-                    ? `2px dashed ${theme.badgeColor}`
-                    : `2px solid ${surFondColore ? theme.photoBorder : C.border}`,
+                  border: `2px solid ${surFondColore ? theme.photoBorder : C.border}`,
                 }}
               >
-                {member.photo ? <img src={member.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-bold text-sm" style={{ color: C.slate }}>{initials(member.nom, member.prenoms)}</div>}
+                {member.photo ? <img src={member.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-bold" style={{ color: C.slate, fontSize: 15 }}>{initials(member.nom, member.prenoms)}</div>}
               </div>
-              <div style={{ position: "absolute", bottom: -2, right: -2, width: 17, height: 17, borderRadius: 999, background: theme.badgeColor, border: "2px solid #fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <theme.badgeIcon size={9} color="#fff" />
+              <div style={{ position: "absolute", bottom: -2, right: -2, width: 18, height: 18, borderRadius: 999, background: theme.badgeColor, border: "2px solid #fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <theme.badgeIcon size={9.5} color="#fff" />
               </div>
             </div>
             <div className="font-body">
