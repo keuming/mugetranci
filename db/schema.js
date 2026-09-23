@@ -166,7 +166,12 @@ export const vehicules = pgTable("vehicules", {
   carteImprimee: boolean("carte_imprimee").default(false).notNull(), // archivage de la carte de droit de ligne, meme logique que les autres categories
   carteImprimeeAt: timestamp("carte_imprimee_at"),
   dateMiseCirculation: date("date_mise_circulation"),
-  photoUrl: text("photo_url"),
+  photoUrl: text("photo_url"), // photo generale du vehicule — non collectee au formulaire, gardee pour compatibilite
+  photoCarteGrise: text("photo_carte_grise"),
+  photoVisiteTechnique: text("photo_visite_technique"),
+  photoAssuranceAuto: text("photo_assurance_auto"),
+  photoVignette: text("photo_vignette"),
+  photoCarteStationnement: text("photo_carte_stationnement"),
   visiteTechniqueDateFin: date("visite_technique_date_fin"),
   assuranceAutoDateFin: date("assurance_auto_date_fin"),
   vignetteDateFin: date("vignette_date_fin"),

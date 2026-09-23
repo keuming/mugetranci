@@ -546,6 +546,11 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
   const [immatriculation, setImmatriculation] = useState("");
   const [dateMiseCirculation, setDateMiseCirculation] = useState("");
   const [photo, setPhoto] = useState(null);
+  const [photoCarteGrise, setPhotoCarteGrise] = useState(null);
+  const [photoVisiteTechnique, setPhotoVisiteTechnique] = useState(null);
+  const [photoAssuranceAuto, setPhotoAssuranceAuto] = useState(null);
+  const [photoVignette, setPhotoVignette] = useState(null);
+  const [photoCarteStationnement, setPhotoCarteStationnement] = useState(null);
   const [docs, setDocs] = useState({ visiteTechnique: "", assuranceAuto: "", vignette: "", carteStationnement: "" });
 
   const [ownerMode, setOwnerMode] = useState(owners.length ? "existing" : "new"); // existing | new
@@ -609,6 +614,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
 
       const createdVehicle = await onSave({
         marque, modele, categorie, nombrePlaces, energie, couleur, typeTechnique, puissanceFiscale, commune, commissionMixteId, chassis, carteGrise, nomCarteGrise, immatriculation, dateMiseCirculation, photo,
+        photoCarteGrise, photoVisiteTechnique, photoAssuranceAuto, photoVignette, photoCarteStationnement,
         documents: docs,
         proprietaireId: finalOwnerId || null,
         chauffeurIds: finalDriverIds,
@@ -646,7 +652,6 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
                 {syndicats.length === 0 && <p className="font-body text-xs mt-1.5" style={{ color: C.red }}>Aucun collectif (syndicat) enregistré — créez-en un depuis la page "Commissions Mixtes" avant d'ajouter un véhicule.</p>}
               </div>
             )}
-            <PhotoUpload value={photo} onChange={setPhoto} label="Photo du véhicule" shape="square" />
             <div className="mt-5">
               <CommuneCommissionSelector commune={commune} onChange={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); }} commissionsMixtes={commissionsMixtes} />
             </div>
@@ -686,6 +691,13 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
               <Field label="Assurance auto"><DateInput value={docs.assuranceAuto} onChange={(e) => setDocs({ ...docs, assuranceAuto: e.target.value })} /></Field>
               <Field label="Vignette"><DateInput value={docs.vignette} onChange={(e) => setDocs({ ...docs, vignette: e.target.value })} /></Field>
               <Field label="Carte de stationnement"><DateInput value={docs.carteStationnement} onChange={(e) => setDocs({ ...docs, carteStationnement: e.target.value })} /></Field>
+            </div>
+            <div className="grid grid-cols-2 gap-5 mt-5" style={{ borderTop: `1px solid ${C.border}`, paddingTop: 18 }}>
+              <PhotoUpload value={photoCarteGrise} onChange={setPhotoCarteGrise} label="Photo — carte grise" shape="square" />
+              <PhotoUpload value={photoVisiteTechnique} onChange={setPhotoVisiteTechnique} label="Photo — visite technique" shape="square" />
+              <PhotoUpload value={photoAssuranceAuto} onChange={setPhotoAssuranceAuto} label="Photo — attestation d'assurance auto" shape="square" />
+              <PhotoUpload value={photoVignette} onChange={setPhotoVignette} label="Photo — vignette" shape="square" />
+              <PhotoUpload value={photoCarteStationnement} onChange={setPhotoCarteStationnement} label="Photo — carte de stationnement" shape="square" />
             </div>
             <p className="font-body text-xs mt-4 px-3 py-2.5 rounded-lg" style={{ color: C.slate, background: C.cream }}>
               💡 Le permis de conduire est suivi au niveau de la fiche de chaque chauffeur (étape suivante) et apparaît automatiquement dans les alertes de ce véhicule.
@@ -5745,6 +5757,11 @@ function VehicleEditForm({ vehicle, onCancel, onSave }) {
   const [chassis, setChassis] = useState(vehicle.chassis || "");
   const [carteGrise, setCarteGrise] = useState(vehicle.carteGrise || "");
   const [nomCarteGrise, setNomCarteGrise] = useState(vehicle.nomCarteGrise || "");
+  const [photoCarteGrise, setPhotoCarteGrise] = useState(vehicle.photoCarteGrise || null);
+  const [photoVisiteTechnique, setPhotoVisiteTechnique] = useState(vehicle.photoVisiteTechnique || null);
+  const [photoAssuranceAuto, setPhotoAssuranceAuto] = useState(vehicle.photoAssuranceAuto || null);
+  const [photoVignette, setPhotoVignette] = useState(vehicle.photoVignette || null);
+  const [photoCarteStationnement, setPhotoCarteStationnement] = useState(vehicle.photoCarteStationnement || null);
   const [immatriculation, setImmatriculation] = useState(vehicle.immatriculation || "");
   const [dateMiseCirculation, setDateMiseCirculation] = useState(vehicle.dateMiseCirculation || "");
   const [docs, setDocs] = useState({
@@ -5762,7 +5779,7 @@ function VehicleEditForm({ vehicle, onCancel, onSave }) {
     setSaving(true);
     setError(null);
     try {
-      await onSave({ marque, modele, categorie, nombrePlaces, energie, couleur, typeTechnique, puissanceFiscale, chassis, carteGrise, nomCarteGrise, immatriculation, dateMiseCirculation, documents: docs });
+      await onSave({ marque, modele, categorie, nombrePlaces, energie, couleur, typeTechnique, puissanceFiscale, chassis, carteGrise, nomCarteGrise, immatriculation, dateMiseCirculation, documents: docs, photoCarteGrise, photoVisiteTechnique, photoAssuranceAuto, photoVignette, photoCarteStationnement });
     } catch (err) {
       setError(err.message || "Erreur lors de la mise à jour.");
       setSaving(false);
@@ -5804,6 +5821,13 @@ function VehicleEditForm({ vehicle, onCancel, onSave }) {
           <Field label="Assurance auto"><DateInput value={docs.assuranceAuto} onChange={(e) => setDocs({ ...docs, assuranceAuto: e.target.value })} /></Field>
           <Field label="Vignette"><DateInput value={docs.vignette} onChange={(e) => setDocs({ ...docs, vignette: e.target.value })} /></Field>
           <Field label="Carte de stationnement"><DateInput value={docs.carteStationnement} onChange={(e) => setDocs({ ...docs, carteStationnement: e.target.value })} /></Field>
+        </div>
+        <div className="grid grid-cols-2 gap-4 mt-4" style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
+          <PhotoUpload value={photoCarteGrise} onChange={setPhotoCarteGrise} label="Photo — carte grise" shape="square" />
+          <PhotoUpload value={photoVisiteTechnique} onChange={setPhotoVisiteTechnique} label="Photo — visite technique" shape="square" />
+          <PhotoUpload value={photoAssuranceAuto} onChange={setPhotoAssuranceAuto} label="Photo — attestation d'assurance auto" shape="square" />
+          <PhotoUpload value={photoVignette} onChange={setPhotoVignette} label="Photo — vignette" shape="square" />
+          <PhotoUpload value={photoCarteStationnement} onChange={setPhotoCarteStationnement} label="Photo — carte de stationnement" shape="square" />
         </div>
       </div>
 

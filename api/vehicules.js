@@ -120,6 +120,11 @@ function toDbVehicule(body) {
     associationId: rest.associationId || null,
     nombrePlaces: rest.nombrePlaces ? Number(rest.nombrePlaces) : null,
     photoUrl: photo ?? null,
+    photoCarteGrise: rest.photoCarteGrise ?? null,
+    photoVisiteTechnique: rest.photoVisiteTechnique ?? null,
+    photoAssuranceAuto: rest.photoAssuranceAuto ?? null,
+    photoVignette: rest.photoVignette ?? null,
+    photoCarteStationnement: rest.photoCarteStationnement ?? null,
     visiteTechniqueDateFin: documents.visiteTechnique || null,
     assuranceAutoDateFin: documents.assuranceAuto || null,
     vignetteDateFin: documents.vignette || null,
@@ -378,6 +383,11 @@ export default async function handler(req, res) {
       patch.carteImprimee = !!body.carteImprimee;
       patch.carteImprimeeAt = body.carteImprimee ? new Date() : null;
     }
+    if ("photoCarteGrise" in body) patch.photoCarteGrise = body.photoCarteGrise || null;
+    if ("photoVisiteTechnique" in body) patch.photoVisiteTechnique = body.photoVisiteTechnique || null;
+    if ("photoAssuranceAuto" in body) patch.photoAssuranceAuto = body.photoAssuranceAuto || null;
+    if ("photoVignette" in body) patch.photoVignette = body.photoVignette || null;
+    if ("photoCarteStationnement" in body) patch.photoCarteStationnement = body.photoCarteStationnement || null;
     if ("proprietaireId" in body) patch.proprietaireId = body.proprietaireId || null;
     if ("visiteTechnique" in documents) patch.visiteTechniqueDateFin = documents.visiteTechnique || null;
     if ("assuranceAuto" in documents) patch.assuranceAutoDateFin = documents.assuranceAuto || null;
