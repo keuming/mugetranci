@@ -883,6 +883,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
 function FicheVehicule({ vehicle, owners, drivers, commissionsMixtes, syndicats, associations = [], garesRoutieres, onClose }) {
   const owner = owners.find((o) => o.id === vehicle.proprietaireId);
   const vDrivers = vehicle.chauffeurIds.map((id) => drivers.find((d) => d.id === id)).filter(Boolean);
+  const [showCarteLigne, setShowCarteLigne] = useState(false);
 
   // Entête personnalisé — même logique que la carte de membre (logos
   // explicitement choisis, avec repli sur le rattachement syndicat/
@@ -894,8 +895,31 @@ function FicheVehicule({ vehicle, owners, drivers, commissionsMixtes, syndicats,
   const headerFallbackLabel = "Commissions Mixtes de Côte d'Ivoire — COMIX-CI";
   const headerTitle = headerEntity ? (headerEntity.sigle ? `${headerEntity.nom} — ${headerEntity.sigle}` : headerEntity.nom) : headerFallbackLabel;
 
+  // Carte de droit d'exploitation de ligne : rattachee aux DEUX collectifs
+  // de la commune du vehicule (transporteurs = son propre collectif,
+  // chauffeurs = le collectif jumeau de meme commune).
+  const norm = (s) => (s || "").trim().toUpperCase();
+  const collectifTransporteurs = syndicats.find((s) => s.id === vehicle.syndicatId) || autoSyndicat || null;
+  const collectifChauffeurs = collectifTransporteurs
+    ? syndicats.find((s) => norm(s.commune) === norm(collectifTransporteurs.commune) && s.type === "chauffeurs")
+    : null;
+
   return (
     <div className="fiche-modal-scroll flex flex-col gap-4">
+      <div className="flex justify-end no-print">
+        <button
+          onClick={() => setShowCarteLigne(true)}
+          className="font-body flex items-center gap-1.5"
+          style={{ background: C.orange, color: "#fff", fontSize: 12.5, fontWeight: 800, padding: "8px 14px", borderRadius: 9 }}
+        >
+          <CreditCard size={14} /> Carte de droit de ligne
+        </button>
+      </div>
+      {showCarteLigne && (
+        <Modal onClose={() => setShowCarteLigne(false)} title="Carte de droit d'exploitation de ligne" wide>
+          <CarteDroitDeLigne vehicule={vehicle} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} onClose={() => setShowCarteLigne(false)} />
+        </Modal>
+      )}
       <div className="print-area" style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
         <div style={{ background: `linear-gradient(120deg, ${C.green} 0%, ${C.greenDark} 75%)`, padding: "20px 28px", position: "relative" }}>
           <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 8, background: C.orange }} />
@@ -1327,6 +1351,137 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
       <div style={{ width: 340, height: 214, transform: `scale(${scale})`, transformOrigin: "top left" }}>
         {card}
       </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   CARTE DE DROIT D'EXPLOITATION DE LIGNE
+   Modelee sur la carte physique CSTY-COSYNCY fournie : rattachee au
+   VEHICULE (pas a un membre), elle porte les deux collectifs de la
+   commune, l'identite du transporteur, les caracteristiques techniques
+   du vehicule et un QR d'acces a sa fiche publique.
+   ============================================================ */
+function CarteDroitDeLigneFace({ vehicule, owner, collectifTransporteurs, collectifChauffeurs, scale = 1 }) {
+  const numero = vehicule.numeroCarteLigne || "—";
+  const dateInscription = vehicule.createdAt ? fmt(vehicule.createdAt) : "—";
+  const president = collectifTransporteurs?.presidentNom;
+
+  return (
+    <div style={{ width: 340 * scale, height: 214 * scale, overflow: "hidden", flexShrink: 0 }}>
+      <div
+        style={{
+          width: 340, height: 214, borderRadius: 16, position: "relative", overflow: "hidden",
+          background: "#fff", border: `1px solid ${C.border}`,
+          boxShadow: scale === 1 ? "0 12px 28px rgba(11,110,79,0.2)" : "none",
+          transform: `scale(${scale})`, transformOrigin: "top left",
+        }}
+      >
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 6, background: `linear-gradient(90deg, ${C.green} 0%, ${C.green} 50%, ${C.orange} 50%, ${C.orange} 100%)` }} />
+
+        <div className="font-body" style={{ padding: "8px 14px 22px", display: "flex", flexDirection: "column", height: "100%", boxSizing: "border-box" }}>
+          {/* Logos des deux collectifs + titre */}
+          <div className="flex items-start justify-between">
+            <div style={{ width: 30, height: 30, borderRadius: 999, overflow: "hidden", background: C.cream, border: `1.5px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              {collectifTransporteurs?.logoUrl ? <img src={collectifTransporteurs.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Building2 size={15} color={C.green} />}
+            </div>
+            <div style={{ flex: 1, textAlign: "center", padding: "0 6px" }}>
+              <div className="font-display" style={{ fontSize: 16, fontWeight: 800, color: C.orangeDark, letterSpacing: 0.5, lineHeight: 1 }}>{collectifTransporteurs?.sigle || "COMIX-CI"}</div>
+              <div style={{ fontSize: 6, color: C.slate, lineHeight: 1.15, marginTop: 1 }}>{collectifTransporteurs?.nom || "Collectif des syndicats des transporteurs"}</div>
+            </div>
+            <div style={{ width: 30, height: 30, borderRadius: 999, overflow: "hidden", background: C.cream, border: `1.5px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              {collectifChauffeurs?.logoUrl ? <img src={collectifChauffeurs.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Users size={15} color={C.greenDark} />}
+            </div>
+          </div>
+
+          {/* Immatriculation en evidence */}
+          <div style={{ textAlign: "center", background: C.greenLight, borderRadius: 8, padding: "2px 0", margin: "3px 0" }}>
+            <span className="font-mono" style={{ fontSize: 19, fontWeight: 800, color: C.ink, letterSpacing: 1 }}>{vehicule.immatriculation}</span>
+          </div>
+
+          <div className="flex" style={{ flex: 1, gap: 10, minHeight: 0 }}>
+            {/* Colonne gauche : identite du transporteur + N carte + president */}
+            <div style={{ width: 128, display: "flex", flexDirection: "column", gap: 2 }}>
+              <div style={{ fontSize: 7.5, color: C.slate }}>Nom</div>
+              <div style={{ fontSize: 9.5, fontWeight: 700, color: C.ink, marginTop: -2 }}>{owner?.nom || "—"}</div>
+              <div style={{ fontSize: 7.5, color: C.slate, marginTop: 2 }}>Prénoms</div>
+              <div style={{ fontSize: 9.5, fontWeight: 700, color: C.ink, marginTop: -2 }}>{owner?.prenoms || "—"}</div>
+              <div style={{ fontSize: 7.5, color: C.slate, marginTop: 2 }}>Matricule</div>
+              <div className="font-mono" style={{ fontSize: 8.5, fontWeight: 700, color: C.orangeDark, marginTop: -2 }}>{owner?.carteTransporteurNumero || "—"}</div>
+
+              <div style={{ marginTop: "auto" }}>
+                <div style={{ border: `1px solid ${C.ink}`, borderRadius: 4, padding: "2px 6px", display: "inline-block" }}>
+                  <span className="font-mono" style={{ fontSize: 10, fontWeight: 800, color: C.ink }}>N° {numero}</span>
+                </div>
+                {president && (
+                  <div style={{ marginTop: 2, fontSize: 5.5, color: C.slate, lineHeight: 1.1 }}>
+                    Le Président · <span style={{ fontWeight: 700, color: C.ink }}>{president}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Colonne droite : caracteristiques techniques */}
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 1, fontSize: 7.5, minWidth: 0 }}>
+              {[
+                ["Énergie", vehicule.energie],
+                ["Places assises", vehicule.nombrePlaces],
+                ["Type technique", vehicule.typeTechnique],
+                ["Type commercial", [vehicule.marque, vehicule.modele].filter(Boolean).join(" ")],
+                ["Puissance fiscale", vehicule.puissanceFiscale],
+                ["Couleur", vehicule.couleur],
+              ].map(([label, val]) => (
+                <div key={label} className="flex justify-between" style={{ borderBottom: `1px dotted ${C.border}`, paddingBottom: 1 }}>
+                  <span style={{ color: C.slate }}>{label}</span>
+                  <span style={{ fontWeight: 700, color: C.ink }}>{val || "—"}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* QR d'acces a la fiche publique du vehicule */}
+            <div style={{ flexShrink: 0, alignSelf: "flex-end", background: "#fff", borderRadius: 5, padding: 2, border: `1px solid ${C.border}` }}>
+              <QRCodeSVG value={ficheUrl(vehicule.id)} size={46} bgColor="#ffffff" fgColor={C.ink} level="M" />
+            </div>
+          </div>
+
+          <div style={{ textAlign: "center", fontSize: 7.5, color: C.red, fontWeight: 700, marginTop: 1, flexShrink: 0 }}>
+            Date d'inscription : {dateInscription}
+          </div>
+        </div>
+
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: C.ink, color: "#fff", textAlign: "center", fontSize: 9, fontWeight: 800, padding: "3px 0", letterSpacing: 0.5 }}>
+          DROIT D'EXPLOITATION DE LIGNE
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CarteDroitDeLigne({ vehicule, owner, collectifTransporteurs, collectifChauffeurs, onClose }) {
+  const wrapRef = useRef(null);
+  const [scale, setScale] = useState(1);
+  React.useEffect(() => {
+    const ajuster = () => setScale(Math.min(1, (wrapRef.current?.clientWidth || 340) / 344));
+    ajuster();
+    window.addEventListener("resize", ajuster);
+    return () => window.removeEventListener("resize", ajuster);
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center gap-3" ref={wrapRef} style={{ width: "100%" }}>
+      <div className="no-print">
+        <CarteDroitDeLigneFace vehicule={vehicule} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} scale={scale} />
+      </div>
+      <div className="print-card-duo" style={{ display: "none" }}>
+        <CarteDroitDeLigneFace vehicule={vehicule} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} />
+      </div>
+      <button
+        onClick={() => window.print()}
+        className="no-print font-body flex items-center gap-2"
+        style={{ background: C.orange, color: "#fff", fontSize: 13, fontWeight: 800, padding: "10px 18px", borderRadius: 10 }}
+      >
+        <Printer size={15} /> Imprimer
+      </button>
     </div>
   );
 }
