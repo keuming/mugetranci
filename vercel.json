@@ -15,6 +15,10 @@
     {
       "source": "/fiche",
       "destination": "/fiche.html"
+    },
+    {
+      "source": "/fnia",
+      "destination": "/fnia.html"
     }
   ],
   "headers": [

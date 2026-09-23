@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { elements, syndicats, garesRoutieres } from "../db/schema.js";
+import { elements, syndicats, garesRoutieres, associations, commissionsMixtes, lignes } from "../db/schema.js";
 import { requireAuth, agentPeutGerer } from "../lib/auth.js";
 import { genererNumeroCarte } from "../lib/cards.js";
 
@@ -13,9 +13,66 @@ function toDb(body) {
   return { ...rest, photoUrl: photo ?? null, qrPaiementUrl: qrPaiement ?? null, commissionMixteId: rest.commissionMixteId || null, commune: rest.commune || null, associationId: rest.associationId || null };
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/* Fiche Numerique d'Identification de l'Administrateur (FNIA) : contenu du
+   QR code de la carte "element". Volontairement SANS authentification --
+   n'importe qui peut se presenter comme agent administratif aupres d'un
+   chauffeur ; le but explicite de cette fiche est de permettre a quiconque
+   de verifier sur-le-champ, en scannant la carte, que la personne occupe
+   reellement le poste qu'elle revendique, pour quel collectif, quelle
+   gare et quelle ligne. Aucun code PIN, aucun identifiant de connexion. */
+async function handleFniaPublique(req, res, elementId) {
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET");
+    return res.status(405).json({ error: "Méthode non autorisée" });
+  }
+  if (!elementId || !UUID_RE.test(elementId)) {
+    return res.status(400).json({ error: "Adresse de fiche invalide : ce lien ne correspond à aucun dossier." });
+  }
+  let e;
+  try {
+    [e] = await db.select().from(elements).where(eq(elements.id, elementId));
+  } catch (err) {
+    console.error("GET fnia-publique:", err);
+    return res.status(400).json({ error: "Adresse de fiche invalide." });
+  }
+  if (!e) return res.status(404).json({ error: "Dossier introuvable." });
+
+  const [collectif] = e.syndicatId ? await db.select().from(syndicats).where(eq(syndicats.id, e.syndicatId)) : [null];
+  const [assoc] = e.associationId ? await db.select().from(associations).where(eq(associations.id, e.associationId)) : [null];
+  const [commission] = e.commissionMixteId ? await db.select().from(commissionsMixtes).where(eq(commissionsMixtes.id, e.commissionMixteId)) : [null];
+  const [gare] = e.gareRoutiereId ? await db.select().from(garesRoutieres).where(eq(garesRoutieres.id, e.gareRoutiereId)) : [null];
+  const [ligne] = e.ligneId ? await db.select().from(lignes).where(eq(lignes.id, e.ligneId)) : [null];
+
+  return res.status(200).json({
+    agent: {
+      nom: e.nom, prenoms: e.prenoms, photoUrl: e.photoUrl,
+      numeroCarte: e.numeroCarte, fonction: e.fonction, commune: e.commune,
+      contact1: e.contact1,
+    },
+    collectif: collectif ? { nom: collectif.nom, sigle: collectif.sigle, type: collectif.type, commune: collectif.commune } : null,
+    association: assoc ? { nom: assoc.nom, sigle: assoc.sigle } : null,
+    commissionMixte: commission ? { nom: commission.nom, sigle: commission.sigle, commune: commission.commune } : null,
+    gare: gare ? {
+      nom: gare.nom, commune: gare.commune, quartier: gare.quartier,
+      chefGareNom: gare.responsableNom, chefGareContact: gare.responsableContact,
+    } : null,
+    ligne: ligne ? {
+      trajet: `${ligne.lieuDepart} — ${ligne.lieuArrivee}`,
+      chefLigneNom: ligne.chefNom, chefLigneContact: ligne.chefContact,
+    } : null,
+  });
+}
+
 export default async function handler(req, res) {
   const idParam = req.query.id;
   const id = Array.isArray(idParam) ? idParam[0] : idParam;
+
+  if (req.query.resource === "fnia-publique") {
+    return handleFniaPublique(req, res, id);
+  }
+
   const auth = requireAuth(req, res);
   if (!auth) return;
 

@@ -48,7 +48,7 @@ export default defineConfig({
         // pour toute navigation non exclue ici : sans ces exclusions, les
         // pages statiques publiques (fiche, installer) ouvraient a tort le
         // tableau de bord en cache au lieu de leur propre contenu.
-        navigateFallbackDenylist: [/^\/api\//, /^\/fiche/, /^\/installer/, /^\/install$/, /\.html$/],
+        navigateFallbackDenylist: [/^\/api\//, /^\/fiche/, /^\/fnia/, /^\/installer/, /^\/install$/, /\.html$/],
       },
     }),
   ],

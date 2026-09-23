@@ -186,6 +186,12 @@ function initials(nom, prenoms) {
 function ficheUrl(vehicleId) {
   return `${window.location.origin}/fiche?id=${vehicleId}`;
 }
+// Fiche Numerique d'Identification de l'Administrateur (FNIA) : adresse
+// publique embarquee dans le QR de la carte Element, pour verifier sur
+// place la qualite reellement revendiquee par un agent administratif.
+function fniaUrl(elementId) {
+  return `${window.location.origin}/fnia?id=${elementId}`;
+}
 // Résout l'entité (commission mixte, syndicat ou gare routière) qui a créé
 // un transporteur donné — utilisé pour personnaliser l'entête de la fiche
 // et de la carte transporteur.
@@ -1177,7 +1183,7 @@ function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles, a
   return {
     logo1, logo2,
     numero: member.numeroCarte,
-    ficheValue: `element:${member.id}`,
+    ficheValue: fniaUrl(member.id),
     infoFields: [{ label: "Fonction", value: member.fonction }, { label: "Téléphone", value: member.contact1 }],
     versoQr: false,
   };

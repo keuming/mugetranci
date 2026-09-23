@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0B6E4F" />
+  <title>FNIA — COMIX-CI</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <style>
+    :root {
+      --vert: #0B6E4F; --vert-fonce: #07422F; --vert-clair: #E4F1EC;
+      --orange: #E07A1F; --orange-fonce: #B35F14; --orange-clair: #FBEADA;
+      --creme: #FAF8F3; --encre: #20241F; --ardoise: #69726B; --bord: #E4E0D6;
+    }
+    * { box-sizing: border-box; -webkit-text-size-adjust: 100%; }
+    html, body { margin: 0; overflow-x: hidden; background: var(--creme); overscroll-behavior: none; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--encre); line-height: 1.5; touch-action: manipulation; }
+    header {
+      background: linear-gradient(135deg, var(--vert-fonce), var(--vert));
+      padding: calc(env(safe-area-inset-top) + 22px) 20px 26px; position: relative; color: #fff;
+    }
+    header::after { content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 5px; background: linear-gradient(90deg, var(--orange) 0 50%, #fff 50% 100%); }
+    .marque { display: flex; align-items: center; gap: 12px; }
+    .logo { width: 42px; height: 42px; border-radius: 12px; background: var(--orange); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 22px; }
+    h1 { font-size: 17px; font-weight: 800; margin: 0; letter-spacing: -0.2px; }
+    .sous { font-size: 11.5px; opacity: .8; margin: 2px 0 0; }
+    main { padding: 18px 16px 40px; max-width: 560px; margin: 0 auto; }
+
+    .carte-agent { background: linear-gradient(145deg, var(--vert-fonce), var(--vert)); border-radius: 16px; padding: 18px; margin-bottom: 14px; color: #fff; }
+    .avatar-grand { width: 62px; height: 62px; border-radius: 12px; background: rgba(255,255,255,.15); border: 2px solid rgba(255,255,255,.5); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; overflow: hidden; }
+    .avatar-grand img { width: 100%; height: 100%; object-fit: cover; }
+    .agent-nom { font-size: 18px; font-weight: 800; }
+    .agent-qualite { display: inline-block; margin-top: 4px; font-size: 12.5px; font-weight: 800; padding: 3px 11px; border-radius: 99px; background: var(--orange); color: #fff; }
+    .agent-num { font-family: ui-monospace, monospace; font-size: 12px; margin-top: 6px; opacity: .85; }
+
+    .section { background: #fff; border: 1.5px solid var(--bord); border-radius: 15px; padding: 16px; margin-bottom: 14px; }
+    .section h2 { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--vert-fonce); margin: 0 0 12px; display: flex; align-items: center; gap: 7px; }
+    .section h2 .puce { width: 8px; height: 8px; border-radius: 99px; background: var(--orange); flex-shrink: 0; }
+    .ligne { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--bord); font-size: 14px; }
+    .ligne:last-child { border-bottom: none; }
+    .cle { color: var(--ardoise); flex-shrink: 0; }
+    .val { font-weight: 700; text-align: right; word-break: break-word; }
+    .vide { text-align: center; color: var(--ardoise); font-size: 13.5px; padding: 10px 0; }
+    .alerte { background: #FBF0D8; border-left: 5px solid #A9740B; border-radius: 11px; padding: 13px 15px; font-size: 13px; margin-bottom: 14px; color: #7A5A08; }
+    footer { text-align: center; font-size: 11px; color: var(--ardoise); padding: 10px 16px calc(env(safe-area-inset-bottom) + 26px); }
+    footer b { color: var(--encre); font-weight: 700; }
+    #etat { text-align: center; padding: 60px 20px; color: var(--ardoise); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="marque">
+      <div class="logo">🛡️</div>
+      <div>
+        <h1>Fiche Numérique d'Identification de l'Administrateur</h1>
+        <p class="sous">FNIA — Vérification d'un agent administratif COMIX-CI</p>
+      </div>
+    </div>
+  </header>
+
+  <main id="contenu">
+    <div id="etat">Chargement de la fiche…</div>
+  </main>
+
+  <footer>© <span id="annee"></span> <b>ORZAYAH SOLUTIONS</b></footer>
+
+  <script>
+    document.getElementById("annee").textContent = new Date().getFullYear();
+
+    function avatarHtml(photoUrl, nom, prenoms) {
+      const init = ((prenoms || "?")[0] || "") + ((nom || "?")[0] || "");
+      return photoUrl
+        ? `<div class="avatar-grand"><img src="${photoUrl}" alt="" /></div>`
+        : `<div class="avatar-grand">${init.toUpperCase()}</div>`;
+    }
+
+    async function charger() {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get("id");
+      const zone = document.getElementById("contenu");
+      if (!id) { zone.innerHTML = '<div id="etat">Adresse incomplète — aucun identifiant fourni.</div>'; return; }
+
+      let data;
+      try {
+        const r = await fetch(`/api/elements?resource=fnia-publique&id=${encodeURIComponent(id)}`);
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || "Fiche introuvable.");
+        data = await r.json();
+      } catch (err) {
+        zone.innerHTML = `<div id="etat">${err.message || "Ce dossier n'existe pas ou n'est plus accessible."}</div>`;
+        return;
+      }
+
+      const a = data.agent, col = data.collectif, asso = data.association, cm = data.commissionMixte, gare = data.gare, ligne = data.ligne;
+      const qualitesPointFocal = ["Chef de gare", "Chef de ligne", "Chargeur", "Chauffeur", "Transporteur", "Vendeur de ticket", "Contrôleur"];
+      const estPointFocal = a.fonction && qualitesPointFocal.includes(a.fonction);
+
+      let html = "";
+
+      // Bandeau d'identite de l'agent
+      html += `<div class="carte-agent">
+        <div style="display:flex; align-items:center; gap:14px;">
+          ${avatarHtml(a.photoUrl, a.nom, a.prenoms)}
+          <div>
+            <div class="agent-nom">${a.prenoms} ${a.nom}</div>
+            ${a.fonction ? `<div class="agent-qualite">${a.fonction}</div>` : ""}
+            <div class="agent-num">${a.numeroCarte || "—"}</div>
+          </div>
+        </div>
+      </div>`;
+
+      if (estPointFocal && a.commune) {
+        html += `<div class="alerte"><b>Point Focal — ${a.commune}.</b> Cette qualité l'autorise à représenter le collectif dans l'exercice de ses fonctions à ${a.commune}, dans la limite de la gare et de la ligne indiquées ci-dessous.</div>`;
+      }
+
+      // Rattachement organisationnel
+      html += `<div class="section"><h2><span class="puce"></span>Rattachement</h2>`;
+      html += `<div class="ligne"><span class="cle">Commune</span><span class="val">${a.commune || "—"}</span></div>`;
+      html += `<div class="ligne"><span class="cle">Commission mixte</span><span class="val">${cm ? (cm.sigle || cm.nom) : "—"}</span></div>`;
+      html += `<div class="ligne"><span class="cle">Collectif</span><span class="val">${col ? (col.sigle || col.nom) + (col.type ? ` (${col.type === "transporteurs" ? "Transporteurs" : "Chauffeurs"})` : "") : "—"}</span></div>`;
+      html += `<div class="ligne"><span class="cle">Association</span><span class="val">${asso ? (asso.sigle || asso.nom) : "—"}</span></div>`;
+      html += `</div>`;
+
+      // Gare et chef de gare
+      html += `<div class="section"><h2><span class="puce"></span>Gare routière</h2>`;
+      if (gare) {
+        html += `<div class="ligne"><span class="cle">Gare</span><span class="val">${gare.nom}${gare.commune ? " — " + gare.commune : ""}</span></div>`;
+        if (gare.quartier) html += `<div class="ligne"><span class="cle">Quartier</span><span class="val">${gare.quartier}</span></div>`;
+        html += `<div class="ligne"><span class="cle">Chef de gare</span><span class="val">${gare.chefGareNom ? gare.chefGareNom + (gare.chefGareContact ? " · " + gare.chefGareContact : "") : "Non renseigné"}</span></div>`;
+      } else {
+        html += `<div class="vide">Aucune gare rattachée à ce dossier.</div>`;
+      }
+      html += `</div>`;
+
+      // Ligne et chef de ligne
+      html += `<div class="section"><h2><span class="puce"></span>Ligne</h2>`;
+      if (ligne) {
+        html += `<div class="ligne"><span class="cle">Trajet</span><span class="val">${ligne.trajet}</span></div>`;
+        html += `<div class="ligne"><span class="cle">Chef de ligne</span><span class="val">${ligne.chefLigneNom ? ligne.chefLigneNom + (ligne.chefLigneContact ? " · " + ligne.chefLigneContact : "") : "Non renseigné"}</span></div>`;
+      } else {
+        html += `<div class="vide">Aucune ligne rattachée à ce dossier.</div>`;
+      }
+      html += `</div>`;
+
+      zone.innerHTML = html;
+    }
+
+    charger();
+  </script>
+</body>
+</html>
