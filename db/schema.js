@@ -163,6 +163,8 @@ export const vehicules = pgTable("vehicules", {
   typeTechnique: varchar("type_technique", { length: 30 }), // code technique du vehicule
   puissanceFiscale: varchar("puissance_fiscale", { length: 10 }), // "Types Fiscal" — puissance en CV
   numeroCarteLigne: varchar("numero_carte_ligne", { length: 20 }), // N° de la carte de droit de ligne (genere a la creation)
+  carteImprimee: boolean("carte_imprimee").default(false).notNull(), // archivage de la carte de droit de ligne, meme logique que les autres categories
+  carteImprimeeAt: timestamp("carte_imprimee_at"),
   dateMiseCirculation: date("date_mise_circulation"),
   photoUrl: text("photo_url"),
   visiteTechniqueDateFin: date("visite_technique_date_fin"),

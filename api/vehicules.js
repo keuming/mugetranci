@@ -374,6 +374,10 @@ export default async function handler(req, res) {
     if ("couleur" in body) patch.couleur = body.couleur || null;
     if ("typeTechnique" in body) patch.typeTechnique = body.typeTechnique || null;
     if ("puissanceFiscale" in body) patch.puissanceFiscale = body.puissanceFiscale || null;
+    if ("carteImprimee" in body) {
+      patch.carteImprimee = !!body.carteImprimee;
+      patch.carteImprimeeAt = body.carteImprimee ? new Date() : null;
+    }
     if ("proprietaireId" in body) patch.proprietaireId = body.proprietaireId || null;
     if ("visiteTechnique" in documents) patch.visiteTechniqueDateFin = documents.visiteTechnique || null;
     if ("assuranceAuto" in documents) patch.assuranceAutoDateFin = documents.assuranceAuto || null;

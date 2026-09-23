@@ -1529,6 +1529,44 @@ function MemberCard({ member, category, logo1, logo2, numero, ficheValue, infoFi
   );
 }
 
+const LIGNE_CARDS_PER_ROW = 2;
+const LIGNE_CARDS_PER_SHEET = 6; // 3 rangees de 2 cartes, une seule face
+
+// `items` : { key, name, vehicule, owner, collectifTransporteurs, collectifChauffeurs }
+function LigneCardSheet({ items, title }) {
+  if (!items.length) return null;
+  const groups = [];
+  for (let i = 0; i < items.length; i += LIGNE_CARDS_PER_SHEET) groups.push(items.slice(i, i + LIGNE_CARDS_PER_SHEET));
+
+  return (
+    <div className="print-area print-card-sheet">
+      {groups.map((group, gi) => {
+        const rangees = [];
+        for (let i = 0; i < group.length; i += LIGNE_CARDS_PER_ROW) rangees.push(group.slice(i, i + LIGNE_CARDS_PER_ROW));
+        return (
+          <div key={gi} className="card-sheet-page" style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: gi === 0 ? 0 : 10 }}>
+            {gi === 0 && (
+              <div className="font-body" style={{ fontSize: 11, color: C.slate, marginBottom: 4 }}>
+                COMIX-CI — {title} ({items.length} carte{items.length > 1 ? "s" : ""} de droit d'exploitation de ligne, {LIGNE_CARDS_PER_SHEET} par feuille.
+              </div>
+            )}
+            {rangees.map((rangee, ri) => (
+              <div key={ri} className="flex items-start gap-5">
+                {rangee.map((it) => (
+                  <div key={it.key} className="flex flex-col items-center" style={{ gap: 3 }}>
+                    <CarteDroitDeLigneFace vehicule={it.vehicule} owner={it.owner} collectifTransporteurs={it.collectifTransporteurs} collectifChauffeurs={it.collectifChauffeurs} scale={1} />
+                    <div className="font-body" style={{ fontSize: 9, color: C.slate }}>{it.name}</div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 const MEMBER_CARDS_PER_SHEET = 6;
 const MEMBER_SHEET_SCALE = 254 / 340;
 
@@ -2800,6 +2838,8 @@ function Dashboard({ auth, onLogout }) {
   const [cardDriver, setCardDriver] = useState(null);
   const [cardOwner, setCardOwner] = useState(null);
   const [selectedOwnerIds, setSelectedOwnerIds] = useState([]);
+  const [selectedVehicleIds, setSelectedVehicleIds] = useState([]);
+  const [showVehiclesArchive, setShowVehiclesArchive] = useState(false);
   const [cardElement, setCardElement] = useState(null);
   const [selectedElementIds, setSelectedElementIds] = useState([]);
   const [elements, setElements] = useState([]);
@@ -3567,20 +3607,74 @@ function Dashboard({ auth, onLogout }) {
             </div>
           )}
 
-          {page === "vehicles" && (
-            <SectionCard
-              accent={C.green}
-              icon={<Car size={18} />}
-              title={`Tous les véhicules (${filteredVehicles.length})${onlyExpiredFilter ? " — documents périmés" : ""}`}
-              right={onlyExpiredFilter && (
-                <button onClick={() => setOnlyExpiredFilter(false)} className="font-body text-xs font-semibold flex items-center gap-1" style={{ color: C.red }}>
-                  <X size={13} /> Retirer le filtre
+          {page === "vehicles" && (() => {
+            const norm = (s) => (s || "").trim().toUpperCase();
+            const eligibles = filteredVehicles.filter((v) => !!v.carteImprimee === showVehiclesArchive);
+            return (
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <button onClick={() => { setShowVehiclesArchive(false); setSelectedVehicleIds([]); }} className="font-body text-xs font-semibold px-3.5 py-2 rounded-full" style={{ background: !showVehiclesArchive ? C.orangeLight : "transparent", color: !showVehiclesArchive ? C.orangeDark : C.slate, border: `1px solid ${!showVehiclesArchive ? C.orange : C.border}` }}>
+                  Nouvelles cartes ({filteredVehicles.filter((v) => !v.carteImprimee).length})
                 </button>
-              )}
-            >
-              <VehicleTable vehicles={filteredVehicles} owners={owners} onFiche={openFiche} onPhoto={updateVehiclePhoto} commissionsMixtes={commissionsMixtes} lignes={lignes} affectations={affectations} onReassign={setReassignVehicle} onEdit={setEditVehicle} onDelete={deleteVehicle} />
-            </SectionCard>
-          )}
+                <button onClick={() => { setShowVehiclesArchive(true); setSelectedVehicleIds([]); }} className="font-body text-xs font-semibold px-3.5 py-2 rounded-full" style={{ background: showVehiclesArchive ? C.orangeLight : "transparent", color: showVehiclesArchive ? C.orangeDark : C.slate, border: `1px solid ${showVehiclesArchive ? C.orange : C.border}` }}>
+                  Archives — cartes imprimées ({filteredVehicles.filter((v) => v.carteImprimee).length})
+                </button>
+              </div>
+              <div className="flex items-center justify-between px-4 py-3 rounded-lg" style={{ background: "#fff", border: `1px solid ${C.border}` }}>
+                <div className="font-body text-sm" style={{ color: C.slate }}>
+                  {selectedVehicleIds.length > 0 ? `${selectedVehicleIds.length} véhicule${selectedVehicleIds.length > 1 ? "s" : ""} sélectionné${selectedVehicleIds.length > 1 ? "s" : ""}` : "Sélectionnez des véhicules pour générer une planche de cartes de droit de ligne à imprimer"}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setSelectedVehicleIds(selectedVehicleIds.length === eligibles.length ? [] : eligibles.map((v) => v.id))}
+                    className="font-body text-xs font-semibold px-3 py-1.5 rounded-full"
+                    style={{ border: `1px solid ${C.border}`, color: C.ink }}
+                  >
+                    {selectedVehicleIds.length === eligibles.length && eligibles.length > 0 ? "Tout désélectionner" : "Tout sélectionner"}
+                  </button>
+                  {!showVehiclesArchive && (
+                    <button
+                      onClick={async () => {
+                        for (const id of selectedVehicleIds) { await updateVehicle(id, { carteImprimee: true }); }
+                      }}
+                      disabled={selectedVehicleIds.length === 0}
+                      className="font-body text-xs font-semibold px-3 py-1.5 rounded-full"
+                      style={{ border: `1px solid ${C.border}`, color: selectedVehicleIds.length ? C.ink : C.slate, cursor: selectedVehicleIds.length ? "pointer" : "not-allowed" }}
+                    >
+                      Marquer comme imprimées
+                    </button>
+                  )}
+                  <button
+                    onClick={() => window.print()}
+                    disabled={selectedVehicleIds.length === 0}
+                    className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+                    style={{ background: selectedVehicleIds.length ? C.orange : "#D8B48A", color: "#fff", cursor: selectedVehicleIds.length ? "pointer" : "not-allowed" }}
+                  >
+                    <Printer size={13} /> Générer la planche PDF ({LIGNE_CARDS_PER_SHEET} cartes/feuille)
+                  </button>
+                </div>
+              </div>
+              <SectionCard
+                accent={C.green}
+                icon={<Car size={18} />}
+                title={`${showVehiclesArchive ? "Archives" : "Nouvelles cartes"} (${eligibles.length})${onlyExpiredFilter ? " — documents périmés" : ""}`}
+                right={onlyExpiredFilter && (
+                  <button onClick={() => setOnlyExpiredFilter(false)} className="font-body text-xs font-semibold flex items-center gap-1" style={{ color: C.red }}>
+                    <X size={13} /> Retirer le filtre
+                  </button>
+                )}
+              >
+                <VehicleTable
+                  vehicles={eligibles} owners={owners} onFiche={openFiche} onPhoto={updateVehiclePhoto}
+                  commissionsMixtes={commissionsMixtes} lignes={lignes} affectations={affectations}
+                  onReassign={setReassignVehicle} onEdit={setEditVehicle} onDelete={deleteVehicle}
+                  selectedIds={selectedVehicleIds}
+                  onToggleSelect={(id) => setSelectedVehicleIds((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id])}
+                />
+              </SectionCard>
+            </div>
+            );
+          })()}
 
           {page === "owners" && (() => {
             const visibleOwners = owners.filter((o) => !!o.carteImprimee === showOwnersArchive);
@@ -4291,6 +4385,22 @@ function Dashboard({ auth, onLogout }) {
           key: e.id, name: `${e.prenoms} ${e.nom}`, member: e, category: "element",
           ...cardDataFor(e, "element", commissionsMixtes, syndicats, vehicles, associations),
         }))}
+      />
+
+      <LigneCardSheet
+        title="Planche de production, cartes de droit d'exploitation de ligne"
+        items={vehicles.filter((v) => selectedVehicleIds.includes(v.id)).map((v) => {
+          const normC = (s) => (s || "").trim().toUpperCase();
+          const owner = owners.find((o) => o.id === v.proprietaireId);
+          const collectifTransporteurs = syndicats.find((s) => s.id === v.syndicatId) || null;
+          const collectifChauffeurs = collectifTransporteurs
+            ? syndicats.find((s) => normC(s.commune) === normC(collectifTransporteurs.commune) && s.type === "chauffeurs")
+            : null;
+          return {
+            key: v.id, name: v.immatriculation, vehicule: v, owner,
+            collectifTransporteurs, collectifChauffeurs,
+          };
+        })}
       />
 
       {showFuelForm && <Modal onClose={() => setShowFuelForm(false)} title="Enregistrer un achat de carburant" wide>
@@ -5895,11 +6005,13 @@ function SyndicatMembersTable({ commissionSyndicats, owners, associations = [], 
   );
 }
 
-function VehicleTable({ vehicles, owners, onFiche, onPhoto, commissionsMixtes, lignes, affectations, onReassign, onEdit, onDelete }) {
+function VehicleTable({ vehicles, owners, onFiche, onPhoto, commissionsMixtes, lignes, affectations, onReassign, onEdit, onDelete, selectedIds = null, onToggleSelect = null }) {
+  const selectable = !!onToggleSelect;
   return (
     <table className="w-full font-body text-sm" style={{ borderCollapse: "collapse" }}>
       <thead>
         <tr style={{ color: C.slate, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.4 }}>
+          {selectable && <th className="text-left pb-2" style={{ width: 30 }}></th>}
           <th className="text-left pb-2" style={{ color: C.orangeDark, fontWeight: 800, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5 }}>Véhicule</th>
           <th className="text-left pb-2" style={{ color: C.orangeDark, fontWeight: 800, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5 }}>Immatriculation</th>
           <th className="text-left pb-2" style={{ color: C.orangeDark, fontWeight: 800, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5 }}>Propriétaire</th>
@@ -5919,6 +6031,11 @@ function VehicleTable({ vehicles, owners, onFiche, onPhoto, commissionsMixtes, l
           const ligne = affectation ? lignes.find((l) => l.id === affectation.ligneId) : null;
           return (
             <tr key={v.id} style={{ borderTop: `1px solid ${C.border}` }}>
+              {selectable && (
+                <td className="py-3">
+                  <input type="checkbox" checked={selectedIds.includes(v.id)} onChange={() => onToggleSelect(v.id)} style={{ width: 16, height: 16, accentColor: C.orange }} />
+                </td>
+              )}
               <td className="py-3">
                 <div className="flex items-center gap-3">
                   <AvatarUpload photo={v.photo} size={38} shape="square" fallbackIcon={<Car size={16} color={C.slate} />} onUpload={(dataUrl) => onPhoto(v.id, dataUrl)} />
