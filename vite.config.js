@@ -44,7 +44,11 @@ export default defineConfig({
         // impossible. L'enrolement hors-ligne reste assure par la file
         // d'attente, qui n'a jamais dependu de ce cache.
         runtimeCaching: [],
-        navigateFallbackDenylist: [/^\/api\//],
+        // Le repli SPA (navigateFallback) sert la page principale en cache
+        // pour toute navigation non exclue ici : sans ces exclusions, les
+        // pages statiques publiques (fiche, installer) ouvraient a tort le
+        // tableau de bord en cache au lieu de leur propre contenu.
+        navigateFallbackDenylist: [/^\/api\//, /^\/fiche/, /^\/installer/, /^\/install$/, /\.html$/],
       },
     }),
   ],
