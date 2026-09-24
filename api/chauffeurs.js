@@ -3,6 +3,7 @@ import { db } from "../db/index.js";
 import { chauffeurs, syndicats, garesRoutieres, vehiculeChauffeurs, achatsCarburant } from "../db/schema.js";
 import { requireAuth, agentPeutGerer } from "../lib/auth.js";
 import { genererNumeroCarte } from "../lib/cards.js";
+import { chercherDoublon } from "../lib/doublons.js";
 import { lierCompteOrzayah, traiterPatchOrzayah, retirerChampsOrzayahServeur, normaliserCodeOrzayah, normaliserTelephone } from "../lib/orzayah.js";
 
 function toApi(row) {
@@ -69,6 +70,9 @@ export default async function handler(req, res) {
       }
 
       try {
+        // Anti-doublons : CNI, permis, téléphone, compte ORZAYAH — AVANT l'enregistrement.
+        const doublon = await chercherDoublon("chauffeur", values);
+        if (doublon) return res.status(409).json({ error: doublon });
         const [created] = await db.insert(chauffeurs).values(values).returning();
         // Fin du processus d'ajout : création du compte ORZAYAH + QR du verso.
         const final = await lierCompteOrzayah(chauffeurs, created);
@@ -147,6 +151,8 @@ export default async function handler(req, res) {
     }
 
     try {
+      const doublon = await chercherDoublon("chauffeur", patch, id);
+      if (doublon) return res.status(409).json({ error: doublon });
       const [avant] = ("orzayahCompte" in patch || "orzayahTelephone" in patch) ? await db.select().from(chauffeurs).where(eq(chauffeurs.id, id)) : [null];
       let [updated] = await db.update(chauffeurs).set(patch).where(eq(chauffeurs.id, id)).returning();
       if (updated && ("orzayahCompte" in patch || "orzayahTelephone" in patch)) updated = await traiterPatchOrzayah(chauffeurs, avant, updated);

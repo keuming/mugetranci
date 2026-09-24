@@ -182,6 +182,58 @@ function uid(prefix) {
 function normImmat(v) {
   return String(v || "").toUpperCase().replace(/[\s\-.]+/g, "");
 }
+/* ANTI-DOUBLONS (contrôle en direct pendant la saisie ; le serveur refait
+   le même contrôle et fait foi). Même règle que lib/doublons.js. */
+function normPiece(v) {
+  return String(v || "").toUpperCase().replace(/[\s.\-/]+/g, "");
+}
+function normTel(v) {
+  let d = String(v || "").replace(/\D/g, "");
+  if (d.startsWith("00225")) d = d.slice(5);
+  else if (d.startsWith("225") && d.length === 13) d = d.slice(3);
+  return d;
+}
+const CHAMPS_DOUBLONS = {
+  transporteur: [["cni", "N° de CNI", normPiece], ["numeroPermis", "N° de permis", normPiece], ["contact1", "N° de téléphone (Contact 1)", normTel]],
+  chauffeur: [["cni", "N° de CNI", normPiece], ["permisNumero", "N° de permis", normPiece], ["contact1", "N° de téléphone (Contact 1)", normTel]],
+  element: [["cni", "N° de CNI", normPiece], ["contact1", "N° de téléphone (Contact 1)", normTel]],
+};
+function designationMembre(m) {
+  const num = m.carteTransporteurNumero || m.numeroCarte;
+  return `${m.prenoms || ""} ${m.nom || ""}`.trim() + (num ? ` (carte ${num})` : "");
+}
+// `liste` : membres de la même catégorie ; `tous` : toutes catégories (compte ORZAYAH).
+function detecterDoublons(categorie, fiche, liste = [], idCourant = null, tous = []) {
+  const msgs = [];
+  for (const [col, libelle, norm] of CHAMPS_DOUBLONS[categorie] || []) {
+    const v = norm(fiche[col]);
+    if (!v) continue;
+    const autre = liste.find((m) => m.id !== idCourant && norm(m[col]) === v);
+    if (autre) msgs.push(`Ce ${libelle} est déjà enregistré pour ${designationMembre(autre)}.`);
+  }
+  const code = normPiece(fiche.orzayahCompte);
+  const tel = normTel(fiche.orzayahTelephone);
+  if (code) {
+    const autre = tous.find((m) => m.id !== idCourant && normPiece(m.orzayahCompte) === code);
+    if (autre) msgs.push(`Ce QR code ORZAYAH est déjà attribué à ${designationMembre(autre)}.`);
+  }
+  if (tel) {
+    const autre = tous.find((m) => m.id !== idCourant && normTel(m.orzayahTelephone) === tel);
+    if (autre) msgs.push(`Ce N° de téléphone ORZAYAH est déjà utilisé par ${designationMembre(autre)}.`);
+  }
+  return msgs;
+}
+function DoublonsAlerte({ messages, titre = "Enregistrement bloqué : doublon détecté" }) {
+  if (!messages || !messages.length) return null;
+  return (
+    <div className="font-body" style={{ background: C.redLight, border: `1.5px solid ${C.red}`, borderRadius: 11, padding: "10px 12px", color: C.red }}>
+      <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 4 }}>⚠ {titre}</div>
+      {messages.map((m, i) => <div key={i} style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.4 }}>• {m}</div>)}
+      <div style={{ fontSize: 11.5, color: C.ink, marginTop: 5 }}>Les noms peuvent être identiques, mais pas ces numéros : vérifiez qu'il ne s'agit pas de la même personne, ou corrigez la saisie.</div>
+    </div>
+  );
+}
+
 function initials(nom, prenoms) {
   return `${(prenoms || "?")[0] || ""}${(nom || "?")[0] || ""}`.toUpperCase();
 }
@@ -629,11 +681,23 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
 
+  // Anti-doublons : nouveau propriétaire vs transporteurs existants ;
+  // nouveaux chauffeurs vs chauffeurs existants ET entre eux (même saisie).
+  const tousMembresConnus = [...owners, ...drivers];
+  const doublonsProprietaire = ownerMode === "new" ? detecterDoublons("transporteur", newOwner, owners, null, tousMembresConnus) : [];
+  const doublonsChauffeurs = driverRows.flatMap((row, i) => {
+    if (row.mode === "existing") return [];
+    const autresBrouillons = driverRows
+      .filter((r, j) => j < i && r.mode !== "existing")
+      .map((r, j) => ({ ...r.draft, id: `brouillon-${j}`, nom: r.draft.nom || "(chauffeur précédent de cette saisie)" }));
+    return detecterDoublons("chauffeur", row.draft, [...drivers, ...autresBrouillons], null, [...tousMembresConnus, ...autresBrouillons])
+      .map((m) => `Chauffeur ${i + 1} : ${m}`);
+  });
   const stepValid = [
     !!(carteGrise && immatriculation) && (!isAdmin || !!syndicatIdSel),
     true, // documents are optional at creation time
-    ownerMode === "none" ? true : ownerMode === "existing" ? !!ownerId : !!(newOwner.nom && newOwner.prenoms && newOwner.cni),
-    driverRows.every((row) => row.mode === "existing" ? true : !!(row.draft.nom && row.draft.prenoms && row.draft.cni && row.draft.permisNumero && row.draft.permisDateFin)),
+    ownerMode === "none" ? true : ownerMode === "existing" ? !!ownerId : !!(newOwner.nom && newOwner.prenoms && newOwner.cni) && !doublonsProprietaire.length,
+    driverRows.every((row) => row.mode === "existing" ? true : !!(row.draft.nom && row.draft.prenoms && row.draft.cni && row.draft.permisNumero && row.draft.permisDateFin)) && !doublonsChauffeurs.length,
     true, // affectation is optional
   ];
   const canSave = stepValid.every(Boolean) && !saving;
@@ -908,6 +972,8 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
         )}
       </div>
 
+      {step === 2 && <DoublonsAlerte messages={doublonsProprietaire} titre="Propriétaire : doublon détecté" />}
+      {step === 3 && <DoublonsAlerte messages={doublonsChauffeurs} titre="Chauffeur(s) : doublon détecté" />}
       <div className="flex items-center justify-between gap-3 pt-4 mt-2" style={{ borderTop: `1px solid ${C.border}` }}>
         <button onClick={step === 0 ? onCancel : goBack} className="font-body text-sm font-semibold px-4 py-2.5 rounded-lg flex items-center gap-1.5" style={{ color: C.slate }}>
           {step === 0 ? "Annuler" : (<><ChevronLeft size={15} /> Précédent</>)}
@@ -4689,7 +4755,7 @@ function Dashboard({ auth, onLogout }) {
       </Modal>}
 
       {showMemberFormFor && <Modal onClose={() => setShowMemberFormFor(false)} title="Ajouter un transporteur" wide>
-        <MemberForm commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} vehicles={vehicles} onCancel={() => setShowMemberFormFor(false)} onSave={async (payload, vehId) => { const created = await addOwner(payload); if (vehId) await updateVehicle(vehId, { proprietaireId: created.id }); setShowMemberFormFor(false); }} />
+        <MemberForm membres={owners} tousMembres={[...owners, ...drivers, ...elements]} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} vehicles={vehicles} onCancel={() => setShowMemberFormFor(false)} onSave={async (payload, vehId) => { const created = await addOwner(payload); if (vehId) await updateVehicle(vehId, { proprietaireId: created.id }); setShowMemberFormFor(false); }} />
       </Modal>}
 
       {showProfileForm && (
@@ -4734,11 +4800,11 @@ function Dashboard({ auth, onLogout }) {
       )}
 
       {editMember && <Modal onClose={() => setEditMember(null)} title={`Modifier — ${editMember.prenoms} ${editMember.nom}`} wide>
-        <MemberForm initialMember={editMember} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} onCancel={() => setEditMember(null)} onSave={async (payload) => { await updateOwner(editMember.id, payload); setEditMember(null); }} />
+        <MemberForm membres={owners} tousMembres={[...owners, ...drivers, ...elements]} initialMember={editMember} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} onCancel={() => setEditMember(null)} onSave={async (payload) => { await updateOwner(editMember.id, payload); setEditMember(null); }} />
       </Modal>}
 
       {showDriverFormFor && <Modal onClose={() => setShowDriverFormFor(false)} title="Ajouter un chauffeur" wide>
-        <DriverForm commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} vehicles={vehicles} onCancel={() => setShowDriverFormFor(false)} onSave={async (payload, vehId) => {
+        <DriverForm membres={drivers} tousMembres={[...owners, ...drivers, ...elements]} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} vehicles={vehicles} onCancel={() => setShowDriverFormFor(false)} onSave={async (payload, vehId) => {
           const created = await addDriver(payload);
           if (vehId) {
             await updateVehicle(vehId, { addChauffeurId: created.id });
@@ -4749,7 +4815,7 @@ function Dashboard({ auth, onLogout }) {
       </Modal>}
 
       {editDriver && <Modal onClose={() => setEditDriver(null)} title={`Modifier — ${editDriver.prenoms} ${editDriver.nom}`} wide>
-        <DriverForm initialDriver={editDriver} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} onCancel={() => setEditDriver(null)} onSave={async (payload) => { await updateDriver(editDriver.id, payload); setEditDriver(null); }} />
+        <DriverForm membres={drivers} tousMembres={[...owners, ...drivers, ...elements]} initialDriver={editDriver} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} onCancel={() => setEditDriver(null)} onSave={async (payload) => { await updateDriver(editDriver.id, payload); setEditDriver(null); }} />
       </Modal>}
 
       {assoFormForCollectif && <Modal onClose={() => setAssoFormForCollectif(null)} title="Ajouter une association" wide>
@@ -4769,11 +4835,11 @@ function Dashboard({ auth, onLogout }) {
       </Modal>}
 
       {showElementFormFor && <Modal onClose={() => setShowElementFormFor(false)} title="Ajouter un élément" wide>
-        <ElementForm commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} elements={elements} garesRoutieres={garesRoutieres} lignes={lignes} onCancel={() => setShowElementFormFor(false)} onSave={async (payload) => { await addElement(payload); setShowElementFormFor(false); }} />
+        <ElementForm tousMembres={[...owners, ...drivers, ...elements]} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} elements={elements} garesRoutieres={garesRoutieres} lignes={lignes} onCancel={() => setShowElementFormFor(false)} onSave={async (payload) => { await addElement(payload); setShowElementFormFor(false); }} />
       </Modal>}
 
       {editElement && <Modal onClose={() => setEditElement(null)} title={`Modifier — ${editElement.prenoms} ${editElement.nom}`} wide>
-        <ElementForm initialElement={editElement} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} elements={elements} garesRoutieres={garesRoutieres} lignes={lignes} onCancel={() => setEditElement(null)} onSave={async (payload) => { await updateElement(editElement.id, payload); setEditElement(null); }} />
+        <ElementForm tousMembres={[...owners, ...drivers, ...elements]} initialElement={editElement} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} elements={elements} garesRoutieres={garesRoutieres} lignes={lignes} onCancel={() => setEditElement(null)} onSave={async (payload) => { await updateElement(editElement.id, payload); setEditElement(null); }} />
       </Modal>}
 
       {editGareRoutiere && <Modal onClose={() => setEditGareRoutiere(null)} title={`Modifier — ${editGareRoutiere.nom}`} wide>
@@ -5295,7 +5361,7 @@ function AppartenanceBlock({ commune, commissionMixteId, onCommune, logo2Id, onC
   );
 }
 
-function MemberForm({ initialMember, commissionsMixtes, syndicats, associations, vehicles, onCancel, onSave }) {
+function MemberForm({ initialMember, commissionsMixtes, syndicats, associations, vehicles, membres = [], tousMembres = [], onCancel, onSave }) {
   const isEdit = !!initialMember;
   const [nom, setNom] = useState(initialMember?.nom || "");
   const [prenoms, setPrenoms] = useState(initialMember?.prenoms || "");
@@ -5328,7 +5394,8 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
   const [error, setError] = useState(null);
 
   const vehiculesSansProprietaire = (vehicles || []).filter((v) => !v.proprietaireId);
-  const canSave = nom && prenoms && cni && !saving;
+  const doublons = detecterDoublons("transporteur", { cni, numeroPermis, contact1, orzayahCompte, orzayahTelephone }, membres, initialMember?.id, tousMembres);
+  const canSave = nom && prenoms && cni && !doublons.length && !saving;
 
   const handleSave = async () => {
     setSaving(true);
@@ -5392,6 +5459,7 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
         <Field label="Quartier"><TextInput value={quartier} onChange={(e) => setQuartier(e.target.value)} /></Field>
       </div>
 
+      <DoublonsAlerte messages={doublons} />
       <div className="flex items-center justify-end gap-3 pt-2">
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
         <button onClick={onCancel} className="font-body" style={{ color: C.ink, fontSize: 14, fontWeight: 700, padding: "12px 16px", borderRadius: 11 }}>Annuler</button>
@@ -5412,7 +5480,7 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
    CHAUFFEUR — formulaire d'ajout/modification autonome, sans passer
    par la création d'un véhicule.
    ============================================================ */
-function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations, vehicles, onCancel, onSave }) {
+function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations, vehicles, membres = [], tousMembres = [], onCancel, onSave }) {
   const isEdit = !!initialDriver;
   const [nom, setNom] = useState(initialDriver?.nom || "");
   const [prenoms, setPrenoms] = useState(initialDriver?.prenoms || "");
@@ -5443,7 +5511,8 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  const canSave = nom && prenoms && cni && permisNumero && permisDateFin && !saving;
+  const doublons = detecterDoublons("chauffeur", { cni, permisNumero, contact1, orzayahCompte, orzayahTelephone }, membres, initialDriver?.id, tousMembres);
+  const canSave = nom && prenoms && cni && permisNumero && permisDateFin && !doublons.length && !saving;
 
   const handleSave = async () => {
     setSaving(true);
@@ -5504,6 +5573,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
         <Field label="Contact 3"><TextInput value={contact3} onChange={(e) => setContact3(e.target.value)} /></Field>
       </div>
 
+      <DoublonsAlerte messages={doublons} />
       <div className="flex items-center justify-end gap-3 pt-2">
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
         <button onClick={onCancel} className="font-body" style={{ color: C.ink, fontSize: 14, fontWeight: 700, padding: "12px 16px", borderRadius: 11 }}>Annuler</button>
@@ -5515,7 +5585,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
   );
 }
 
-function ElementForm({ initialElement, commissionsMixtes, syndicats, associations, garesRoutieres, lignes, elements = [], onCancel, onSave }) {
+function ElementForm({ initialElement, commissionsMixtes, syndicats, associations, garesRoutieres, lignes, elements = [], tousMembres = [], onCancel, onSave }) {
   const isEdit = !!initialElement;
   const [nom, setNom] = useState(initialElement?.nom || "");
   const [prenoms, setPrenoms] = useState(initialElement?.prenoms || "");
@@ -5556,7 +5626,8 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
   const [error, setError] = useState(null);
 
   const lignesDeLaGare = lignes.filter((l) => l.gareRoutiereId === gareRoutiereId);
-  const canSave = nom && prenoms && cni && syndicatId && !saving;
+  const doublons = detecterDoublons("element", { cni, contact1, orzayahCompte, orzayahTelephone }, elements, initialElement?.id, tousMembres);
+  const canSave = nom && prenoms && cni && syndicatId && !doublons.length && !saving;
 
   const handleSave = async () => {
     setSaving(true);
@@ -5648,6 +5719,7 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
         </div>
       </div>
 
+      <DoublonsAlerte messages={doublons} />
       <div className="flex items-center justify-end gap-3 pt-2">
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
         <button onClick={onCancel} className="font-body" style={{ color: C.ink, fontSize: 14, fontWeight: 700, padding: "12px 16px", borderRadius: 11 }}>Annuler</button>
