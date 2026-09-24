@@ -1204,24 +1204,15 @@ const ORZAYAH = {
 };
 // Logos officiels des moyens de paiement (fournis sous licence par
 // l'agrégateur, repris de keuming/wallet_mobilepay) : public/brand/moyens/.
-// Visa et Mastercard : déposer visa.png / mastercard.png dans ce dossier
-// suffit ; tant qu'ils sont absents, leur nom s'affiche à la place.
 const ORZAYAH_OPERATEURS = [
   { label: "Orange Money", src: "/brand/moyens/orange-money.png" },
   { label: "MTN MoMo", src: "/brand/moyens/mtn-money.png" },
   { label: "Moov Money", src: "/brand/moyens/moov-money.png" },
   { label: "Wave", src: "/brand/moyens/wave.png" },
 ];
-const ORZAYAH_CARTES = [
-  { label: "VISA", src: "/brand/moyens/visa.png" },
-  { label: "Mastercard", src: "/brand/moyens/mastercard.png" },
-];
-
-function MoyenCarteBancaire({ label, src, height = 15, fontSize = 7 }) {
-  const [absent, setAbsent] = useState(false);
-  if (!absent) return <img src={src} alt={label} onError={() => setAbsent(true)} style={{ height, width: "auto", display: "block" }} />;
-  return <span className="font-body" style={{ fontSize, fontWeight: 800, color: ORZAYAH.navy, letterSpacing: 0.3 }}>{label}</span>;
-}
+// Paiement par carte bancaire : un seul visuel (fourni par ORZAYAH) ; le
+// réseau exact de la carte est déterminé par le numéro saisi au paiement.
+const ORZAYAH_CARTE_BANCAIRE = { label: "Carte bancaire", src: "/brand/moyens/cartes-bancaires.png" };
 
 // Moyens de paiement acceptés : 4 logos opérateurs + cartes bancaires.
 function OrzayahMoyens({ tuile = 32 }) {
@@ -1232,12 +1223,9 @@ function OrzayahMoyens({ tuile = 32 }) {
           <img key={m.label} src={m.src} alt={m.label} title={m.label} style={{ width: tuile, height: tuile, borderRadius: 6, objectFit: "cover", display: "block", border: `1px solid ${ORZAYAH.chipBorder}` }} />
         ))}
       </div>
-      <div style={{ display: "flex", gap: 4 }}>
-        {ORZAYAH_CARTES.map((m) => (
-          <div key={m.label} style={{ flex: 1, height: 17, display: "flex", alignItems: "center", justifyContent: "center", background: "#fff", border: `1px solid ${ORZAYAH.chipBorder}`, borderRadius: 5 }}>
-            <MoyenCarteBancaire label={m.label} src={m.src} />
-          </div>
-        ))}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, height: 26, padding: "0 6px", background: "#fff", border: `1px solid ${ORZAYAH.chipBorder}`, borderRadius: 6 }}>
+        <img src={ORZAYAH_CARTE_BANCAIRE.src} alt={ORZAYAH_CARTE_BANCAIRE.label} style={{ height: 22, width: "auto", display: "block" }} />
+        <span className="font-body" style={{ fontSize: 7, fontWeight: 700, color: ORZAYAH.navy, whiteSpace: "nowrap" }}>{ORZAYAH_CARTE_BANCAIRE.label}</span>
       </div>
     </div>
   );

@@ -64,7 +64,7 @@
     .orz-moyens { align-items: center; }
     .orz-op { width: 44px; height: 44px; border-radius: 9px; object-fit: cover; border: 1px solid #E3E6EE; }
     .orz-carte { display: inline-flex; align-items: center; justify-content: center; height: 44px; min-width: 70px; padding: 0 10px; font-size: 12px; font-weight: 800; color: #0D1B3E; background: #fff; border: 1px solid #E3E6EE; border-radius: 9px; }
-    .orz-carte img { height: 22px; width: auto; }
+    .orz-carte img { height: 34px; width: auto; }
     .orz-autres { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--bord); }
     .orz-autres h3 { font-size: 12px; font-weight: 800; color: var(--ardoise); text-transform: uppercase; letter-spacing: .4px; margin: 0 0 8px; }
     .orz-mini { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
@@ -109,11 +109,10 @@
     function imgSure(src) { return typeof src === "string" && src.startsWith("data:image/") ? src : ""; }
     function urlSure(u) { return typeof u === "string" && u.startsWith("https://") ? u : ""; }
     // Logos officiels des moyens de paiement (public/brand/moyens/).
-    // Visa / Mastercard : nom affiché tant que visa.png / mastercard.png sont absents.
+    // Carte bancaire : un seul visuel (cartes-bancaires.png).
     const OPERATEURS_ORZAYAH = [
       ["Orange Money", "orange-money"], ["MTN MoMo", "mtn-money"], ["Moov Money", "moov-money"], ["Wave", "wave"],
     ];
-    const CARTES_ORZAYAH = [["VISA", "visa"], ["Mastercard", "mastercard"]];
 
     function avatarHtml(photoUrl, nom, prenoms) {
       const init = ((prenoms || "?")[0] || "") + ((nom || "?")[0] || "");
@@ -206,7 +205,7 @@
       }
       html += `<div class="orz-moyens">
         ${OPERATEURS_ORZAYAH.map(([n, f]) => `<img class="orz-op" src="/brand/moyens/${f}.png" alt="${n}" title="${n}" />`).join("")}
-        ${CARTES_ORZAYAH.map(([n, f]) => `<span class="orz-carte"><img src="/brand/moyens/${f}.png" alt="${n}" onerror="this.replaceWith(document.createTextNode('${n}'))" /></span>`).join("")}
+        <span class="orz-carte"><img src="/brand/moyens/cartes-bancaires.png" alt="Carte bancaire" /></span>
       </div>`;
       if (orzC.length) {
         html += `<div class="orz-autres"><h3>Chauffeur${orzC.length > 1 ? "s" : ""} — compte${orzC.length > 1 ? "s" : ""} ORZAYAH</h3>`;
