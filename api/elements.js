@@ -3,7 +3,7 @@ import { db } from "../db/index.js";
 import { elements, syndicats, garesRoutieres, associations, commissionsMixtes, lignes } from "../db/schema.js";
 import { requireAuth, agentPeutGerer } from "../lib/auth.js";
 import { genererNumeroCarte } from "../lib/cards.js";
-import { lierCompteOrzayah, traiterPatchOrzayah, retirerChampsOrzayahServeur, normaliserCodeOrzayah } from "../lib/orzayah.js";
+import { lierCompteOrzayah, traiterPatchOrzayah, retirerChampsOrzayahServeur, normaliserCodeOrzayah, normaliserTelephone } from "../lib/orzayah.js";
 
 function toApi(row) {
   const { photoUrl, qrPaiementUrl, ...rest } = row;
@@ -182,6 +182,7 @@ export default async function handler(req, res) {
     const body = req.body || {};
     const patch = {};
     if ("orzayahCompte" in body) patch.orzayahCompte = normaliserCodeOrzayah(body.orzayahCompte);
+    if ("orzayahTelephone" in body) patch.orzayahTelephone = normaliserTelephone(body.orzayahTelephone) || null;
     if ("photo" in body) patch.photoUrl = body.photo;
     if ("qrPaiement" in body) patch.qrPaiementUrl = body.qrPaiement;
     if ("nom" in body) patch.nom = body.nom;
@@ -209,9 +210,9 @@ export default async function handler(req, res) {
     }
 
     try {
-      const [avant] = "orzayahCompte" in patch ? await db.select().from(elements).where(eq(elements.id, id)) : [null];
+      const [avant] = ("orzayahCompte" in patch || "orzayahTelephone" in patch) ? await db.select().from(elements).where(eq(elements.id, id)) : [null];
       let [updated] = await db.update(elements).set(patch).where(eq(elements.id, id)).returning();
-      if (updated && "orzayahCompte" in patch) updated = await traiterPatchOrzayah(elements, avant, updated);
+      if (updated && ("orzayahCompte" in patch || "orzayahTelephone" in patch)) updated = await traiterPatchOrzayah(elements, avant, updated);
       if (!updated) return res.status(404).json({ error: "Élément introuvable" });
       return res.status(200).json(toApi(updated));
     } catch (err) {

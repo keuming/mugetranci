@@ -318,18 +318,17 @@ function readImageFile(file, { maxSide = 1200, quality = 0.82 } = {}) {
   });
 }
 
-/* Champ "N° de compte ORZAYAH" : code ORZ-XXXXXXXX imprimé sur la carte
-   ORZAYAH remise au membre. À l'enregistrement, le serveur crée le compte
-   marchand, le lie au Contact 1 et récupère le QR placé au verso. */
-function OrzayahCompteField({ value, onChange, membre }) {
+/* Bloc ORZAYAH du formulaire : code ORZ-XXXXXXXX imprimé sur la carte
+   ORZAYAH remise au membre + numéro de téléphone ORZAYAH. À
+   l'enregistrement, le serveur crée le compte marchand sur ce numéro et
+   récupère le QR placé au verso de la carte. */
+function OrzayahCompteField({ value, onChange, telephone, onTelephone, membre }) {
   const lie = membre?.orzayahStatut === "lie" && (membre?.orzayahCompte || "") === (value || "").trim().toUpperCase();
   const erreur = membre?.orzayahStatut === "erreur" ? membre.orzayahErreur : null;
+  const telManquant = !!(value || "").trim() && !(telephone || "").trim();
   return (
-    <div className="flex flex-col gap-1.5">
-      <Field
-        label="N° de compte ORZAYAH"
-        hint="Code imprimé sur la carte ORZAYAH (ORZ-XXXXXXXX). Le compte marchand est créé automatiquement sur le Contact 1 ; code secret initial 0000, à changer par le titulaire dans l'app ORZAYAH."
-      >
+    <div className="flex flex-col gap-2.5">
+      <Field label="N° de compte ORZAYAH">
         <TextInput
           value={value || ""}
           onChange={(e) => onChange(e.target.value.toUpperCase().replace(/\s+/g, ""))}
@@ -338,6 +337,22 @@ function OrzayahCompteField({ value, onChange, membre }) {
           style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5 }}
         />
       </Field>
+      <Field label="N° de téléphone ORZAYAH">
+        <TextInput
+          type="tel"
+          inputMode="tel"
+          value={telephone || ""}
+          onChange={(e) => onTelephone(e.target.value)}
+          placeholder="07 00 00 00 00"
+          style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5 }}
+        />
+      </Field>
+      <span className="font-body text-[11px]" style={{ color: C.slate }}>
+        Code imprimé sur la carte ORZAYAH (ORZ-XXXXXXXX). Le compte marchand est créé automatiquement sur le numéro de téléphone ORZAYAH ; code secret initial 0000, à changer par le titulaire dans l'app ORZAYAH.
+      </span>
+      {telManquant && (
+        <span className="font-body text-[11px] font-semibold" style={{ color: C.amber }}>Renseignez le numéro de téléphone ORZAYAH pour que le compte soit créé.</span>
+      )}
       {lie && (
         <span className="font-body text-[11px] font-semibold" style={{ color: C.greenDark }}>✓ Compte ORZAYAH lié — QR de paiement prêt pour le verso de la carte.</span>
       )}
@@ -585,11 +600,11 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
 
   const [ownerMode, setOwnerMode] = useState(owners.length ? "existing" : "new"); // existing | new
   const [ownerId, setOwnerId] = useState(owners[0]?.id || "");
-  const [newOwner, setNewOwner] = useState({ nom: "", prenoms: "", cni: "", numeroPermis: "", contact1: "", contact2: "", contact3: "", email: "", ville: "", quartier: "", photo: null, qrPaiement: null, orzayahCompte: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" });
+  const [newOwner, setNewOwner] = useState({ nom: "", prenoms: "", cni: "", numeroPermis: "", contact1: "", contact2: "", contact3: "", email: "", ville: "", quartier: "", photo: null, qrPaiement: null, orzayahCompte: "", orzayahTelephone: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" });
 
-  const [driverRows, setDriverRows] = useState([{ mode: drivers.length ? "existing" : "new", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, orzayahCompte: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
+  const [driverRows, setDriverRows] = useState([{ mode: drivers.length ? "existing" : "new", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, orzayahCompte: "", orzayahTelephone: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
 
-  const addDriverRow = () => setDriverRows((r) => r.length >= 3 ? r : [...r, { mode: "existing", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, orzayahCompte: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
+  const addDriverRow = () => setDriverRows((r) => r.length >= 3 ? r : [...r, { mode: "existing", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, orzayahCompte: "", orzayahTelephone: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
   const removeDriverRow = (i) => setDriverRows((r) => r.filter((_, idx) => idx !== i));
   const updateDriverRow = (i, patch) => setDriverRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
   const updateDriverDraft = (i, patch) => setDriverRows((r) => r.map((row, idx) => (idx === i ? { ...row, draft: { ...row.draft, ...patch } } : row)));
@@ -760,7 +775,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
               <div className="flex flex-col gap-5">
                 <div className="grid grid-cols-2 gap-4">
                   <PhotoUpload value={newOwner.photo} onChange={(v) => setNewOwner({ ...newOwner, photo: v })} label="Photo du propriétaire" />
-                  <OrzayahCompteField value={newOwner.orzayahCompte} onChange={(v) => setNewOwner({ ...newOwner, orzayahCompte: v })} />
+                  <OrzayahCompteField value={newOwner.orzayahCompte} onChange={(v) => setNewOwner({ ...newOwner, orzayahCompte: v })} telephone={newOwner.orzayahTelephone} onTelephone={(v) => setNewOwner({ ...newOwner, orzayahTelephone: v })} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <CollectifSelector collectifId={newOwner.logo2Id} onChange={(v) => setNewOwner({ ...newOwner, logo2Type: v ? "syndicat" : "", logo2Id: v, logo1Type: "", logo1Id: "" })} syndicats={syndicats} commune={commune} />
@@ -833,7 +848,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
                     <div className="flex flex-col gap-4">
                       <div className="flex gap-6">
                         <PhotoUpload value={row.draft.photo} onChange={(v) => updateDriverDraft(i, { photo: v })} label="Photo du chauffeur" />
-                        <div style={{ flex: 1, minWidth: 0 }}><OrzayahCompteField value={row.draft.orzayahCompte} onChange={(v) => updateDriverDraft(i, { orzayahCompte: v })} /></div>
+                        <div style={{ flex: 1, minWidth: 0 }}><OrzayahCompteField value={row.draft.orzayahCompte} onChange={(v) => updateDriverDraft(i, { orzayahCompte: v })} telephone={row.draft.orzayahTelephone} onTelephone={(v) => updateDriverDraft(i, { orzayahTelephone: v })} /></div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <CollectifSelector collectifId={row.draft.logo2Id} onChange={(v) => updateDriverDraft(i, { logo2Type: v ? "syndicat" : "", logo2Id: v, logo1Type: "", logo1Id: "" })} syndicats={syndicats} commune={commune} />
@@ -5179,6 +5194,7 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
   const [photo, setPhoto] = useState(initialMember?.photo || null);
   const [qrPaiement, setQrPaiement] = useState(initialMember?.qrPaiement || null);
   const [orzayahCompte, setOrzayahCompte] = useState(initialMember?.orzayahCompte || "");
+  const [orzayahTelephone, setOrzayahTelephone] = useState(initialMember?.orzayahTelephone || "");
   const [associationId, setAssociationId] = useState(
     initialMember?.associationId
     || (initialMember?.logo1Type === "association" ? initialMember.logo1Id : "")
@@ -5202,7 +5218,7 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo, qrPaiement, orzayahCompte, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
+      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo, qrPaiement, orzayahCompte, orzayahTelephone, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -5213,7 +5229,7 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4">
         <PhotoUpload value={photo} onChange={setPhoto} label="Photo du transporteur" />
-        <OrzayahCompteField value={orzayahCompte} onChange={setOrzayahCompte} membre={initialMember} />
+        <OrzayahCompteField value={orzayahCompte} onChange={setOrzayahCompte} telephone={orzayahTelephone} onTelephone={setOrzayahTelephone} membre={initialMember} />
       </div>
       <AppartenanceBlock
         commune={commune}
@@ -5294,6 +5310,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
   const [photo, setPhoto] = useState(initialDriver?.photo || null);
   const [qrPaiement, setQrPaiement] = useState(initialDriver?.qrPaiement || null);
   const [orzayahCompte, setOrzayahCompte] = useState(initialDriver?.orzayahCompte || "");
+  const [orzayahTelephone, setOrzayahTelephone] = useState(initialDriver?.orzayahTelephone || "");
   const [associationId, setAssociationId] = useState(
     initialDriver?.associationId
     || (initialDriver?.logo1Type === "association" ? initialDriver.logo1Id : "")
@@ -5316,7 +5333,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, permisNumero, permisDateFin, contact1, contact2, contact3, email, photo, qrPaiement, orzayahCompte, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
+      await onSave({ nom, prenoms, cni, permisNumero, permisDateFin, contact1, contact2, contact3, email, photo, qrPaiement, orzayahCompte, orzayahTelephone, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -5327,7 +5344,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4">
         <PhotoUpload value={photo} onChange={setPhoto} label="Photo du chauffeur" />
-        <OrzayahCompteField value={orzayahCompte} onChange={setOrzayahCompte} membre={initialDriver} />
+        <OrzayahCompteField value={orzayahCompte} onChange={setOrzayahCompte} telephone={orzayahTelephone} onTelephone={setOrzayahTelephone} membre={initialDriver} />
       </div>
       <AppartenanceBlock
         commune={commune}
@@ -5404,6 +5421,7 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
   const [photo, setPhoto] = useState(initialElement?.photo || null);
   const [qrPaiement, setQrPaiement] = useState(initialElement?.qrPaiement || null);
   const [orzayahCompte, setOrzayahCompte] = useState(initialElement?.orzayahCompte || "");
+  const [orzayahTelephone, setOrzayahTelephone] = useState(initialElement?.orzayahTelephone || "");
   const [commune, setCommune] = useState(initialElement?.commune || "");
   const [commissionMixteId, setCommissionMixteId] = useState(initialElement?.commissionMixteId || "");
   const [logo1Type, setLogo1Type] = useState(initialElement?.logo1Type || "");
@@ -5428,7 +5446,7 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, fonction, contact1, contact2, contact3, email, photo, qrPaiement, orzayahCompte, logo1Type, logo1Id, logo2Type, logo2Id, gareRoutiereId, ligneId, syndicatId, commune, commissionMixteId, associationId });
+      await onSave({ nom, prenoms, cni, fonction, contact1, contact2, contact3, email, photo, qrPaiement, orzayahCompte, orzayahTelephone, logo1Type, logo1Id, logo2Type, logo2Id, gareRoutiereId, ligneId, syndicatId, commune, commissionMixteId, associationId });
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -5439,7 +5457,7 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4">
         <PhotoUpload value={photo} onChange={setPhoto} label="Photo de l'élément" />
-        <OrzayahCompteField value={orzayahCompte} onChange={setOrzayahCompte} membre={initialElement} />
+        <OrzayahCompteField value={orzayahCompte} onChange={setOrzayahCompte} telephone={orzayahTelephone} onTelephone={setOrzayahTelephone} membre={initialElement} />
       </div>
       <AppartenanceBlock
         commune={commune}

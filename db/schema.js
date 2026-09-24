@@ -82,6 +82,7 @@ export const proprietaires = pgTable("proprietaires", {
   // Compte ORZAYAH (paiement marchand) : code de la carte ORZ-XXXXXXXX
   // saisi au formulaire, puis liaison automatique par lib/orzayah.js.
   orzayahCompte: varchar("orzayah_compte", { length: 30 }),
+  orzayahTelephone: varchar("orzayah_telephone", { length: 30 }), // numéro sur lequel le compte ORZAYAH est créé
   orzayahStatut: varchar("orzayah_statut", { length: 12 }), // lie | erreur
   orzayahErreur: text("orzayah_erreur"),
   orzayahMerchantId: varchar("orzayah_merchant_id", { length: 64 }),
@@ -122,6 +123,7 @@ export const chauffeurs = pgTable("chauffeurs", {
   // Compte ORZAYAH (paiement marchand) : code de la carte ORZ-XXXXXXXX
   // saisi au formulaire, puis liaison automatique par lib/orzayah.js.
   orzayahCompte: varchar("orzayah_compte", { length: 30 }),
+  orzayahTelephone: varchar("orzayah_telephone", { length: 30 }), // numéro sur lequel le compte ORZAYAH est créé
   orzayahStatut: varchar("orzayah_statut", { length: 12 }), // lie | erreur
   orzayahErreur: text("orzayah_erreur"),
   orzayahMerchantId: varchar("orzayah_merchant_id", { length: 64 }),
@@ -164,6 +166,7 @@ export const elements = pgTable("elements", {
   // Compte ORZAYAH (paiement marchand) : code de la carte ORZ-XXXXXXXX
   // saisi au formulaire, puis liaison automatique par lib/orzayah.js.
   orzayahCompte: varchar("orzayah_compte", { length: 30 }),
+  orzayahTelephone: varchar("orzayah_telephone", { length: 30 }), // numéro sur lequel le compte ORZAYAH est créé
   orzayahStatut: varchar("orzayah_statut", { length: 12 }), // lie | erreur
   orzayahErreur: text("orzayah_erreur"),
   orzayahMerchantId: varchar("orzayah_merchant_id", { length: 64 }),
