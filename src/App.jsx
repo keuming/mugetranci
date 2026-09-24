@@ -1259,16 +1259,27 @@ function OrzayahStatutPill({ membre }) {
 
 // Contenu du verso (remplit la carte 340 x 214 ; les bandeaux décoratifs
 // de la carte hôte restent dessinés par-dessus).
-function OrzayahPaiementVerso({ qrImage, beneficiaire, reference }) {
+// QR de paiement ORZAYAH : redessiné en VECTORIEL à partir du lien renvoyé
+// par ORZAYAH (même contenu que l'image PNG de l'API), pour rester net à
+// toutes les tailles d'impression. L'image PNG ne sert qu'en secours.
+const ORZAYAH_QR_COULEUR = "#0f2d52"; // couleur des QR générés par ORZAYAH
+function OrzayahQr({ url, image, size }) {
+  if (url) return <QRCodeSVG value={url} size={size} bgColor="#ffffff" fgColor={ORZAYAH_QR_COULEUR} level="M" style={{ display: "block" }} />;
+  if (image) return <img src={image} alt="QR de paiement ORZAYAH" style={{ width: size, height: size, objectFit: "contain", display: "block" }} />;
+  return null;
+}
+
+function OrzayahPaiementVerso({ qrImage, qrUrl, beneficiaire, reference }) {
+  const aQr = !!(qrUrl || qrImage);
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, height: "100%", padding: "14px 16px", boxSizing: "border-box", background: "#fff" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 11, height: "100%", padding: "10px 14px", boxSizing: "border-box", background: "#fff" }}>
       <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-        {qrImage ? (
-          <div style={{ background: "#fff", borderRadius: 10, padding: 5, border: `1.5px solid ${ORZAYAH.navy}` }}>
-            <img src={qrImage} alt="QR de paiement ORZAYAH" style={{ width: 124, height: 124, objectFit: "contain", display: "block", imageRendering: "pixelated" }} />
+        {aQr ? (
+          <div style={{ background: "#fff", borderRadius: 10, padding: 4, border: `1.5px solid ${ORZAYAH.navy}` }}>
+            <OrzayahQr url={qrUrl} image={qrImage} size={148} />
           </div>
         ) : (
-          <div className="font-body" style={{ width: 136, height: 136, borderRadius: 10, border: `1.5px dashed ${ORZAYAH.navy}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, textAlign: "center", padding: 10, boxSizing: "border-box", color: ORZAYAH.navy }}>
+          <div className="font-body" style={{ width: 159, height: 159, borderRadius: 10, border: `1.5px dashed ${ORZAYAH.navy}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, textAlign: "center", padding: 10, boxSizing: "border-box", color: ORZAYAH.navy }}>
             <QrCode size={30} color={ORZAYAH.navy} />
             <div style={{ fontSize: 7.5, fontWeight: 700, lineHeight: 1.25 }}>QR ORZAYAH<br />en attente de liaison</div>
           </div>
@@ -1285,7 +1296,7 @@ function OrzayahPaiementVerso({ qrImage, beneficiaire, reference }) {
           <div style={{ fontSize: 6.5, color: C.slate }}>Bénéficiaire</div>
           <div style={{ fontSize: 9.5, fontWeight: 700, color: C.ink, lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{beneficiaire || "—"}</div>
         </div>
-        <OrzayahMoyens tuile={33} />
+        <OrzayahMoyens tuile={29} />
         <div className="font-mono" style={{ fontSize: 6.5, color: C.slate, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Compte {reference || "—"}</div>
       </div>
     </div>
@@ -1482,6 +1493,7 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
       ) : (
         <OrzayahPaiementVerso
           qrImage={member.orzayahStatut === "lie" ? member.orzayahQrImage : null}
+          qrUrl={member.orzayahStatut === "lie" ? member.orzayahQrUrl : null}
           beneficiaire={`${member.prenoms || ""} ${member.nom || ""}`.trim()}
           reference={member.orzayahCompte}
         />
@@ -1617,7 +1629,7 @@ function CarteDroitDeLigneVerso({ vehicule, owner, scale = 1 }) {
       >
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 6, background: `linear-gradient(90deg, ${C.orange} 0%, ${C.orange} 50%, ${C.green} 50%, ${C.green} 100%)` }} />
         <div style={{ height: "100%", paddingBottom: 12, boxSizing: "border-box" }}>
-          <OrzayahPaiementVerso qrImage={owner?.orzayahStatut === "lie" ? owner.orzayahQrImage : null} beneficiaire={beneficiaire} reference={owner?.orzayahCompte} />
+          <OrzayahPaiementVerso qrImage={owner?.orzayahStatut === "lie" ? owner.orzayahQrImage : null} qrUrl={owner?.orzayahStatut === "lie" ? owner.orzayahQrUrl : null} beneficiaire={beneficiaire} reference={owner?.orzayahCompte} />
         </div>
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: ORZAYAH.navy, color: "#fff", textAlign: "center", fontSize: 8.5, fontWeight: 800, padding: "3px 0", letterSpacing: 0.5 }}>
           ENCAISSEMENT DES PASSAGERS · ORZAYAH
@@ -2502,7 +2514,9 @@ function MobileOrzayahBloc({ membre, categorie, onLier, compact = false }) {
 
       {lie ? (
         <div className="flex items-center gap-3">
-          <img src={membre.orzayahQrImage} alt="QR ORZAYAH" style={{ width: compact ? 96 : 132, height: compact ? 96 : 132, background: "#fff", borderRadius: 10, padding: 4, border: `1px solid ${C.border}`, imageRendering: "pixelated", flexShrink: 0 }} />
+          <div style={{ background: "#fff", borderRadius: 10, padding: 5, border: `1px solid ${C.border}`, flexShrink: 0 }}>
+            <OrzayahQr url={membre.orzayahQrUrl} image={membre.orzayahQrImage} size={compact ? 110 : 150} />
+          </div>
           <div className="font-body" style={{ minWidth: 0 }}>
             <div style={{ fontSize: 11.5, color: C.slate }}>N° de compte</div>
             <div className="font-mono" style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{membre.orzayahCompte}</div>
