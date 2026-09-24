@@ -193,6 +193,8 @@ export default async function handler(req, res) {
     if ("prenoms" in body) patch.prenoms = body.prenoms;
     if ("fonction" in body) patch.fonction = body.fonction;
     if ("syndicatId" in body && body.syndicatId) patch.syndicatId = body.syndicatId;
+    // CNI modifiable (correction d'une erreur de saisie) ; jamais vidée, et soumise au contrôle anti-doublons.
+    if ("cni" in body && String(body.cni || "").trim()) patch.cni = String(body.cni).trim();
     if ("contact1" in body) patch.contact1 = body.contact1;
     if ("contact2" in body) patch.contact2 = body.contact2;
     if ("contact3" in body) patch.contact3 = body.contact3;

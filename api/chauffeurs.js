@@ -129,6 +129,8 @@ export default async function handler(req, res) {
     if ("qrPaiement" in body) patch.qrPaiementUrl = body.qrPaiement;
     if ("nom" in body) patch.nom = body.nom;
     if ("prenoms" in body) patch.prenoms = body.prenoms;
+    // CNI modifiable (correction d'une erreur de saisie) ; jamais vidée, et soumise au contrôle anti-doublons.
+    if ("cni" in body && String(body.cni || "").trim()) patch.cni = String(body.cni).trim();
     if ("contact1" in body) patch.contact1 = body.contact1;
     if ("contact2" in body) patch.contact2 = body.contact2;
     if ("contact3" in body) patch.contact3 = body.contact3;
