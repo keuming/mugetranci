@@ -4,7 +4,7 @@ import {
   vehicules, historiqueProprietaires, vehiculeChauffeurs, affectations, achatsCarburant, syndicats, chauffeurs, proprietaires,
 } from "../db/schema.js";
 import { requireAuth, agentPeutGerer } from "../lib/auth.js";
-import { genererNumeroLigne } from "../lib/cards.js";
+import { normaliserImmatriculation, genererNumeroLigne } from "../lib/cards.js";
 
 // Taux de commission de la mutuelle sur chaque achat de carburant.
 const COMMISSION_RATE = 0.02; // 2%
@@ -112,6 +112,7 @@ function toDbVehicule(body) {
   const { photo, documents = {}, chauffeurIds, historiqueProprietaires: _h, ...rest } = body;
   return {
     ...rest,
+    immatriculation: normaliserImmatriculation(rest.immatriculation),
     marque: rest.marque || null,
     modele: rest.modele || null,
     chassis: rest.chassis || null, // nullable + unique : jamais de chaîne vide, sinon conflit d'unicité entre dossiers sans châssis renseigné
@@ -379,7 +380,7 @@ export default async function handler(req, res) {
     if ("carteGrise" in body) patch.carteGrise = body.carteGrise;
     if ("nomCarteGrise" in body) patch.nomCarteGrise = body.nomCarteGrise;
     if ("categorie" in body) patch.categorie = body.categorie;
-    if ("immatriculation" in body) patch.immatriculation = body.immatriculation;
+    if ("immatriculation" in body) patch.immatriculation = normaliserImmatriculation(body.immatriculation);
     if ("dateMiseCirculation" in body) patch.dateMiseCirculation = body.dateMiseCirculation || null;
     if ("commune" in body) patch.commune = body.commune || null;
     if ("associationId" in body) patch.associationId = body.associationId || null;

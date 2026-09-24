@@ -177,6 +177,11 @@ function fmt(dateStr) {
 function uid(prefix) {
   return prefix + "-" + Math.random().toString(36).slice(2, 8);
 }
+// Immatriculation normalisée à la saisie : majuscules, sans espace, tiret
+// ni point (même règle que lib/cards.js côté serveur).
+function normImmat(v) {
+  return String(v || "").toUpperCase().replace(/[\s\-.]+/g, "");
+}
 function initials(nom, prenoms) {
   return `${(prenoms || "?")[0] || ""}${(nom || "?")[0] || ""}`.toUpperCase();
 }
@@ -722,7 +727,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
               <Field label="Numéro de châssis (optionnel)"><TextInput value={chassis} onChange={(e) => setChassis(e.target.value)} placeholder="JT731HB0900123456" /></Field>
               <Field label="Numéro carte grise *"><TextInput value={carteGrise} onChange={(e) => setCarteGrise(e.target.value)} placeholder="CG-2024-000000" /></Field>
               <Field label="Nom sur la carte grise" hint="Peut différer du propriétaire actuel"><TextInput value={nomCarteGrise} onChange={(e) => setNomCarteGrise(e.target.value)} placeholder="Nom du titulaire inscrit sur le document" /></Field>
-              <Field label="Numéro d'immatriculation *"><TextInput value={immatriculation} onChange={(e) => setImmatriculation(e.target.value)} placeholder="CI 1234 AB 01" /></Field>
+              <Field label="Numéro d'immatriculation *" hint="Majuscules, sans espace ni tiret (saisie corrigée automatiquement)"><TextInput value={immatriculation} onChange={(e) => setImmatriculation(normImmat(e.target.value))} placeholder="1234AB01" autoCapitalize="characters" style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5 }} /></Field>
               <Field label="1ère mise en circulation"><DateInput value={dateMiseCirculation} onChange={(e) => setDateMiseCirculation(e.target.value)} /></Field>
             </div>
             <p className="font-body text-xs mt-3" style={{ color: C.slate }}>* Champs obligatoires pour créer le dossier — tout le reste peut être complété plus tard.</p>
@@ -1197,14 +1202,46 @@ const ORZAYAH = {
   chipBg: "#F6F7FA",
   chipBorder: "#E3E6EE",
 };
-const ORZAYAH_MOYENS = [
-  { label: "Orange Money", dot: "#FF7900" },
-  { label: "MTN MoMo", dot: "#FFCB05" },
-  { label: "Moov Money", dot: "#005CA9" },
-  { label: "Wave", dot: "#1DC8F2" },
-  { label: "Visa", dot: "#1A1F71" },
-  { label: "Mastercard", dot: "#EB001B" },
+// Logos officiels des moyens de paiement (fournis sous licence par
+// l'agrégateur, repris de keuming/wallet_mobilepay) : public/brand/moyens/.
+// Visa et Mastercard : déposer visa.png / mastercard.png dans ce dossier
+// suffit ; tant qu'ils sont absents, leur nom s'affiche à la place.
+const ORZAYAH_OPERATEURS = [
+  { label: "Orange Money", src: "/brand/moyens/orange-money.png" },
+  { label: "MTN MoMo", src: "/brand/moyens/mtn-money.png" },
+  { label: "Moov Money", src: "/brand/moyens/moov-money.png" },
+  { label: "Wave", src: "/brand/moyens/wave.png" },
 ];
+const ORZAYAH_CARTES = [
+  { label: "VISA", src: "/brand/moyens/visa.png" },
+  { label: "Mastercard", src: "/brand/moyens/mastercard.png" },
+];
+
+function MoyenCarteBancaire({ label, src, height = 15, fontSize = 7 }) {
+  const [absent, setAbsent] = useState(false);
+  if (!absent) return <img src={src} alt={label} onError={() => setAbsent(true)} style={{ height, width: "auto", display: "block" }} />;
+  return <span className="font-body" style={{ fontSize, fontWeight: 800, color: ORZAYAH.navy, letterSpacing: 0.3 }}>{label}</span>;
+}
+
+// Moyens de paiement acceptés : 4 logos opérateurs + cartes bancaires.
+function OrzayahMoyens({ tuile = 32 }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={{ display: "flex", gap: 4 }}>
+        {ORZAYAH_OPERATEURS.map((m) => (
+          <img key={m.label} src={m.src} alt={m.label} title={m.label} style={{ width: tuile, height: tuile, borderRadius: 6, objectFit: "cover", display: "block", border: `1px solid ${ORZAYAH.chipBorder}` }} />
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 4 }}>
+        {ORZAYAH_CARTES.map((m) => (
+          <div key={m.label} style={{ flex: 1, height: 17, display: "flex", alignItems: "center", justifyContent: "center", background: "#fff", border: `1px solid ${ORZAYAH.chipBorder}`, borderRadius: 5 }}>
+            <MoyenCarteBancaire label={m.label} src={m.src} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function OrzayahStatutPill({ membre }) {
   const lie = membre?.orzayahStatut === "lie" && membre?.orzayahQrImage;
@@ -1248,14 +1285,7 @@ function OrzayahPaiementVerso({ qrImage, beneficiaire, reference }) {
           <div style={{ fontSize: 6.5, color: C.slate }}>Bénéficiaire</div>
           <div style={{ fontSize: 9.5, fontWeight: 700, color: C.ink, lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{beneficiaire || "—"}</div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3 }}>
-          {ORZAYAH_MOYENS.map((m) => (
-            <div key={m.label} style={{ display: "flex", alignItems: "center", gap: 3, background: ORZAYAH.chipBg, border: `1px solid ${ORZAYAH.chipBorder}`, borderRadius: 5, padding: "2px 4px", fontSize: 6.8, fontWeight: 600, color: ORZAYAH.navy, whiteSpace: "nowrap", overflow: "hidden" }}>
-              <span style={{ width: 5, height: 5, borderRadius: 999, background: m.dot, flexShrink: 0 }} />
-              {m.label}
-            </div>
-          ))}
-        </div>
+        <OrzayahMoyens tuile={33} />
         <div className="font-mono" style={{ fontSize: 6.5, color: C.slate, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Compte {reference || "—"}</div>
       </div>
     </div>
@@ -2744,7 +2774,7 @@ function MobileView({
   const results = !query ? [] : (
     chercheVehicule
       ? vehiculesF
-          .filter((v) => critere === "chassis" ? match(v.chassis, v.carteGrise) : match(v.immatriculation))
+          .filter((v) => critere === "chassis" ? match(v.chassis, v.carteGrise) : normImmat(v.immatriculation).includes(normImmat(query)))
           .map((v) => ({ kind: "vehicule", item: v, title: v.immatriculation, sub: [v.marque, v.modele].filter(Boolean).join(" ") || "Véhicule" }))
       : [
           ...ownersF
@@ -6025,7 +6055,7 @@ function VehicleEditForm({ vehicle, onCancel, onSave }) {
         <Field label="Type technique" hint="Code technique du véhicule"><TextInput value={typeTechnique} onChange={(e) => setTypeTechnique(e.target.value)} placeholder="54AEA1" /></Field>
         <Field label="Puissance fiscale (CV)"><TextInput value={puissanceFiscale} onChange={(e) => setPuissanceFiscale(e.target.value)} placeholder="9" /></Field>
         <Field label="Numéro de châssis"><TextInput value={chassis} onChange={(e) => setChassis(e.target.value)} /></Field>
-        <Field label="Numéro d'immatriculation"><TextInput value={immatriculation} onChange={(e) => setImmatriculation(e.target.value)} /></Field>
+        <Field label="Numéro d'immatriculation" hint="Majuscules, sans espace ni tiret"><TextInput value={immatriculation} onChange={(e) => setImmatriculation(normImmat(e.target.value))} placeholder="1234AB01" autoCapitalize="characters" style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5 }} /></Field>
         <Field label="Numéro carte grise"><TextInput value={carteGrise} onChange={(e) => setCarteGrise(e.target.value)} /></Field>
         <Field label="Nom sur la carte grise"><TextInput value={nomCarteGrise} onChange={(e) => setNomCarteGrise(e.target.value)} /></Field>
         <Field label="1ère mise en circulation"><DateInput value={dateMiseCirculation} onChange={(e) => setDateMiseCirculation(e.target.value)} /></Field>

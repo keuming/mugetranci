@@ -61,8 +61,10 @@
     .orz-compte { text-align: center; font-family: ui-monospace, monospace; font-size: 13px; color: var(--ardoise); margin-top: 2px; }
     .orz-payer { display: block; text-align: center; margin: 14px 0 10px; padding: 14px; border-radius: 12px; background: #0D1B3E; color: #fff; font-weight: 800; font-size: 15px; text-decoration: none; }
     .orz-moyens { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
-    .orz-moyens span { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: #0D1B3E; background: #F6F7FA; border: 1px solid #E3E6EE; border-radius: 99px; padding: 3px 9px; }
-    .orz-moyens i { width: 7px; height: 7px; border-radius: 99px; display: inline-block; }
+    .orz-moyens { align-items: center; }
+    .orz-op { width: 44px; height: 44px; border-radius: 9px; object-fit: cover; border: 1px solid #E3E6EE; }
+    .orz-carte { display: inline-flex; align-items: center; justify-content: center; height: 44px; min-width: 70px; padding: 0 10px; font-size: 12px; font-weight: 800; color: #0D1B3E; background: #fff; border: 1px solid #E3E6EE; border-radius: 9px; }
+    .orz-carte img { height: 22px; width: auto; }
     .orz-autres { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--bord); }
     .orz-autres h3 { font-size: 12px; font-weight: 800; color: var(--ardoise); text-transform: uppercase; letter-spacing: .4px; margin: 0 0 8px; }
     .orz-mini { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
@@ -106,10 +108,12 @@
     }
     function imgSure(src) { return typeof src === "string" && src.startsWith("data:image/") ? src : ""; }
     function urlSure(u) { return typeof u === "string" && u.startsWith("https://") ? u : ""; }
-    const MOYENS_ORZAYAH = [
-      ["Orange Money", "#FF7900"], ["MTN MoMo", "#FFCB05"], ["Moov Money", "#005CA9"],
-      ["Wave", "#1DC8F2"], ["Visa", "#1A1F71"], ["Mastercard", "#EB001B"],
+    // Logos officiels des moyens de paiement (public/brand/moyens/).
+    // Visa / Mastercard : nom affiché tant que visa.png / mastercard.png sont absents.
+    const OPERATEURS_ORZAYAH = [
+      ["Orange Money", "orange-money"], ["MTN MoMo", "mtn-money"], ["Moov Money", "moov-money"], ["Wave", "wave"],
     ];
+    const CARTES_ORZAYAH = [["VISA", "visa"], ["Mastercard", "mastercard"]];
 
     function avatarHtml(photoUrl, nom, prenoms) {
       const init = ((prenoms || "?")[0] || "") + ((nom || "?")[0] || "");
@@ -200,7 +204,10 @@
       } else {
         html += `<div class="placeholder">Le transporteur de ce véhicule n'a pas encore de compte ORZAYAH actif.</div><div style="height:12px"></div>`;
       }
-      html += `<div class="orz-moyens">${MOYENS_ORZAYAH.map(([n, c]) => `<span><i style="background:${c}"></i>${n}</span>`).join("")}</div>`;
+      html += `<div class="orz-moyens">
+        ${OPERATEURS_ORZAYAH.map(([n, f]) => `<img class="orz-op" src="/brand/moyens/${f}.png" alt="${n}" title="${n}" />`).join("")}
+        ${CARTES_ORZAYAH.map(([n, f]) => `<span class="orz-carte"><img src="/brand/moyens/${f}.png" alt="${n}" onerror="this.replaceWith(document.createTextNode('${n}'))" /></span>`).join("")}
+      </div>`;
       if (orzC.length) {
         html += `<div class="orz-autres"><h3>Chauffeur${orzC.length > 1 ? "s" : ""} — compte${orzC.length > 1 ? "s" : ""} ORZAYAH</h3>`;
         orzC.forEach((c) => {
