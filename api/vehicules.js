@@ -140,6 +140,14 @@ function toDbVehicule(body) {
    documents) sont exposees ; aucun code PIN, aucun identifiant de connexion. */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Compte ORZAYAH exposé sur la fiche publique : seulement s'il est lié, et
+// seulement ce qui sert à payer (code, QR, lien) — jamais le téléphone ORZAYAH.
+function orzayahPublic(m) {
+  if (!m || m.orzayahStatut !== "lie" || !m.orzayahQrImage) return null;
+  const url = typeof m.orzayahQrUrl === "string" && m.orzayahQrUrl.startsWith("https://") ? m.orzayahQrUrl : null;
+  return { compte: m.orzayahCompte, qrImage: m.orzayahQrImage, url };
+}
+
 async function handleFichePublique(req, res, vehiculeId) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
@@ -211,10 +219,12 @@ async function handleFichePublique(req, res, vehiculeId) {
       nom: proprio.nom, prenoms: proprio.prenoms,
       carteTransporteurNumero: proprio.carteTransporteurNumero,
       contact1: proprio.contact1, photoUrl: proprio.photoUrl,
+      orzayah: orzayahPublic(proprio),
     } : null,
     chauffeurs: tousChauffeurs.map((c) => ({
       nom: c.nom, prenoms: c.prenoms, numeroCarte: c.numeroCarte,
       contact1: c.contact1, photoUrl: c.photoUrl, permisDateFin: c.permisDateFin,
+      orzayah: orzayahPublic(c),
     })),
     pointFocal: gare ? {
       gare: gare.nom, commune: gare.commune,
