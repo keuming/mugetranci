@@ -318,6 +318,36 @@ function readImageFile(file, { maxSide = 1200, quality = 0.82 } = {}) {
   });
 }
 
+/* Champ "N° de compte ORZAYAH" : code ORZ-XXXXXXXX imprimé sur la carte
+   ORZAYAH remise au membre. À l'enregistrement, le serveur crée le compte
+   marchand, le lie au Contact 1 et récupère le QR placé au verso. */
+function OrzayahCompteField({ value, onChange, membre }) {
+  const lie = membre?.orzayahStatut === "lie" && (membre?.orzayahCompte || "") === (value || "").trim().toUpperCase();
+  const erreur = membre?.orzayahStatut === "erreur" ? membre.orzayahErreur : null;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Field
+        label="N° de compte ORZAYAH"
+        hint="Code imprimé sur la carte ORZAYAH (ORZ-XXXXXXXX). Le compte marchand est créé automatiquement sur le Contact 1 ; code secret initial 0000, à changer par le titulaire dans l'app ORZAYAH."
+      >
+        <TextInput
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+          placeholder="ORZ-XXXXXXXX"
+          autoCapitalize="characters"
+          style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5 }}
+        />
+      </Field>
+      {lie && (
+        <span className="font-body text-[11px] font-semibold" style={{ color: C.greenDark }}>✓ Compte ORZAYAH lié — QR de paiement prêt pour le verso de la carte.</span>
+      )}
+      {!lie && erreur && (
+        <span className="font-body text-[11px] font-semibold" style={{ color: C.red }}>Liaison ORZAYAH échouée : {erreur} — corrigez si besoin puis enregistrez à nouveau.</span>
+      )}
+    </div>
+  );
+}
+
 function PhotoUpload({ value, onChange, label, shape = "circle" }) {
   const ref = useRef(null);       // galerie / fichiers
   const camRef = useRef(null);    // appareil photo
@@ -555,11 +585,11 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
 
   const [ownerMode, setOwnerMode] = useState(owners.length ? "existing" : "new"); // existing | new
   const [ownerId, setOwnerId] = useState(owners[0]?.id || "");
-  const [newOwner, setNewOwner] = useState({ nom: "", prenoms: "", cni: "", numeroPermis: "", contact1: "", contact2: "", contact3: "", email: "", ville: "", quartier: "", photo: null, qrPaiement: null, logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" });
+  const [newOwner, setNewOwner] = useState({ nom: "", prenoms: "", cni: "", numeroPermis: "", contact1: "", contact2: "", contact3: "", email: "", ville: "", quartier: "", photo: null, qrPaiement: null, orzayahCompte: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" });
 
-  const [driverRows, setDriverRows] = useState([{ mode: drivers.length ? "existing" : "new", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
+  const [driverRows, setDriverRows] = useState([{ mode: drivers.length ? "existing" : "new", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, orzayahCompte: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
 
-  const addDriverRow = () => setDriverRows((r) => r.length >= 3 ? r : [...r, { mode: "existing", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
+  const addDriverRow = () => setDriverRows((r) => r.length >= 3 ? r : [...r, { mode: "existing", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, orzayahCompte: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
   const removeDriverRow = (i) => setDriverRows((r) => r.filter((_, idx) => idx !== i));
   const updateDriverRow = (i, patch) => setDriverRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
   const updateDriverDraft = (i, patch) => setDriverRows((r) => r.map((row, idx) => (idx === i ? { ...row, draft: { ...row.draft, ...patch } } : row)));
@@ -730,7 +760,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
               <div className="flex flex-col gap-5">
                 <div className="grid grid-cols-2 gap-4">
                   <PhotoUpload value={newOwner.photo} onChange={(v) => setNewOwner({ ...newOwner, photo: v })} label="Photo du propriétaire" />
-                  <PhotoUpload value={newOwner.qrPaiement} onChange={(v) => setNewOwner({ ...newOwner, qrPaiement: v })} label="QR code Mobile Money (compte marchand)" shape="square" />
+                  <OrzayahCompteField value={newOwner.orzayahCompte} onChange={(v) => setNewOwner({ ...newOwner, orzayahCompte: v })} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <CollectifSelector collectifId={newOwner.logo2Id} onChange={(v) => setNewOwner({ ...newOwner, logo2Type: v ? "syndicat" : "", logo2Id: v, logo1Type: "", logo1Id: "" })} syndicats={syndicats} commune={commune} />
@@ -803,7 +833,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
                     <div className="flex flex-col gap-4">
                       <div className="flex gap-6">
                         <PhotoUpload value={row.draft.photo} onChange={(v) => updateDriverDraft(i, { photo: v })} label="Photo du chauffeur" />
-                        <PhotoUpload value={row.draft.qrPaiement} onChange={(v) => updateDriverDraft(i, { qrPaiement: v })} label="QR code de paiement (wallet Mobile Money)" shape="square" />
+                        <div style={{ flex: 1, minWidth: 0 }}><OrzayahCompteField value={row.draft.orzayahCompte} onChange={(v) => updateDriverDraft(i, { orzayahCompte: v })} /></div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <CollectifSelector collectifId={row.draft.logo2Id} onChange={(v) => updateDriverDraft(i, { logo2Type: v ? "syndicat" : "", logo2Id: v, logo1Type: "", logo1Id: "" })} syndicats={syndicats} commune={commune} />
@@ -1138,23 +1168,18 @@ function fuelQrData(driverId, carteGrise) {
 
 /* ============================================================
    ORZAYAH — QR DE PAIEMENT MARCHAND (verso de TOUTES les cartes)
-   Permet au titulaire de la carte d'encaisser ses passagers via
-   ORZAYAH : Orange Money, MTN MoMo, Moov Money, Wave, Visa, Mastercard.
-
-   PROVISOIRE : en attendant le service de génération des QR marchands
-   ORZAYAH, le QR encode une URL STABLE construite à partir de l'id du
-   titulaire (ex. https://orzayah.com/payer?m=CMX-C-<uuid>). Les cartes
-   imprimées dès maintenant resteront donc valides : il suffira que
-   orzayah.com/payer résolve la référence marchand. Quand l'API sera
-   prête, seul orzayahPayValue() est à remplacer (ex. lire le payload
-   EMV/QR renvoyé par ORZAYAH et stocké sur le membre / véhicule).
+   Permet au titulaire d'encaisser ses passagers via ORZAYAH : Orange
+   Money, MTN MoMo, Moov Money, Wave, Visa, Mastercard.
+   L'image du QR est celle renvoyée par l'API ORZAYAH à la création du
+   membre (orzayahQrImage, PNG base64) — voir lib/orzayah.js côté serveur.
+   Tant que le compte n'est pas lié, le verso affiche un emplacement
+   "en attente" : aucun faux QR n'est jamais imprimé.
    ============================================================ */
 const ORZAYAH = {
   navy: "#141B34",
   gold: "#F2A33A",
   chipBg: "#F6F7FA",
   chipBorder: "#E3E6EE",
-  payBase: "https://orzayah.com/payer",
 };
 const ORZAYAH_MOYENS = [
   { label: "Orange Money", dot: "#FF7900" },
@@ -1164,34 +1189,37 @@ const ORZAYAH_MOYENS = [
   { label: "Visa", dot: "#1A1F71" },
   { label: "Mastercard", dot: "#EB001B" },
 ];
-const ORZAYAH_PREFIXES = { transporteur: "T", chauffeur: "C", element: "E", vehicule: "V" };
-function orzayahMerchantRef(kind, id) {
-  return `CMX-${ORZAYAH_PREFIXES[kind] || "X"}-${id}`;
+
+function OrzayahStatutPill({ membre }) {
+  const lie = membre?.orzayahStatut === "lie" && membre?.orzayahQrImage;
+  const erreur = membre?.orzayahStatut === "erreur";
+  const style = lie
+    ? { background: C.greenLight, color: C.greenDark }
+    : erreur ? { background: C.redLight, color: C.red } : { background: C.amberLight, color: C.amber };
+  const texte = lie ? "ORZAYAH lié" : erreur ? "ORZAYAH : échec" : membre?.orzayahCompte ? "ORZAYAH en attente" : "Sans ORZAYAH";
+  return (
+    <span title={erreur ? membre.orzayahErreur : membre?.orzayahCompte || ""} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={style}>
+      <QrCode size={13} /> {texte}
+    </span>
+  );
 }
-function orzayahPayValue(kind, id) {
-  return `${ORZAYAH.payBase}?m=${encodeURIComponent(orzayahMerchantRef(kind, id))}`;
-}
-// Pastille centrale du QR (niveau de correction Q => le centre peut être masqué sans gêner la lecture).
-const ORZAYAH_QR_LOGO = "data:image/svg+xml;utf8," + encodeURIComponent(
-  "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><rect width='40' height='40' rx='9' fill='#141B34'/><circle cx='20' cy='20' r='10.5' fill='none' stroke='#F2A33A' stroke-width='5'/></svg>"
-);
 
 // Contenu du verso (remplit la carte 340 x 214 ; les bandeaux décoratifs
 // de la carte hôte restent dessinés par-dessus).
-function OrzayahPaiementVerso({ kind, id, beneficiaire, reference }) {
+function OrzayahPaiementVerso({ qrImage, beneficiaire, reference }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, height: "100%", padding: "14px 16px", boxSizing: "border-box", background: "#fff" }}>
       <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-        <div style={{ background: "#fff", borderRadius: 10, padding: 5, border: `1.5px solid ${ORZAYAH.navy}` }}>
-          <QRCodeSVG
-            value={orzayahPayValue(kind, id)}
-            size={124}
-            bgColor="#ffffff"
-            fgColor={ORZAYAH.navy}
-            level="Q"
-            imageSettings={{ src: ORZAYAH_QR_LOGO, height: 22, width: 22, excavate: true }}
-          />
-        </div>
+        {qrImage ? (
+          <div style={{ background: "#fff", borderRadius: 10, padding: 5, border: `1.5px solid ${ORZAYAH.navy}` }}>
+            <img src={qrImage} alt="QR de paiement ORZAYAH" style={{ width: 124, height: 124, objectFit: "contain", display: "block", imageRendering: "pixelated" }} />
+          </div>
+        ) : (
+          <div className="font-body" style={{ width: 136, height: 136, borderRadius: 10, border: `1.5px dashed ${ORZAYAH.navy}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, textAlign: "center", padding: 10, boxSizing: "border-box", color: ORZAYAH.navy }}>
+            <QrCode size={30} color={ORZAYAH.navy} />
+            <div style={{ fontSize: 7.5, fontWeight: 700, lineHeight: 1.25 }}>QR ORZAYAH<br />en attente de liaison</div>
+          </div>
+        )}
         <div className="font-body" style={{ fontSize: 7, fontWeight: 700, color: ORZAYAH.navy, letterSpacing: 1.2 }}>SCANNEZ · PAYEZ</div>
       </div>
 
@@ -1212,7 +1240,7 @@ function OrzayahPaiementVerso({ kind, id, beneficiaire, reference }) {
             </div>
           ))}
         </div>
-        <div className="font-mono" style={{ fontSize: 6.5, color: C.slate, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Réf. {reference || "—"}</div>
+        <div className="font-mono" style={{ fontSize: 6.5, color: C.slate, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Compte {reference || "—"}</div>
       </div>
     </div>
   );
@@ -1407,10 +1435,9 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
         </div>
       ) : (
         <OrzayahPaiementVerso
-          kind={category}
-          id={member.id}
+          qrImage={member.orzayahStatut === "lie" ? member.orzayahQrImage : null}
           beneficiaire={`${member.prenoms || ""} ${member.nom || ""}`.trim()}
-          reference={numero}
+          reference={member.orzayahCompte}
         />
       )}
     </div>
@@ -1528,8 +1555,8 @@ function CarteDroitDeLigneFace({ vehicule, owner, collectifTransporteurs, collec
   );
 }
 
-// Verso de la carte de droit de ligne : QR ORZAYAH du véhicule, pour
-// l'encaissement des passagers de cette ligne.
+// Verso de la carte de droit de ligne : QR ORZAYAH du transporteur
+// propriétaire, pour l'encaissement des passagers de cette ligne.
 function CarteDroitDeLigneVerso({ vehicule, owner, scale = 1 }) {
   const beneficiaire = [[owner?.prenoms, owner?.nom].filter(Boolean).join(" "), vehicule.immatriculation].filter(Boolean).join(" · ");
   return (
@@ -1544,7 +1571,7 @@ function CarteDroitDeLigneVerso({ vehicule, owner, scale = 1 }) {
       >
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 6, background: `linear-gradient(90deg, ${C.orange} 0%, ${C.orange} 50%, ${C.green} 50%, ${C.green} 100%)` }} />
         <div style={{ height: "100%", paddingBottom: 12, boxSizing: "border-box" }}>
-          <OrzayahPaiementVerso kind="vehicule" id={vehicule.id} beneficiaire={beneficiaire} reference={vehicule.numeroCarteLigne || vehicule.immatriculation} />
+          <OrzayahPaiementVerso qrImage={owner?.orzayahStatut === "lie" ? owner.orzayahQrImage : null} beneficiaire={beneficiaire} reference={owner?.orzayahCompte} />
         </div>
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: ORZAYAH.navy, color: "#fff", textAlign: "center", fontSize: 8.5, fontWeight: 800, padding: "3px 0", letterSpacing: 0.5 }}>
           ENCAISSEMENT DES PASSAGERS · ORZAYAH
@@ -1623,6 +1650,13 @@ function MemberCard({ member, category, logo1, logo2, numero, ficheValue, infoFi
         <MemberCardFace {...props} side="recto" />
         <MemberCardFace {...props} side="verso" />
       </div>
+      {!(member.orzayahStatut === "lie" && member.orzayahQrImage) && (
+        <div className="no-print font-body text-xs text-center" style={{ maxWidth: 340, color: member.orzayahStatut === "erreur" ? C.red : C.amber, fontWeight: 600 }}>
+          {member.orzayahStatut === "erreur"
+            ? `Liaison ORZAYAH échouée : ${member.orzayahErreur || "erreur inconnue"}. Modifiez la fiche du membre et enregistrez pour relancer.`
+            : "Aucun compte ORZAYAH lié : renseignez le n° de compte ORZAYAH dans la fiche du membre avant d'imprimer."}
+        </div>
+      )}
       <div className="no-print flex items-center gap-2">
         <button onClick={() => setFlipped((f) => !f)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ border: `1px solid ${C.border}`, color: C.ink }}>
           <RotateCw size={13} /> {flipped ? "Voir le recto" : "Voir le verso"}
@@ -3122,10 +3156,6 @@ function Dashboard({ auth, onLogout }) {
     const updated = await apiPatch(`/api/chauffeurs?id=${driverId}`, { photo: photoDataUrl });
     setDrivers((s) => s.map((d) => (d.id === driverId ? updated : d)));
   };
-  const updateDriverQr = async (driverId, qrDataUrl) => {
-    const updated = await apiPatch(`/api/chauffeurs?id=${driverId}`, { qrPaiement: qrDataUrl });
-    setDrivers((s) => s.map((d) => (d.id === driverId ? updated : d)));
-  };
   const updateDriver = async (driverId, payload) => {
     const updated = await apiPatch(`/api/chauffeurs?id=${driverId}`, payload);
     setDrivers((s) => s.map((d) => (d.id === driverId ? updated : d)));
@@ -4100,12 +4130,7 @@ function Dashboard({ auth, onLogout }) {
                     <div className="flex items-center justify-between">
                       <Badge status={s} />
                       <div className="flex items-center gap-2">
-                        <FileUploadButton
-                          label="QR paiement"
-                          icon={<QrCode size={13} />}
-                          onUpload={(dataUrl) => updateDriverQr(d.id, dataUrl)}
-                          style={{ background: d.qrPaiement ? C.greenLight : C.amberLight, color: d.qrPaiement ? C.greenDark : C.amber }}
-                        />
+                        <OrzayahStatutPill membre={d} />
                         <button onClick={() => openCard(d)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: C.greenLight, color: C.greenDark }}>
                           <CreditCard size={13} /> {showDriversArchive ? "Réimprimer (duplicata)" : "Carte membre"}
                         </button>
@@ -5153,6 +5178,7 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
   const [quartier, setQuartier] = useState(initialMember?.quartier || "");
   const [photo, setPhoto] = useState(initialMember?.photo || null);
   const [qrPaiement, setQrPaiement] = useState(initialMember?.qrPaiement || null);
+  const [orzayahCompte, setOrzayahCompte] = useState(initialMember?.orzayahCompte || "");
   const [associationId, setAssociationId] = useState(
     initialMember?.associationId
     || (initialMember?.logo1Type === "association" ? initialMember.logo1Id : "")
@@ -5176,7 +5202,7 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
+      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo, qrPaiement, orzayahCompte, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -5187,7 +5213,7 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4">
         <PhotoUpload value={photo} onChange={setPhoto} label="Photo du transporteur" />
-        <PhotoUpload value={qrPaiement} onChange={setQrPaiement} label="QR code Mobile Money (compte marchand)" shape="square" />
+        <OrzayahCompteField value={orzayahCompte} onChange={setOrzayahCompte} membre={initialMember} />
       </div>
       <AppartenanceBlock
         commune={commune}
@@ -5267,6 +5293,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
   const [email, setEmail] = useState(initialDriver?.email || "");
   const [photo, setPhoto] = useState(initialDriver?.photo || null);
   const [qrPaiement, setQrPaiement] = useState(initialDriver?.qrPaiement || null);
+  const [orzayahCompte, setOrzayahCompte] = useState(initialDriver?.orzayahCompte || "");
   const [associationId, setAssociationId] = useState(
     initialDriver?.associationId
     || (initialDriver?.logo1Type === "association" ? initialDriver.logo1Id : "")
@@ -5289,7 +5316,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, permisNumero, permisDateFin, contact1, contact2, contact3, email, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
+      await onSave({ nom, prenoms, cni, permisNumero, permisDateFin, contact1, contact2, contact3, email, photo, qrPaiement, orzayahCompte, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -5300,7 +5327,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4">
         <PhotoUpload value={photo} onChange={setPhoto} label="Photo du chauffeur" />
-        <PhotoUpload value={qrPaiement} onChange={setQrPaiement} label="QR code Mobile Money (compte marchand)" shape="square" />
+        <OrzayahCompteField value={orzayahCompte} onChange={setOrzayahCompte} membre={initialDriver} />
       </div>
       <AppartenanceBlock
         commune={commune}
@@ -5376,6 +5403,7 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
   const [email, setEmail] = useState(initialElement?.email || "");
   const [photo, setPhoto] = useState(initialElement?.photo || null);
   const [qrPaiement, setQrPaiement] = useState(initialElement?.qrPaiement || null);
+  const [orzayahCompte, setOrzayahCompte] = useState(initialElement?.orzayahCompte || "");
   const [commune, setCommune] = useState(initialElement?.commune || "");
   const [commissionMixteId, setCommissionMixteId] = useState(initialElement?.commissionMixteId || "");
   const [logo1Type, setLogo1Type] = useState(initialElement?.logo1Type || "");
@@ -5400,7 +5428,7 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, fonction, contact1, contact2, contact3, email, photo, qrPaiement, logo1Type, logo1Id, logo2Type, logo2Id, gareRoutiereId, ligneId, syndicatId, commune, commissionMixteId, associationId });
+      await onSave({ nom, prenoms, cni, fonction, contact1, contact2, contact3, email, photo, qrPaiement, orzayahCompte, logo1Type, logo1Id, logo2Type, logo2Id, gareRoutiereId, ligneId, syndicatId, commune, commissionMixteId, associationId });
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -5411,7 +5439,7 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4">
         <PhotoUpload value={photo} onChange={setPhoto} label="Photo de l'élément" />
-        <PhotoUpload value={qrPaiement} onChange={setQrPaiement} label="QR code Mobile Money (compte marchand)" shape="square" />
+        <OrzayahCompteField value={orzayahCompte} onChange={setOrzayahCompte} membre={initialElement} />
       </div>
       <AppartenanceBlock
         commune={commune}

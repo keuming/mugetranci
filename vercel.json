@@ -39,5 +39,16 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/proprietaires.js": {
+      "maxDuration": 60
+    },
+    "api/chauffeurs.js": {
+      "maxDuration": 60
+    },
+    "api/elements.js": {
+      "maxDuration": 60
+    }
+  }
 }

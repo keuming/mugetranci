@@ -79,6 +79,15 @@ export const proprietaires = pgTable("proprietaires", {
   logo1Id: uuid("logo1_id"),
   logo2Type: varchar("logo2_type", { length: 20 }),
   logo2Id: uuid("logo2_id"),
+  // Compte ORZAYAH (paiement marchand) : code de la carte ORZ-XXXXXXXX
+  // saisi au formulaire, puis liaison automatique par lib/orzayah.js.
+  orzayahCompte: varchar("orzayah_compte", { length: 30 }),
+  orzayahStatut: varchar("orzayah_statut", { length: 12 }), // lie | erreur
+  orzayahErreur: text("orzayah_erreur"),
+  orzayahMerchantId: varchar("orzayah_merchant_id", { length: 64 }),
+  orzayahQrUrl: text("orzayah_qr_url"),
+  orzayahQrImage: text("orzayah_qr_image"), // PNG base64 (data URL) renvoyé par ORZAYAH, imprimé au verso
+  orzayahLieAt: timestamp("orzayah_lie_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -110,6 +119,15 @@ export const chauffeurs = pgTable("chauffeurs", {
   logo1Id: uuid("logo1_id"),
   logo2Type: varchar("logo2_type", { length: 20 }),
   logo2Id: uuid("logo2_id"),
+  // Compte ORZAYAH (paiement marchand) : code de la carte ORZ-XXXXXXXX
+  // saisi au formulaire, puis liaison automatique par lib/orzayah.js.
+  orzayahCompte: varchar("orzayah_compte", { length: 30 }),
+  orzayahStatut: varchar("orzayah_statut", { length: 12 }), // lie | erreur
+  orzayahErreur: text("orzayah_erreur"),
+  orzayahMerchantId: varchar("orzayah_merchant_id", { length: 64 }),
+  orzayahQrUrl: text("orzayah_qr_url"),
+  orzayahQrImage: text("orzayah_qr_image"), // PNG base64 (data URL) renvoyé par ORZAYAH, imprimé au verso
+  orzayahLieAt: timestamp("orzayah_lie_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -143,6 +161,15 @@ export const elements = pgTable("elements", {
   logo1Id: uuid("logo1_id"),
   logo2Type: varchar("logo2_type", { length: 20 }),
   logo2Id: uuid("logo2_id"),
+  // Compte ORZAYAH (paiement marchand) : code de la carte ORZ-XXXXXXXX
+  // saisi au formulaire, puis liaison automatique par lib/orzayah.js.
+  orzayahCompte: varchar("orzayah_compte", { length: 30 }),
+  orzayahStatut: varchar("orzayah_statut", { length: 12 }), // lie | erreur
+  orzayahErreur: text("orzayah_erreur"),
+  orzayahMerchantId: varchar("orzayah_merchant_id", { length: 64 }),
+  orzayahQrUrl: text("orzayah_qr_url"),
+  orzayahQrImage: text("orzayah_qr_image"), // PNG base64 (data URL) renvoyé par ORZAYAH, imprimé au verso
+  orzayahLieAt: timestamp("orzayah_lie_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

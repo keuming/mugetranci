@@ -3,6 +3,7 @@ import { db } from "../db/index.js";
 import { chauffeurs, syndicats, garesRoutieres, vehiculeChauffeurs, achatsCarburant } from "../db/schema.js";
 import { requireAuth, agentPeutGerer } from "../lib/auth.js";
 import { genererNumeroCarte } from "../lib/cards.js";
+import { lierCompteOrzayah, traiterPatchOrzayah, retirerChampsOrzayahServeur, normaliserCodeOrzayah } from "../lib/orzayah.js";
 
 function toApi(row) {
   const { photoUrl, qrPaiementUrl, ...rest } = row;
@@ -10,7 +11,7 @@ function toApi(row) {
 }
 function toDb(body) {
   const { photo, qrPaiement, numeroCarte, ...rest } = body; // le numéro de carte est généré côté serveur
-  return { ...rest, photoUrl: photo ?? null, qrPaiementUrl: qrPaiement ?? null, commissionMixteId: rest.commissionMixteId || null, commune: rest.commune || null, associationId: rest.associationId || null, syndicatId: rest.syndicatId || null };
+  return retirerChampsOrzayahServeur({ ...rest, photoUrl: photo ?? null, qrPaiementUrl: qrPaiement ?? null, commissionMixteId: rest.commissionMixteId || null, commune: rest.commune || null, associationId: rest.associationId || null, syndicatId: rest.syndicatId || null });
 }
 
 export default async function handler(req, res) {
@@ -69,7 +70,9 @@ export default async function handler(req, res) {
 
       try {
         const [created] = await db.insert(chauffeurs).values(values).returning();
-        return res.status(201).json(toApi(created));
+        // Fin du processus d'ajout : création du compte ORZAYAH + QR du verso.
+        const final = await lierCompteOrzayah(chauffeurs, created);
+        return res.status(201).json(toApi(final));
       } catch (err) {
         if (err.code === "23505") {
           return res.status(400).json({ error: "Un enregistrement identique existe déjà." });
@@ -116,6 +119,7 @@ export default async function handler(req, res) {
 
     const body = req.body || {};
     const patch = {};
+    if ("orzayahCompte" in body) patch.orzayahCompte = normaliserCodeOrzayah(body.orzayahCompte);
     if ("photo" in body) patch.photoUrl = body.photo;
     if ("qrPaiement" in body) patch.qrPaiementUrl = body.qrPaiement;
     if ("nom" in body) patch.nom = body.nom;
@@ -142,7 +146,9 @@ export default async function handler(req, res) {
     }
 
     try {
-      const [updated] = await db.update(chauffeurs).set(patch).where(eq(chauffeurs.id, id)).returning();
+      const [avant] = "orzayahCompte" in patch ? await db.select().from(chauffeurs).where(eq(chauffeurs.id, id)) : [null];
+      let [updated] = await db.update(chauffeurs).set(patch).where(eq(chauffeurs.id, id)).returning();
+      if (updated && "orzayahCompte" in patch) updated = await traiterPatchOrzayah(chauffeurs, avant, updated);
       if (!updated) return res.status(404).json({ error: "Chauffeur introuvable" });
       return res.status(200).json(toApi(updated));
     } catch (err) {

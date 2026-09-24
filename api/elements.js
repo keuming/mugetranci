@@ -3,6 +3,7 @@ import { db } from "../db/index.js";
 import { elements, syndicats, garesRoutieres, associations, commissionsMixtes, lignes } from "../db/schema.js";
 import { requireAuth, agentPeutGerer } from "../lib/auth.js";
 import { genererNumeroCarte } from "../lib/cards.js";
+import { lierCompteOrzayah, traiterPatchOrzayah, retirerChampsOrzayahServeur, normaliserCodeOrzayah } from "../lib/orzayah.js";
 
 function toApi(row) {
   const { photoUrl, qrPaiementUrl, ...rest } = row;
@@ -10,7 +11,7 @@ function toApi(row) {
 }
 function toDb(body) {
   const { photo, qrPaiement, numeroCarte, ...rest } = body;
-  return { ...rest, photoUrl: photo ?? null, qrPaiementUrl: qrPaiement ?? null, commissionMixteId: rest.commissionMixteId || null, commune: rest.commune || null, associationId: rest.associationId || null };
+  return retirerChampsOrzayahServeur({ ...rest, photoUrl: photo ?? null, qrPaiementUrl: qrPaiement ?? null, commissionMixteId: rest.commissionMixteId || null, commune: rest.commune || null, associationId: rest.associationId || null });
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -131,7 +132,9 @@ export default async function handler(req, res) {
 
       try {
         const [created] = await db.insert(elements).values(values).returning();
-        return res.status(201).json(toApi(created));
+        // Fin du processus d'ajout : création du compte ORZAYAH + QR du verso.
+        const final = await lierCompteOrzayah(elements, created);
+        return res.status(201).json(toApi(final));
       } catch (err) {
         if (err.code === "23505") {
           return res.status(400).json({ error: "Un enregistrement identique existe déjà." });
@@ -178,6 +181,7 @@ export default async function handler(req, res) {
 
     const body = req.body || {};
     const patch = {};
+    if ("orzayahCompte" in body) patch.orzayahCompte = normaliserCodeOrzayah(body.orzayahCompte);
     if ("photo" in body) patch.photoUrl = body.photo;
     if ("qrPaiement" in body) patch.qrPaiementUrl = body.qrPaiement;
     if ("nom" in body) patch.nom = body.nom;
@@ -205,7 +209,9 @@ export default async function handler(req, res) {
     }
 
     try {
-      const [updated] = await db.update(elements).set(patch).where(eq(elements.id, id)).returning();
+      const [avant] = "orzayahCompte" in patch ? await db.select().from(elements).where(eq(elements.id, id)) : [null];
+      let [updated] = await db.update(elements).set(patch).where(eq(elements.id, id)).returning();
+      if (updated && "orzayahCompte" in patch) updated = await traiterPatchOrzayah(elements, avant, updated);
       if (!updated) return res.status(404).json({ error: "Élément introuvable" });
       return res.status(200).json(toApi(updated));
     } catch (err) {
