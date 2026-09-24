@@ -846,9 +846,9 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
                     )
                   ) : (
                     <div className="flex flex-col gap-4">
-                      <div className="flex gap-6">
+                      <div className="flex flex-wrap gap-6">
                         <PhotoUpload value={row.draft.photo} onChange={(v) => updateDriverDraft(i, { photo: v })} label="Photo du chauffeur" />
-                        <div style={{ flex: 1, minWidth: 0 }}><OrzayahCompteField value={row.draft.orzayahCompte} onChange={(v) => updateDriverDraft(i, { orzayahCompte: v })} telephone={row.draft.orzayahTelephone} onTelephone={(v) => updateDriverDraft(i, { orzayahTelephone: v })} /></div>
+                        <div style={{ flex: 1, minWidth: 240 }}><OrzayahCompteField value={row.draft.orzayahCompte} onChange={(v) => updateDriverDraft(i, { orzayahCompte: v })} telephone={row.draft.orzayahTelephone} onTelephone={(v) => updateDriverDraft(i, { orzayahTelephone: v })} /></div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <CollectifSelector collectifId={row.draft.logo2Id} onChange={(v) => updateDriverDraft(i, { logo2Type: v ? "syndicat" : "", logo2Id: v, logo1Type: "", logo1Id: "" })} syndicats={syndicats} commune={commune} />
@@ -2437,7 +2437,77 @@ function MobileVehiculeSection({ v }) {
   );
 }
 
-function MobileTransporteurSection({ owner }) {
+/* Bloc ORZAYAH de la fiche mobile : état du compte marchand, QR lié, et
+   liaison / relance directement sur le terrain (sans passer par le bureau). */
+function MobileOrzayahBloc({ membre, categorie, onLier, compact = false }) {
+  const [code, setCode] = useState(membre?.orzayahCompte || "");
+  const [tel, setTel] = useState(membre?.orzayahTelephone || "");
+  const [enCours, setEnCours] = useState(false);
+  const [err, setErr] = useState(null);
+  if (!membre) return null;
+  const lie = membre.orzayahStatut === "lie" && membre.orzayahQrImage;
+  const echec = membre.orzayahStatut === "erreur";
+
+  const lier = async () => {
+    setEnCours(true); setErr(null);
+    try {
+      const maj = await onLier(categorie, membre.id, { orzayahCompte: code, orzayahTelephone: tel });
+      if (maj?.orzayahStatut === "erreur") setErr(maj.orzayahErreur || "Liaison refusée par ORZAYAH.");
+    } catch (e) {
+      setErr(e.message || "Erreur réseau : réessayez avec une connexion.");
+    } finally {
+      setEnCours(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: compact ? 8 : 14, padding: 12, borderRadius: 14, border: `1.5px solid ${lie ? C.green : echec ? C.red : C.border}`, background: lie ? C.greenLight : "#fff" }}>
+      <div className="flex items-center justify-between gap-2" style={{ marginBottom: 8 }}>
+        <div className="font-display flex items-center gap-1.5" style={{ fontSize: 14, fontWeight: 800, color: ORZAYAH.navy }}>
+          <QrCode size={16} /> Compte ORZAYAH
+        </div>
+        <OrzayahStatutPill membre={membre} />
+      </div>
+
+      {lie ? (
+        <div className="flex items-center gap-3">
+          <img src={membre.orzayahQrImage} alt="QR ORZAYAH" style={{ width: compact ? 96 : 132, height: compact ? 96 : 132, background: "#fff", borderRadius: 10, padding: 4, border: `1px solid ${C.border}`, imageRendering: "pixelated", flexShrink: 0 }} />
+          <div className="font-body" style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 11.5, color: C.slate }}>N° de compte</div>
+            <div className="font-mono" style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{membre.orzayahCompte}</div>
+            <div style={{ fontSize: 11.5, color: C.slate, marginTop: 6 }}>Téléphone ORZAYAH</div>
+            <div className="font-mono" style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{membre.orzayahTelephone || "—"}</div>
+            <div style={{ fontSize: 11, color: C.greenDark, fontWeight: 700, marginTop: 6 }}>Code secret initial 0000, à changer par le titulaire.</div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {(echec || err) && (
+            <div className="font-body" style={{ fontSize: 12.5, fontWeight: 700, color: C.red, background: C.redLight, borderRadius: 8, padding: "7px 9px" }}>
+              {err || membre.orzayahErreur}
+            </div>
+          )}
+          <Field label="N° de compte ORZAYAH">
+            <TextInput value={code} onChange={(e) => setCode(e.target.value.toUpperCase().replace(/\s+/g, ""))} placeholder="ORZ-XXXXXXXX" autoCapitalize="characters" style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 16 }} />
+          </Field>
+          <Field label="N° de téléphone ORZAYAH">
+            <TextInput type="tel" inputMode="tel" value={tel} onChange={(e) => setTel(e.target.value)} placeholder="07 00 00 00 00" style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 16 }} />
+          </Field>
+          <button
+            onClick={lier}
+            disabled={enCours || !code.trim() || !tel.trim()}
+            className="font-body flex items-center justify-center gap-2"
+            style={{ background: enCours || !code.trim() || !tel.trim() ? "#9AA3B5" : ORZAYAH.navy, color: "#fff", fontSize: 14, fontWeight: 800, padding: "12px 14px", borderRadius: 11 }}
+          >
+            <QrCode size={16} /> {enCours ? "Liaison en cours… (jusqu'à 50 s)" : echec ? "Relancer la liaison ORZAYAH" : "Lier le compte ORZAYAH"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MobileTransporteurSection({ owner, onLierOrzayah }) {
   if (!owner) return <p className="font-body text-sm" style={{ color: C.slate, padding: "12px 0" }}>Aucun transporteur rattaché à ce dossier.</p>;
   return (
     <>
@@ -2457,11 +2527,12 @@ function MobileTransporteurSection({ owner }) {
       <MobileField label="Email" value={owner.email} />
       <MobileField label="Commune" value={owner.commune} />
       <MobileField label="Résidence" value={[owner.quartier, owner.ville].filter(Boolean).join(", ")} />
+      <MobileOrzayahBloc key={owner.id + (owner.orzayahStatut || "")} membre={owner} categorie="transporteur" onLier={onLierOrzayah} />
     </>
   );
 }
 
-function MobileChauffeursSection({ drivers }) {
+function MobileChauffeursSection({ drivers, onLierOrzayah }) {
   if (!drivers.length) return <p className="font-body text-sm" style={{ color: C.slate, padding: "12px 0" }}>Aucun chauffeur rattaché.</p>;
   return (
     <>
@@ -2482,13 +2553,14 @@ function MobileChauffeursSection({ drivers }) {
             <span className="font-body" style={{ fontSize: 12.5, color: C.slate }}>{d.contact1 || "—"}</span>
             <Badge status={statusOf(d.permisDateFin)} small />
           </div>
+          <MobileOrzayahBloc key={d.id + (d.orzayahStatut || "")} membre={d} categorie="chauffeur" onLier={onLierOrzayah} compact />
         </div>
       ))}
     </>
   );
 }
 
-function MobileElementSection({ el, syndicats }) {
+function MobileElementSection({ el, syndicats, onLierOrzayah }) {
   if (!el) return null;
   const syn = syndicats.find((s) => s.id === el.syndicatId);
   return (
@@ -2509,13 +2581,19 @@ function MobileElementSection({ el, syndicats }) {
       <MobileField label="Téléphone" value={[el.contact1, el.contact2, el.contact3].filter(Boolean).join(" · ")} mono />
       <MobileField label="Email" value={el.email} />
       <MobileField label="Commune" value={el.commune} />
+      <MobileOrzayahBloc key={el.id + (el.orzayahStatut || "")} membre={el} categorie="element" onLier={onLierOrzayah} />
     </>
   );
 }
 
 /* Vue detail : un dossier (vehicule + transporteur + chauffeurs) ou un element,
    avec navigation par section. */
-function MobileDetail({ result, vehicles, owners, drivers, syndicats, commissionsMixtes, associations, onCard, onBack }) {
+function MobileDetail({ result: resultInitial, vehicles, owners, drivers, elements = [], syndicats, commissionsMixtes, associations, onCard, onBack, onLierOrzayah }) {
+  // Après une liaison ORZAYAH, la fiche doit refléter l'enregistrement mis
+  // à jour : on relit l'élément courant dans les listes de l'application.
+  const listeDe = { transporteur: owners, chauffeur: drivers, element: elements, vehicule: vehicles };
+  const itemFrais = (listeDe[resultInitial.kind] || []).find((x) => x.id === resultInitial.item.id) || resultInitial.item;
+  const result = { ...resultInitial, item: itemFrais };
   const [section, setSection] = useState(result.kind === "element" ? "element" : "complete");
 
   const v = result.kind === "vehicule" ? result.item
@@ -2598,15 +2676,15 @@ function MobileDetail({ result, vehicles, owners, drivers, syndicats, commission
       </div>
 
       <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 18, padding: "4px 16px 16px", marginTop: 10 }}>
-        {section === "element" && <MobileElementSection el={el} syndicats={syndicats} />}
+        {section === "element" && <MobileElementSection el={el} syndicats={syndicats} onLierOrzayah={onLierOrzayah} />}
         {section === "vehicule" && <MobileVehiculeSection v={v} />}
-        {section === "transporteur" && <MobileTransporteurSection owner={owner} />}
-        {section === "chauffeurs" && <MobileChauffeursSection drivers={vDrivers} />}
+        {section === "transporteur" && <MobileTransporteurSection owner={owner} onLierOrzayah={onLierOrzayah} />}
+        {section === "chauffeurs" && <MobileChauffeursSection drivers={vDrivers} onLierOrzayah={onLierOrzayah} />}
         {section === "complete" && (
           <>
-            <MobileTransporteurSection owner={owner} />
+            <MobileTransporteurSection owner={owner} onLierOrzayah={onLierOrzayah} />
             <MobileVehiculeSection v={v} />
-            <MobileChauffeursSection drivers={vDrivers} />
+            <MobileChauffeursSection drivers={vDrivers} onLierOrzayah={onLierOrzayah} />
           </>
         )}
       </div>
@@ -2641,7 +2719,7 @@ function libelleJour(cle) {
 function MobileView({
   auth, onLogout, vehicles, owners, drivers, elements, syndicats, commissionsMixtes, associations, onCard, queueCount, syncing, onSync,
   setShowForm, setShowMemberFormFor, setShowDriverFormFor, setShowElementFormFor,
-  setShowProfileForm,
+  setShowProfileForm, onLierOrzayah,
 }) {
   const [tab, setTab] = useState("ajout");
   const [q, setQ] = useState("");
@@ -2737,7 +2815,7 @@ function MobileView({
 
       <div style={{ flex: 1, padding: "16px 16px 0" }}>
         {selected ? (
-          <MobileDetail result={selected} vehicles={vehicles} owners={owners} drivers={drivers} syndicats={syndicats} commissionsMixtes={commissionsMixtes} associations={associations} onCard={onCard} onBack={() => setSelected(null)} />
+          <MobileDetail result={selected} vehicles={vehicles} owners={owners} drivers={drivers} elements={elements} syndicats={syndicats} commissionsMixtes={commissionsMixtes} associations={associations} onCard={onCard} onBack={() => setSelected(null)} onLierOrzayah={onLierOrzayah} />
         ) : tab === "ajout" ? (
           <div style={{ paddingBottom: 90 }}>
             <InstallBanner />
@@ -3426,6 +3504,11 @@ function Dashboard({ auth, onLogout }) {
           setShowDriverFormFor={setShowDriverFormFor}
           setShowElementFormFor={setShowElementFormFor}
           setShowProfileForm={setShowProfileForm}
+          onLierOrzayah={(categorie, id, payload) => (
+            categorie === "transporteur" ? updateOwner(id, payload)
+              : categorie === "chauffeur" ? updateDriver(id, payload)
+              : updateElement(id, payload)
+          )}
         />
       ) : (
       <div className="flex" style={{ height: "100vh", overflow: "hidden" }}>
