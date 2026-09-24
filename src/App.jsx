@@ -1191,8 +1191,9 @@ function fuelQrData(driverId, carteGrise) {
    "en attente" : aucun faux QR n'est jamais imprimé.
    ============================================================ */
 const ORZAYAH = {
-  navy: "#141B34",
-  gold: "#F2A33A",
+  navy: "#0D1B3E",   // bleu nuit du logo officiel ORZAYAH
+  accent: "#00A152", // vert du logo, assombri pour rester lisible en petit sur fond blanc
+  logo: "/brand/orzayah-logo.png", // logo officiel (repris de keuming/wallet_mobilepay)
   chipBg: "#F6F7FA",
   chipBorder: "#E3E6EE",
 };
@@ -1240,8 +1241,8 @@ function OrzayahPaiementVerso({ qrImage, beneficiaire, reference }) {
 
       <div className="font-body" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 5 }}>
         <div>
-          <div className="font-display" style={{ fontSize: 19, fontWeight: 800, color: ORZAYAH.navy, letterSpacing: 2, lineHeight: 1 }}>ORZAYAH</div>
-          <div style={{ fontSize: 6.8, fontWeight: 700, color: ORZAYAH.gold, letterSpacing: 0.8, textTransform: "uppercase", marginTop: 2 }}>Paiement marchand</div>
+          <img src={ORZAYAH.logo} alt="ORZAYAH" style={{ height: 26, width: "auto", display: "block" }} />
+          <div style={{ fontSize: 6.8, fontWeight: 700, color: ORZAYAH.accent, letterSpacing: 0.8, textTransform: "uppercase", marginTop: 2 }}>Paiement marchand</div>
         </div>
         <div>
           <div style={{ fontSize: 6.5, color: C.slate }}>Bénéficiaire</div>

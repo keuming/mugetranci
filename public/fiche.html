@@ -50,24 +50,24 @@
     footer b { color: var(--encre); font-weight: 700; }
     #etat { text-align: center; padding: 60px 20px; color: var(--ardoise); font-size: 14px; }
     /* ---- Compte ORZAYAH ---- */
-    .orz { --nuit: #141B34; --or: #F2A33A; }
+    .orz { --nuit: #0D1B3E; --or: #00A152; }
     .orz-entete { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
-    .orz-marque { font-size: 19px; font-weight: 900; letter-spacing: 2.5px; color: #141B34; line-height: 1; }
-    .orz-sous { font-size: 10.5px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; color: #F2A33A; margin-top: 3px; }
+    .orz-marque { height: 34px; width: auto; display: block; }
+    .orz-sous { font-size: 10.5px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; color: #00A152; margin-top: 4px; }
     .orz-actif { background: var(--vert-clair); color: var(--vert-fonce); }
     .orz-qr { display: flex; justify-content: center; margin: 4px 0 12px; }
-    .orz-qr img { width: 220px; max-width: 70vw; height: auto; aspect-ratio: 1; image-rendering: pixelated; background: #fff; padding: 8px; border: 2px solid #141B34; border-radius: 14px; }
+    .orz-qr img { width: 220px; max-width: 70vw; height: auto; aspect-ratio: 1; image-rendering: pixelated; background: #fff; padding: 8px; border: 2px solid #0D1B3E; border-radius: 14px; }
     .orz-benef { text-align: center; font-size: 15px; font-weight: 800; }
     .orz-compte { text-align: center; font-family: ui-monospace, monospace; font-size: 13px; color: var(--ardoise); margin-top: 2px; }
-    .orz-payer { display: block; text-align: center; margin: 14px 0 10px; padding: 14px; border-radius: 12px; background: #141B34; color: #fff; font-weight: 800; font-size: 15px; text-decoration: none; }
+    .orz-payer { display: block; text-align: center; margin: 14px 0 10px; padding: 14px; border-radius: 12px; background: #0D1B3E; color: #fff; font-weight: 800; font-size: 15px; text-decoration: none; }
     .orz-moyens { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
-    .orz-moyens span { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: #141B34; background: #F6F7FA; border: 1px solid #E3E6EE; border-radius: 99px; padding: 3px 9px; }
+    .orz-moyens span { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: #0D1B3E; background: #F6F7FA; border: 1px solid #E3E6EE; border-radius: 99px; padding: 3px 9px; }
     .orz-moyens i { width: 7px; height: 7px; border-radius: 99px; display: inline-block; }
     .orz-autres { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--bord); }
     .orz-autres h3 { font-size: 12px; font-weight: 800; color: var(--ardoise); text-transform: uppercase; letter-spacing: .4px; margin: 0 0 8px; }
     .orz-mini { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
-    .orz-mini img { width: 84px; height: 84px; image-rendering: pixelated; background: #fff; padding: 4px; border: 1.5px solid #141B34; border-radius: 10px; flex-shrink: 0; }
-    .orz-mini a { color: #141B34; font-weight: 800; font-size: 13px; }
+    .orz-mini img { width: 84px; height: 84px; image-rendering: pixelated; background: #fff; padding: 4px; border: 1.5px solid #0D1B3E; border-radius: 10px; flex-shrink: 0; }
+    .orz-mini a { color: #0D1B3E; font-weight: 800; font-size: 13px; }
   </style>
 </head>
 <body>
@@ -189,7 +189,7 @@
       const orzT = t && t.orzayah && imgSure(t.orzayah.qrImage) ? t.orzayah : null;
       const orzC = chs.filter((c) => c.orzayah && imgSure(c.orzayah.qrImage));
       html += `<div class="section orz"><h2><span class="puce"></span>Compte ORZAYAH</h2>`;
-      html += `<div class="orz-entete"><div><div class="orz-marque">ORZAYAH</div><div class="orz-sous">Paiement marchand</div></div>
+      html += `<div class="orz-entete"><div><img class="orz-marque" src="/brand/orzayah-logo.png" alt="ORZAYAH" /><div class="orz-sous">Paiement marchand</div></div>
         ${orzT || orzC.length ? '<span class="badge orz-actif">Compte actif</span>' : '<span class="badge inconnu">Non activé</span>'}</div>`;
       if (orzT) {
         const lien = urlSure(orzT.url);
