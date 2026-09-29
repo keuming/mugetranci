@@ -1280,18 +1280,18 @@ const ORZAYAH_OPERATEURS = [
 // réseau exact de la carte est déterminé par le numéro saisi au paiement.
 const ORZAYAH_CARTE_BANCAIRE = { label: "Carte bancaire", src: "/brand/moyens/cartes-bancaires.png" };
 
-// Moyens de paiement acceptés : 4 logos opérateurs + cartes bancaires.
+// Moyens de paiement acceptés, regroupés près du QR : grille de 3 colonnes
+//   [Orange] [MTN] [Moov]
+//   [Wave ] [Visa · Mastercard · PayPal]
 function OrzayahMoyens({ tuile = 32 }) {
+  const cadre = { height: tuile, borderRadius: 6, display: "block", border: `1px solid ${ORZAYAH.chipBorder}`, boxSizing: "border-box" };
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <div style={{ display: "flex", gap: 4 }}>
-        {ORZAYAH_OPERATEURS.map((m) => (
-          <img key={m.label} src={m.src} alt={m.label} title={m.label} style={{ width: tuile, height: tuile, borderRadius: 6, objectFit: "cover", display: "block", border: `1px solid ${ORZAYAH.chipBorder}` }} />
-        ))}
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, height: 26, padding: "0 6px", background: "#fff", border: `1px solid ${ORZAYAH.chipBorder}`, borderRadius: 6 }}>
-        <img src={ORZAYAH_CARTE_BANCAIRE.src} alt={ORZAYAH_CARTE_BANCAIRE.label} style={{ height: 22, width: "auto", display: "block" }} />
-        <span className="font-body" style={{ fontSize: 7, fontWeight: 700, color: ORZAYAH.navy, whiteSpace: "nowrap" }}>{ORZAYAH_CARTE_BANCAIRE.label}</span>
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(3, ${tuile}px)`, gap: 4 }}>
+      {ORZAYAH_OPERATEURS.map((m) => (
+        <img key={m.label} src={m.src} alt={m.label} title={m.label} style={{ ...cadre, width: tuile, objectFit: "cover" }} />
+      ))}
+      <div title={ORZAYAH_CARTE_BANCAIRE.label} style={{ ...cadre, gridColumn: "span 2", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", padding: 2 }}>
+        <img src={ORZAYAH_CARTE_BANCAIRE.src} alt="Visa, Mastercard, PayPal" style={{ maxHeight: "100%", maxWidth: "100%", display: "block" }} />
       </div>
     </div>
   );
@@ -1350,7 +1350,7 @@ function OrzayahPaiementVerso({ qrImage, qrUrl, beneficiaire, reference }) {
           <div style={{ fontSize: 6.5, color: C.slate }}>Bénéficiaire</div>
           <div style={{ fontSize: 9.5, fontWeight: 700, color: C.ink, lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{beneficiaire || "—"}</div>
         </div>
-        <OrzayahMoyens tuile={29} />
+        <OrzayahMoyens tuile={34} />
         <div className="font-mono" style={{ fontSize: 6.5, color: C.slate, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Compte {reference || "—"}</div>
       </div>
     </div>
