@@ -1471,6 +1471,10 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
   const surFondColore = isRecto && !!theme.cardBackground;
   const tPrincipal = surFondColore ? theme.textColor : C.ink;
   const tSecondaire = surFondColore ? theme.textMuted : C.slate;
+  // Point Focal : commune du membre, à défaut celle de la commission mixte ou
+  // du collectif de rattachement (logos de la carte) — un membre enregistré
+  // sans commune reçoit ainsi quand même la mention de sa commune.
+  const communePointFocal = member.commune || logo2?.commune || logo1?.commune || null;
   const card = (
     <div
       style={{
@@ -1526,8 +1530,8 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
             <div className="font-body">
               <div style={{ fontSize: 13.5, fontWeight: 700, color: tPrincipal, lineHeight: 1.15 }}>{member.prenoms} {member.nom}</div>
               <div style={{ fontSize: 9, color: tSecondaire }}>{category === "element" && member.fonction ? member.fonction : theme.label}</div>
-              {mentionPointFocal(member.commune) && (
-                <div style={{ fontSize: 7.5, color: tPrincipal, fontWeight: 800, marginTop: 1, letterSpacing: 0.3 }}>{mentionPointFocal(member.commune)}</div>
+              {mentionPointFocal(communePointFocal) && (
+                <div style={{ fontSize: 7.5, color: tPrincipal, fontWeight: 800, marginTop: 1, letterSpacing: 0.3 }}>{mentionPointFocal(communePointFocal)}</div>
               )}
             </div>
           </div>
@@ -1605,8 +1609,8 @@ function CarteDroitDeLigneFace({ vehicule, owner, collectifTransporteurs, collec
             <div style={{ flex: 1, textAlign: "center", padding: "0 6px" }}>
               <div className="font-display" style={{ fontSize: 16, fontWeight: 800, color: C.orangeDark, letterSpacing: 0.5, lineHeight: 1 }}>{collectifTransporteurs?.sigle || "COMIX-CI"}</div>
               <div style={{ fontSize: 6, color: C.slate, lineHeight: 1.15, marginTop: 1 }}>{collectifTransporteurs?.nom || "Collectif des syndicats des transporteurs"}</div>
-              {mentionPointFocal(vehicule.commune || owner?.commune) && (
-                <div style={{ fontSize: 7, color: C.greenDark, fontWeight: 800, letterSpacing: 0.3, lineHeight: 1.1, marginTop: 1 }}>{mentionPointFocal(vehicule.commune || owner?.commune)}</div>
+              {mentionPointFocal(vehicule.commune || owner?.commune || collectifTransporteurs?.commune) && (
+                <div style={{ fontSize: 7, color: C.greenDark, fontWeight: 800, letterSpacing: 0.3, lineHeight: 1.1, marginTop: 1 }}>{mentionPointFocal(vehicule.commune || owner?.commune || collectifTransporteurs?.commune)}</div>
               )}
             </div>
             <div style={{ width: 30, height: 30, borderRadius: 999, overflow: "hidden", background: C.cream, border: `1.5px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
