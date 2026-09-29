@@ -2634,13 +2634,14 @@ function MobileTransporteurSection({ owner, onLierOrzayah }) {
           <div className="font-body" style={{ fontSize: 12.5, color: C.slate }}>{[owner.quartier, owner.ville].filter(Boolean).join(", ") || "Résidence non renseignée"}</div>
         </div>
       </div>
+      <MobileOrzayahBloc key={owner.id + (owner.orzayahStatut || "")} membre={owner} categorie="transporteur" onLier={onLierOrzayah} />
+      <div style={{ height: 6 }} />
       <MobileField label="N° CNI" value={owner.cni} mono />
       <MobileField label="N° permis" value={owner.numeroPermis} mono />
       <MobileField label="Téléphone" value={[owner.contact1, owner.contact2, owner.contact3].filter(Boolean).join(" · ")} mono />
       <MobileField label="Email" value={owner.email} />
       <MobileField label="Commune" value={owner.commune} />
       <MobileField label="Résidence" value={[owner.quartier, owner.ville].filter(Boolean).join(", ")} />
-      <MobileOrzayahBloc key={owner.id + (owner.orzayahStatut || "")} membre={owner} categorie="transporteur" onLier={onLierOrzayah} />
     </>
   );
 }
@@ -2673,6 +2674,34 @@ function MobileChauffeursSection({ drivers, onLierOrzayah }) {
   );
 }
 
+function MobileChauffeurFiche({ d, onLierOrzayah }) {
+  if (!d) return null;
+  return (
+    <>
+      <MobileSectionTitle icon={<User size={15} />} accent={C.greenDark}>Chauffeur</MobileSectionTitle>
+      <div className="flex items-center gap-3" style={{ padding: "10px 0" }}>
+        <div style={{ width: 54, height: 54, borderRadius: 999, overflow: "hidden", background: C.cream, border: `2px solid ${C.border}`, flexShrink: 0 }}>
+          {d.photo ? <img src={d.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-body font-bold" style={{ color: C.slate }}>{initials(d.nom, d.prenoms)}</div>}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div className="font-display" style={{ fontSize: 18, fontWeight: 800, color: C.ink, lineHeight: 1.15 }}>{d.prenoms} {d.nom}</div>
+          <div className="font-mono" style={{ fontSize: 12.5, fontWeight: 700, color: C.greenDark }}>{d.numeroCarte || "—"}</div>
+        </div>
+      </div>
+      <MobileOrzayahBloc key={d.id + (d.orzayahStatut || "")} membre={d} categorie="chauffeur" onLier={onLierOrzayah} />
+      <div style={{ height: 6 }} />
+      <MobileField label="N° CNI" value={d.cni} mono />
+      <MobileField label="N° permis" value={d.permisNumero} mono />
+      <div className="flex items-center justify-between" style={{ padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
+        <span className="font-body" style={{ fontSize: 12.5, color: C.slate }}>Validité du permis</span>
+        <Badge status={statusOf(d.permisDateFin)} small />
+      </div>
+      <MobileField label="Téléphone" value={[d.contact1, d.contact2, d.contact3].filter(Boolean).join(" · ")} mono />
+      <MobileField label="Commune" value={d.commune} />
+    </>
+  );
+}
+
 function MobileElementSection({ el, syndicats, onLierOrzayah }) {
   if (!el) return null;
   const syn = syndicats.find((s) => s.id === el.syndicatId);
@@ -2688,13 +2717,14 @@ function MobileElementSection({ el, syndicats, onLierOrzayah }) {
           <div className="font-mono" style={{ fontSize: 12.5, fontWeight: 700, color: C.ink }}>{el.numeroCarte || "—"}</div>
         </div>
       </div>
+      <MobileOrzayahBloc key={el.id + (el.orzayahStatut || "")} membre={el} categorie="element" onLier={onLierOrzayah} />
+      <div style={{ height: 6 }} />
       <MobileField label="Fonction / Poste" value={el.fonction} />
       <MobileField label="Association" value={syn ? (syn.sigle || syn.nom) : "—"} />
       <MobileField label="N° CNI" value={el.cni} mono />
       <MobileField label="Téléphone" value={[el.contact1, el.contact2, el.contact3].filter(Boolean).join(" · ")} mono />
       <MobileField label="Email" value={el.email} />
       <MobileField label="Commune" value={el.commune} />
-      <MobileOrzayahBloc key={el.id + (el.orzayahStatut || "")} membre={el} categorie="element" onLier={onLierOrzayah} />
     </>
   );
 }
@@ -2707,7 +2737,9 @@ function MobileDetail({ result: resultInitial, vehicles, owners, drivers, elemen
   const listeDe = { transporteur: owners, chauffeur: drivers, element: elements, vehicule: vehicles };
   const itemFrais = (listeDe[resultInitial.kind] || []).find((x) => x.id === resultInitial.item.id) || resultInitial.item;
   const result = { ...resultInitial, item: itemFrais };
-  const [section, setSection] = useState(result.kind === "element" ? "element" : "complete");
+  // Transporteur / chauffeur / élément : s'ouvre sur SA fiche (identité +
+  // compte ORZAYAH en tête), comme un élément. Seul un véhicule ouvre le dossier complet.
+  const [section, setSection] = useState(result.kind === "element" ? "element" : result.kind === "vehicule" ? "complete" : "membre");
 
   const v = result.kind === "vehicule" ? result.item
     : result.kind === "transporteur" ? vehicles.find((x) => x.proprietaireId === result.item.id)
@@ -2719,6 +2751,10 @@ function MobileDetail({ result: resultInitial, vehicles, owners, drivers, elemen
 
   const tabs = el
     ? [{ key: "element", label: "Élément" }]
+    : result.kind === "transporteur"
+    ? [{ key: "membre", label: "Fiche" }, { key: "vehicule", label: "Véhicule" }, { key: "chauffeurs", label: "Chauffeurs" }]
+    : result.kind === "chauffeur"
+    ? [{ key: "membre", label: "Fiche" }, { key: "vehicule", label: "Véhicule" }]
     : [
         { key: "vehicule", label: "Véhicule" },
         { key: "transporteur", label: "Transporteur" },
@@ -2727,6 +2763,7 @@ function MobileDetail({ result: resultInitial, vehicles, owners, drivers, elemen
       ];
 
   const title = el ? `${el.prenoms} ${el.nom}`
+    : result.kind === "chauffeur" ? `${result.item.prenoms} ${result.item.nom}`
     : owner ? `${owner.prenoms} ${owner.nom}`
     : v ? v.immatriculation
     : vDrivers[0] ? `${vDrivers[0].prenoms} ${vDrivers[0].nom}` : "Dossier";
@@ -2790,6 +2827,8 @@ function MobileDetail({ result: resultInitial, vehicles, owners, drivers, elemen
 
       <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 18, padding: "4px 16px 16px", marginTop: 10 }}>
         {section === "element" && <MobileElementSection el={el} syndicats={syndicats} onLierOrzayah={onLierOrzayah} />}
+        {section === "membre" && result.kind === "transporteur" && <MobileTransporteurSection owner={owner} onLierOrzayah={onLierOrzayah} />}
+        {section === "membre" && result.kind === "chauffeur" && <MobileChauffeurFiche d={result.item} onLierOrzayah={onLierOrzayah} />}
         {section === "vehicule" && <MobileVehiculeSection v={v} />}
         {section === "transporteur" && <MobileTransporteurSection owner={owner} onLierOrzayah={onLierOrzayah} />}
         {section === "chauffeurs" && <MobileChauffeursSection drivers={vDrivers} onLierOrzayah={onLierOrzayah} />}
@@ -2871,16 +2910,27 @@ function MobileView({
         ]
   );
 
-  // Historique : les quatre categories reunies, datees et triees.
+  // Historique : UNE LIGNE PAR PERSONNE (transporteur, chauffeur, élément),
+  // toutes présentées de la même façon et ouvrant directement la fiche du
+  // membre (compte ORZAYAH en tête). Le véhicule apparaît en sous-titre ; un
+  // véhicule sans aucun membre rattaché garde sa propre ligne.
+  const communeCommission = (m) => commissionsMixtes.find((c) => c.id === m.commissionMixteId)?.commune;
+  const vehiculeDe = (kind, m) => kind === "transporteur" ? vehicles.find((x) => x.proprietaireId === m.id)
+    : kind === "chauffeur" ? vehicles.find((x) => x.chauffeurIds.includes(m.id)) : null;
+  const memeCommuneMembre = (kind, m) => !communeF
+    || COMMUNE_EQ(m.commune, communeF) || COMMUNE_EQ(communeCommission(m), communeF)
+    || COMMUNE_EQ(vehiculeDe(kind, m)?.commune, communeF);
+  const ligneMembre = (kind, m, numero) => {
+    const veh = vehiculeDe(kind, m);
+    return { kind, item: m, date: m.createdAt, title: `${m.prenoms} ${m.nom}`,
+      sub: [numero, kind === "element" ? m.fonction : veh?.immatriculation].filter(Boolean).join(" · ") };
+  };
   const historique = [
-    ...vehiculesF.map((v) => ({ kind: "vehicule", item: v, date: v.createdAt,
-      title: v.immatriculation, sub: [v.marque, v.modele].filter(Boolean).join(" ") || "Véhicule" })),
-    ...ownersF.map((o) => ({ kind: "transporteur", item: o, date: o.createdAt,
-      title: `${o.prenoms} ${o.nom}`, sub: o.carteTransporteurNumero || "Transporteur" })),
-    ...driversF.map((d) => ({ kind: "chauffeur", item: d, date: d.createdAt,
-      title: `${d.prenoms} ${d.nom}`, sub: d.numeroCarte || "Chauffeur" })),
-    ...elementsF.map((e) => ({ kind: "element", item: e, date: e.createdAt,
-      title: `${e.prenoms} ${e.nom}`, sub: e.fonction || "Élément" })),
+    ...owners.filter((o) => memeCommuneMembre("transporteur", o)).map((o) => ligneMembre("transporteur", o, o.carteTransporteurNumero)),
+    ...drivers.filter((d) => memeCommuneMembre("chauffeur", d)).map((d) => ligneMembre("chauffeur", d, d.numeroCarte)),
+    ...elements.filter((e) => memeCommuneMembre("element", e)).map((e) => ligneMembre("element", e, e.numeroCarte)),
+    ...vehiculesF.filter((v) => !v.proprietaireId && !(v.chauffeurIds || []).length).map((v) => ({ kind: "vehicule", item: v, date: v.createdAt,
+      title: v.immatriculation, sub: "Véhicule sans transporteur ni chauffeur" })),
   ].sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
 
   const historiqueGroupe = grouperParJour(historique);
@@ -2986,12 +3036,22 @@ function MobileView({
                           {m.icon}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div className="font-display" style={{ fontSize: 15.5, fontWeight: 700, color: C.ink, letterSpacing: -0.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</div>
+                          <div className="font-display" style={{ fontSize: 15.5, fontWeight: 700, color: C.ink, letterSpacing: -0.2, lineHeight: 1.2, wordBreak: "break-word" }}>{r.title}</div>
                           <div className="font-body" style={{ fontSize: 12, color: C.slate }}>
                             <span style={{ color: m.color, fontWeight: 700 }}>{m.label}</span>
                             {r.sub ? ` · ${r.sub}` : ""}
                           </div>
                         </div>
+                        {r.kind !== "vehicule" && (() => {
+                          const lie = r.item.orzayahStatut === "lie";
+                          const echec = r.item.orzayahStatut === "erreur";
+                          return (
+                            <span className="font-body" style={{ fontSize: 10.5, fontWeight: 800, flexShrink: 0, padding: "3px 7px", borderRadius: 6,
+                              background: lie ? C.greenLight : echec ? C.redLight : C.amberLight, color: lie ? C.greenDark : echec ? C.red : C.amber }}>
+                              {lie ? "ORZ ✓" : echec ? "ORZ ✗" : "ORZ"}
+                            </span>
+                          );
+                        })()}
                         {h && !isNaN(h) && (
                           <span className="font-mono" style={{ fontSize: 11, color: C.slate, flexShrink: 0 }}>
                             {h.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
