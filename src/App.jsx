@@ -1609,9 +1609,6 @@ function CarteDroitDeLigneFace({ vehicule, owner, collectifTransporteurs, collec
             <div style={{ flex: 1, textAlign: "center", padding: "0 6px" }}>
               <div className="font-display" style={{ fontSize: 16, fontWeight: 800, color: C.orangeDark, letterSpacing: 0.5, lineHeight: 1 }}>{collectifTransporteurs?.sigle || "COMIX-CI"}</div>
               <div style={{ fontSize: 6, color: C.slate, lineHeight: 1.15, marginTop: 1 }}>{collectifTransporteurs?.nom || "Collectif des syndicats des transporteurs"}</div>
-              {mentionPointFocal(vehicule.commune || owner?.commune || collectifTransporteurs?.commune) && (
-                <div style={{ fontSize: 7, color: C.greenDark, fontWeight: 800, letterSpacing: 0.3, lineHeight: 1.1, marginTop: 1 }}>{mentionPointFocal(vehicule.commune || owner?.commune || collectifTransporteurs?.commune)}</div>
-              )}
             </div>
             <div style={{ width: 30, height: 30, borderRadius: 999, overflow: "hidden", background: C.cream, border: `1.5px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               {collectifChauffeurs?.logoUrl ? <img src={collectifChauffeurs.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Users size={15} color={C.greenDark} />}
