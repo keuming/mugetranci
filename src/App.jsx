@@ -4064,12 +4064,15 @@ function Dashboard({ auth, onLogout }) {
                   </button>
                 )}
               >
-                <VehicleTable
-                  vehicles={eligibles} owners={owners} onFiche={openFiche} onPhoto={updateVehiclePhoto}
+                <VehicleGrid
+                  vehicles={eligibles} owners={owners} drivers={drivers} onFiche={openFiche} onPhoto={updateVehiclePhoto}
                   commissionsMixtes={commissionsMixtes} lignes={lignes} affectations={affectations}
                   onReassign={setReassignVehicle} onEdit={setEditVehicle} onDelete={deleteVehicle}
+                  onCardOwner={setCardOwner} onCardDriver={openCard}
+                  onEditOwner={setEditMember} onEditDriver={setEditDriver}
                   selectedIds={selectedVehicleIds}
                   onToggleSelect={(id) => setSelectedVehicleIds((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id])}
+                  vide={showVehiclesArchive ? "Aucune carte archivée." : "Aucune nouvelle carte à imprimer."}
                 />
               </SectionCard>
             </div>
@@ -4136,6 +4139,7 @@ function Dashboard({ auth, onLogout }) {
                         <div className="text-xs" style={{ color: C.slate }}>{ownedCount} véhicule{ownedCount > 1 ? "s" : ""} · N° {o.carteTransporteurNumero || "—"}</div>
                       </div>
                     </div>
+                    <button onClick={() => setEditMember(o)} title="Modifier la fiche (liaison ORZAYAH)" className="mb-2"><OrzayahStatutPill membre={o} /></button>
                     <div className="flex flex-col gap-1.5 text-xs mb-3" style={{ color: C.slate }}>
                       <div className="flex items-center gap-2"><BadgeCheck size={13} /> {o.cni}</div>
                       <div className="flex items-center gap-2"><Phone size={13} /> {o.contact1}{o.contact2 ? " · " + o.contact2 : ""}</div>
@@ -4237,6 +4241,7 @@ function Dashboard({ auth, onLogout }) {
                       <div>
                         <div className="font-display" style={{ fontSize: 15, fontWeight: 800, color: C.ink }}>{e.prenoms} {e.nom}</div>
                         <div className="text-xs" style={{ color: C.slate }}>{e.fonction || "—"} · N° {e.numeroCarte || "—"}</div>
+                        <button onClick={() => setEditElement(e)} title="Modifier la fiche (liaison ORZAYAH)" className="mt-1.5"><OrzayahStatutPill membre={e} /></button>
                       </div>
                     </div>
                     <div className="flex flex-col gap-1.5 text-xs mb-3" style={{ color: C.slate }}>
@@ -6417,6 +6422,93 @@ function SyndicatMembersTable({ commissionSyndicats, owners, associations = [], 
                 ))}
               </tbody>
             </table>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* Page Véhicules : une TUILE par véhicule, même présentation que les pages
+   Transporteurs / Chauffeurs / Éléments. Chaque tuile montre les membres
+   rattachés avec leur état ORZAYAH et un accès direct à leur carte et à
+   leur fiche (liaison ORZAYAH) — plus besoin de passer par le dossier. */
+function VehicleGrid({ vehicles, owners, drivers, commissionsMixtes, lignes, affectations, onFiche, onPhoto, onReassign, onEdit, onDelete,
+  onCardOwner, onCardDriver, onEditOwner, onEditDriver, selectedIds = [], onToggleSelect, vide = "Aucun véhicule." }) {
+  if (!vehicles.length) {
+    return <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 24 }} className="font-body text-sm text-center"><span style={{ color: C.slate }}>{vide}</span></div>;
+  }
+  const ligneMembre = (m, libelle, onCarte, onModifier) => (
+    <div key={m.id} className="flex items-center gap-2" style={{ padding: "7px 0", borderTop: `1px solid ${C.border}` }}>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div className="font-body text-xs" style={{ color: C.slate }}>{libelle}</div>
+        <div className="font-body" style={{ fontSize: 13, fontWeight: 700, color: C.ink, lineHeight: 1.2 }}>{m.prenoms} {m.nom}</div>
+      </div>
+      <button onClick={() => onModifier(m)} title="Modifier la fiche (liaison ORZAYAH)" style={{ flexShrink: 0 }}><OrzayahStatutPill membre={m} /></button>
+      <button onClick={() => onCarte(m)} title="Carte de membre" className="flex items-center justify-center rounded-lg" style={{ width: 30, height: 30, background: C.greenLight, color: C.greenDark, flexShrink: 0 }}><CreditCard size={14} /></button>
+    </div>
+  );
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      {vehicles.map((v) => {
+        const owner = owners.find((o) => o.id === v.proprietaireId);
+        const vDrivers = (v.chauffeurIds || []).map((id) => drivers.find((d) => d.id === id)).filter(Boolean);
+        const statuses = Object.values(v.documents || {}).map(statusOf);
+        const worst = statuses.some((st) => st.key === "expire") ? "expire" : statuses.some((st) => st.key === "alerte") ? "alerte" : "valide";
+        const worstStatus = worst === "expire" ? { label: "Document expiré", color: C.red, bg: C.redLight } : worst === "alerte" ? { label: "Échéance proche", color: C.amber, bg: C.amberLight } : { label: "À jour", color: C.green, bg: C.greenLight };
+        const affectation = affectations.find((a) => a.vehiculeId === v.id && a.actif);
+        const commission = affectation ? commissionsMixtes.find((c) => c.id === affectation.commissionMixteId) : null;
+        const ligne = affectation ? lignes.find((l) => l.id === affectation.ligneId) : null;
+        const isSelected = selectedIds.includes(v.id);
+        return (
+          <div key={v.id} style={{ background: "#fff", border: `1.5px solid ${isSelected ? C.orange : C.border}`, borderRadius: 14, padding: 18, position: "relative", display: "flex", flexDirection: "column" }}>
+            {onToggleSelect && (
+              <label style={{ position: "absolute", top: 14, right: 14, cursor: "pointer" }}>
+                <input type="checkbox" checked={isSelected} onChange={() => onToggleSelect(v.id)} style={{ width: 15, height: 15, accentColor: C.orange }} />
+              </label>
+            )}
+            <div className="flex items-center gap-3 mb-2" style={{ paddingRight: 22 }}>
+              <AvatarUpload photo={v.photo} size={48} shape="square" fallbackIcon={<Car size={18} color={C.slate} />} onUpload={(dataUrl) => onPhoto(v.id, dataUrl)} />
+              <div style={{ minWidth: 0 }}>
+                <div className="font-mono" style={{ fontSize: 16, fontWeight: 800, color: C.ink, letterSpacing: 0.5 }}>{v.immatriculation}</div>
+                <div className="text-xs" style={{ color: C.slate }}>{[v.marque, v.modele].filter(Boolean).join(" ") || "—"} · N° {v.numeroCarteLigne || "—"}</div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <span className="font-body text-xs" style={{ color: commission ? C.ink : C.slate, fontWeight: commission ? 600 : 400 }}>
+                {commission ? `${commission.sigle || commission.nom}${ligne ? ` · ${ligne.lieuDepart} → ${ligne.lieuArrivee}` : ""}` : "Non affecté"}
+              </span>
+              <Badge status={worstStatus} small />
+            </div>
+
+            <div style={{ marginBottom: 10 }}>
+              {owner
+                ? ligneMembre(owner, "Transporteur", onCardOwner, onEditOwner)
+                : <div className="font-body text-xs" style={{ padding: "7px 0", borderTop: `1px solid ${C.border}`, color: C.slate }}>Transporteur : —</div>}
+              {vDrivers.length
+                ? vDrivers.map((d) => ligneMembre(d, "Chauffeur", onCardDriver, onEditDriver))
+                : <div className="font-body text-xs" style={{ padding: "7px 0", borderTop: `1px solid ${C.border}`, color: C.slate }}>Aucun chauffeur</div>}
+            </div>
+
+            <div className="flex items-center justify-between" style={{ marginTop: "auto" }}>
+              <button onClick={() => onFiche(v)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: C.greenLight, color: C.greenDark }}>
+                <CreditCard size={13} /> Fiche · carte de ligne
+              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => onReassign(v)} title="Affectation" className="font-body text-xs font-semibold px-2 py-1 rounded-lg" style={{ border: `1px solid ${C.border}`, color: C.ink }}>Affectation</button>
+                <button onClick={() => onEdit(v)} title="Modifier" style={{ color: C.slate }}><Pencil size={14} /></button>
+                <button
+                  onClick={async () => {
+                    if (!window.confirm(`Supprimer le véhicule ${v.immatriculation} ? Cette action est définitive.`)) return;
+                    try { await onDelete(v.id); } catch (err) { alert(err.message || "Suppression impossible."); }
+                  }}
+                  title="Supprimer"
+                  style={{ color: C.red }}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
           </div>
         );
       })}
