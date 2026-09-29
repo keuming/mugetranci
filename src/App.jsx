@@ -142,8 +142,15 @@ const FONCTIONS_COURANTES = [
   "Chef de ligne", "Chargeur", "Chauffeur", "Transporteur", "Vendeur de ticket",
 ];
 
-// Qualites operationnelles d'un agent de gare/ligne : la carte de l'element
-// affiche alors la mention "Point Focal" suivie de sa commune d'exercice.
+// Chaque commune est un Point Focal : TOUTE carte éditée via COMIX porte la
+// mention "Point Focal <COMMUNE>" (commune de rattachement du membre, ou du
+// véhicule pour la carte de droit de ligne).
+function mentionPointFocal(commune) {
+  const c = String(commune || "").trim();
+  return c ? `Point Focal ${c.toUpperCase()}` : null;
+}
+// Qualites operationnelles d'un agent de gare/ligne (liste conservée pour les
+// autres usages de l'application).
 const QUALITES_POINT_FOCAL = new Set([
   "Chef de gare", "Chef de ligne", "Chargeur", "Chauffeur",
   "Transporteur", "Vendeur de ticket", "Contrôleur",
@@ -1519,8 +1526,8 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
             <div className="font-body">
               <div style={{ fontSize: 13.5, fontWeight: 700, color: tPrincipal, lineHeight: 1.15 }}>{member.prenoms} {member.nom}</div>
               <div style={{ fontSize: 9, color: tSecondaire }}>{category === "element" && member.fonction ? member.fonction : theme.label}</div>
-              {category === "element" && member.fonction && QUALITES_POINT_FOCAL.has(member.fonction) && member.commune && (
-                <div style={{ fontSize: 6.6, color: tSecondaire, fontWeight: 700, marginTop: 0.5 }}>Point Focal — {member.commune}</div>
+              {mentionPointFocal(member.commune) && (
+                <div style={{ fontSize: 7.5, color: tPrincipal, fontWeight: 800, marginTop: 1, letterSpacing: 0.3 }}>{mentionPointFocal(member.commune)}</div>
               )}
             </div>
           </div>
@@ -1598,6 +1605,9 @@ function CarteDroitDeLigneFace({ vehicule, owner, collectifTransporteurs, collec
             <div style={{ flex: 1, textAlign: "center", padding: "0 6px" }}>
               <div className="font-display" style={{ fontSize: 16, fontWeight: 800, color: C.orangeDark, letterSpacing: 0.5, lineHeight: 1 }}>{collectifTransporteurs?.sigle || "COMIX-CI"}</div>
               <div style={{ fontSize: 6, color: C.slate, lineHeight: 1.15, marginTop: 1 }}>{collectifTransporteurs?.nom || "Collectif des syndicats des transporteurs"}</div>
+              {mentionPointFocal(vehicule.commune || owner?.commune) && (
+                <div style={{ fontSize: 7, color: C.greenDark, fontWeight: 800, letterSpacing: 0.3, lineHeight: 1.1, marginTop: 1 }}>{mentionPointFocal(vehicule.commune || owner?.commune)}</div>
+              )}
             </div>
             <div style={{ width: 30, height: 30, borderRadius: 999, overflow: "hidden", background: C.cream, border: `1.5px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               {collectifChauffeurs?.logoUrl ? <img src={collectifChauffeurs.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Users size={15} color={C.greenDark} />}
