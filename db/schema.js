@@ -194,6 +194,7 @@ export const vehicules = pgTable("vehicules", {
   couleur: varchar("couleur", { length: 40 }),
   typeTechnique: varchar("type_technique", { length: 30 }), // code technique du vehicule
   puissanceFiscale: varchar("puissance_fiscale", { length: 10 }), // "Types Fiscal" — puissance en CV
+  numeroMacaron: varchar("numero_macaron", { length: 20 }), // N° de macaron attribué par l'association (import MUGETRANCI)
   numeroCarteLigne: varchar("numero_carte_ligne", { length: 20 }), // N° de la carte de droit de ligne (genere a la creation)
   carteImprimee: boolean("carte_imprimee").default(false).notNull(), // archivage de la carte de droit de ligne, meme logique que les autres categories
   carteImprimeeAt: timestamp("carte_imprimee_at"),

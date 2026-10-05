@@ -2919,6 +2919,7 @@ function MobileView({
   setShowProfileForm, onLierOrzayah,
 }) {
   const [tab, setTab] = useState("ajout");
+  const [nbHist, setNbHist] = useState(100);
   const [q, setQ] = useState("");
   const [critere, setCritere] = useState("nom");
   const [communeF, setCommuneF] = useState("");
@@ -2978,7 +2979,8 @@ function MobileView({
       title: v.immatriculation, sub: "Véhicule sans transporteur ni chauffeur" })),
   ].sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
 
-  const historiqueGroupe = grouperParJour(historique);
+  // Affichage progressif : seuls les plus récents sont rendus (listes de plusieurs milliers de lignes)
+  const historiqueGroupe = grouperParJour(historique.slice(0, nbHist));
 
   const CRITERES = [
     { key: "nom", label: "Nom complet", ph: "Ex. Moussa KONE" },
@@ -3109,6 +3111,11 @@ function MobileView({
                 </div>
               </div>
             ))}
+            {historique.length > nbHist && (
+              <button onClick={() => setNbHist((n) => n + 100)} className="font-body w-full" style={{ padding: "13px", borderRadius: 12, background: C.greenLight, color: C.greenDark, fontWeight: 800, fontSize: 14, border: `1px solid ${C.border}` }}>
+                Afficher les {Math.min(100, historique.length - nbHist)} suivants ({nbHist} sur {historique.length})
+              </button>
+            )}
           </div>
         ) : (
           <div style={{ paddingBottom: 90 }}>
@@ -3277,6 +3284,10 @@ function Dashboard({ auth, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [page, setPage] = useState("dashboard");
+  // Affichage progressif des tuiles (listes de plusieurs milliers de membres / véhicules)
+  const PAS_AFFICHAGE = 60;
+  const [nbAffiches, setNbAffiches] = useState(PAS_AFFICHAGE);
+  useEffect(() => { setNbAffiches(PAS_AFFICHAGE); }, [page]);
   const [showForm, setShowForm] = useState(false);
   const [ficheVehicle, setFicheVehicle] = useState(null);
   const [cardDriver, setCardDriver] = useState(null);
@@ -4109,8 +4120,9 @@ function Dashboard({ auth, onLogout }) {
                   </button>
                 )}
               >
+                <>
                 <VehicleGrid
-                  vehicles={eligibles} owners={owners} drivers={drivers} onFiche={openFiche} onPhoto={updateVehiclePhoto}
+                  vehicles={eligibles.slice(0, nbAffiches)} owners={owners} drivers={drivers} onFiche={openFiche} onPhoto={updateVehiclePhoto}
                   commissionsMixtes={commissionsMixtes} lignes={lignes} affectations={affectations}
                   onReassign={setReassignVehicle} onEdit={setEditVehicle} onDelete={deleteVehicle}
                   onCardOwner={setCardOwner} onCardDriver={openCard}
@@ -4119,6 +4131,8 @@ function Dashboard({ auth, onLogout }) {
                   onToggleSelect={(id) => setSelectedVehicleIds((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id])}
                   vide={showVehiclesArchive ? "Aucune carte archivée." : "Aucune nouvelle carte à imprimer."}
                 />
+                <AfficherPlus total={eligibles.length} affiches={nbAffiches} pas={PAS_AFFICHAGE} onPlus={() => setNbAffiches((n) => n + PAS_AFFICHAGE)} />
+                </>
               </SectionCard>
             </div>
             );
@@ -4164,7 +4178,7 @@ function Dashboard({ auth, onLogout }) {
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-4">
-              {visibleOwners.map((o) => {
+              {visibleOwners.slice(0, nbAffiches).map((o) => {
                 const ownedCount = vehicles.filter((v) => v.proprietaireId === o.id).length;
                 const isSelected = selectedOwnerIds.includes(o.id);
                 return (
@@ -4225,6 +4239,7 @@ function Dashboard({ auth, onLogout }) {
                 </div>
               )}
             </div>
+              <AfficherPlus total={visibleOwners.length} affiches={nbAffiches} pas={PAS_AFFICHAGE} onPlus={() => setNbAffiches((n) => n + PAS_AFFICHAGE)} />
             </div>
             );
           })()}
@@ -4269,7 +4284,7 @@ function Dashboard({ auth, onLogout }) {
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-4">
-              {visibleElements.map((e) => {
+              {visibleElements.slice(0, nbAffiches).map((e) => {
                 const isSelected = selectedElementIds.includes(e.id);
                 return (
                   <div key={e.id} style={{ background: "#fff", border: `1.5px solid ${isSelected ? C.orange : C.border}`, borderRadius: 14, padding: 18, position: "relative" }}>
@@ -4328,6 +4343,7 @@ function Dashboard({ auth, onLogout }) {
                 </div>
               )}
             </div>
+              <AfficherPlus total={visibleElements.length} affiches={nbAffiches} pas={PAS_AFFICHAGE} onPlus={() => setNbAffiches((n) => n + PAS_AFFICHAGE)} />
             </div>
             );
           })()}
@@ -4427,7 +4443,7 @@ function Dashboard({ auth, onLogout }) {
               </div>
 
               <div className="grid grid-cols-3 gap-4">
-              {visibleDrivers.map((d) => {
+              {visibleDrivers.slice(0, nbAffiches).map((d) => {
                 const veh = vehicles.find((v) => v.chauffeurIds.includes(d.id));
                 const s = statusOf(d.permisDateFin);
                 const isSelected = selectedDriverIds.includes(d.id);
@@ -4484,6 +4500,7 @@ function Dashboard({ auth, onLogout }) {
                 </div>
               )}
               </div>
+              <AfficherPlus total={visibleDrivers.length} affiches={nbAffiches} pas={PAS_AFFICHAGE} onPlus={() => setNbAffiches((n) => n + PAS_AFFICHAGE)} />
             </div>
             );
           })()}
@@ -6445,6 +6462,18 @@ function SyndicatMembersTable({ commissionSyndicats, owners, associations = [], 
    Transporteurs / Chauffeurs / Éléments. Chaque tuile montre les membres
    rattachés avec leur état ORZAYAH et un accès direct à leur carte et à
    leur fiche (liaison ORZAYAH) — plus besoin de passer par le dossier. */
+function AfficherPlus({ total, affiches, onPlus, pas = 60 }) {
+  if (total <= affiches) return null;
+  return (
+    <div className="flex flex-col items-center gap-1" style={{ marginTop: 18 }}>
+      <button onClick={onPlus} className="font-body text-sm font-semibold px-5 py-2.5 rounded-xl" style={{ background: C.greenLight, color: C.greenDark, border: `1px solid ${C.border}` }}>
+        Afficher {Math.min(pas, total - affiches)} de plus
+      </button>
+      <span className="font-body text-xs" style={{ color: C.slate }}>{affiches} affichés sur {total}</span>
+    </div>
+  );
+}
+
 function VehicleGrid({ vehicles, owners, drivers, commissionsMixtes, lignes, affectations, onFiche, onPhoto, onReassign, onEdit, onDelete,
   onCardOwner, onCardDriver, onEditOwner, onEditDriver, selectedIds = [], onToggleSelect, vide = "Aucun véhicule." }) {
   if (!vehicles.length) {
@@ -6483,7 +6512,7 @@ function VehicleGrid({ vehicles, owners, drivers, commissionsMixtes, lignes, aff
               <AvatarUpload photo={v.photo} size={48} shape="square" fallbackIcon={<Car size={18} color={C.slate} />} onUpload={(dataUrl) => onPhoto(v.id, dataUrl)} />
               <div style={{ minWidth: 0 }}>
                 <div className="font-mono" style={{ fontSize: 16, fontWeight: 800, color: C.ink, letterSpacing: 0.5 }}>{v.immatriculation}</div>
-                <div className="text-xs" style={{ color: C.slate }}>{[v.marque, v.modele].filter(Boolean).join(" ") || "—"} · N° {v.numeroCarteLigne || "—"}</div>
+                <div className="text-xs" style={{ color: C.slate }}>{[v.marque, v.modele].filter(Boolean).join(" ") || "—"} · N° {v.numeroCarteLigne || "—"}{v.numeroMacaron ? ` · Macaron ${v.numeroMacaron}` : ""}</div>
               </div>
             </div>
             <div className="flex items-center justify-between gap-2 mb-2">
