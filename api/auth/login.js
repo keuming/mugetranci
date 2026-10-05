@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { commissionsMixtes, syndicats, garesRoutieres, agents, associations } from "../../db/schema.js";
+import { commissionsMixtes, syndicats, garesRoutieres, agents, associations, accesImpression } from "../../db/schema.js";
+import { periodeCourante, finDuMois } from "../../lib/impression.js";
 import { signToken } from "../../lib/auth.js";
 
 /* Comptes administrateurs.
@@ -40,6 +41,20 @@ export default async function handler(req, res) {
   if (COMPTES_ADMIN.some((a) => a.login === login && a.pin === pin)) {
     const token = signToken({ role: "admin" });
     return res.status(200).json({ token, role: "admin", nom: "Administrateur général COMIX-CI" });
+  }
+
+  // Accès imprimeur : identifiant = mois et année (MMAAAA), valable ce mois-là seulement.
+  if (/^\d{6}$/.test(String(login))) {
+    const [acces] = await db.select().from(accesImpression).where(eq(accesImpression.periode, String(login)));
+    if (acces && acces.actif && acces.pinCode === pin) {
+      if (acces.periode !== periodeCourante()) {
+        return res.status(401).json({ error: `Cet accès d'impression n'est valable qu'en ${acces.periode.slice(0, 2)}/${acces.periode.slice(2)}.` });
+      }
+      const nom = `Imprimeur — lot ${acces.periode.slice(0, 2)}/${acces.periode.slice(2)}`;
+      const secondes = Math.max(60, Math.floor((finDuMois().getTime() - Date.now()) / 1000));
+      const token = signToken({ role: "imprimeur", periode: acces.periode, nom }, secondes);
+      return res.status(200).json({ token, role: "imprimeur", periode: acces.periode, nom });
+    }
   }
 
   const [commission] = await db.select().from(commissionsMixtes).where(eq(commissionsMixtes.login, login));

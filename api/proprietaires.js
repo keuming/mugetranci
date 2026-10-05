@@ -5,6 +5,7 @@ import { requireAuth, agentPeutGerer } from "../lib/auth.js";
 import { genererNumeroCarte } from "../lib/cards.js";
 import { chercherDoublon } from "../lib/doublons.js";
 import { lierCompteOrzayah, traiterPatchOrzayah, retirerChampsOrzayahServeur, normaliserCodeOrzayah, normaliserTelephone } from "../lib/orzayah.js";
+import { champsImpression, gererImprimeur } from "../lib/impression.js";
 
 function toApi(row) {
   const { photoUrl, qrPaiementUrl, ...rest } = row;
@@ -20,6 +21,8 @@ export default async function handler(req, res) {
   const id = Array.isArray(idParam) ? idParam[0] : idParam;
   const auth = requireAuth(req, res);
   if (!auth) return;
+  // Compte imprimeur : uniquement la confirmation d'impression des cartes envoyées.
+  if (auth.role === "imprimeur") return gererImprimeur(req, res, auth, proprietaires, toApi);
 
   if (!id) {
     if (req.method === "GET") {
@@ -151,9 +154,10 @@ export default async function handler(req, res) {
     if ("commune" in body) patch.commune = body.commune || null;
     if ("associationId" in body) patch.associationId = body.associationId || null;
     if ("commissionMixteId" in body) patch.commissionMixteId = body.commissionMixteId || null;
-    if ("carteImprimee" in body) {
-      patch.carteImprimee = !!body.carteImprimee;
-      patch.carteImprimeeAt = body.carteImprimee ? new Date() : null;
+    // Impression : date et lot fixés à la première impression ; envoi à l'imprimeur
+    if ("carteImprimee" in body || "pretImpression" in body) {
+      const [avantImpression] = await db.select().from(proprietaires).where(eq(proprietaires.id, id));
+      Object.assign(patch, champsImpression(body, auth, avantImpression));
     }
     // carteTransporteurNumero n'est jamais modifiable manuellement.
 

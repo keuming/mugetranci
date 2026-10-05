@@ -111,6 +111,34 @@ export default async function handler(req, res) {
     db.select().from(associations),
   ]);
 
+  // Compte imprimeur : uniquement les cartes envoyées à l'impression (et non
+  // encore imprimées), plus ce qu'il faut pour les composer (véhicule et
+  // transporteur liés, référentiel des logos). Aucune autre donnée.
+  if (auth.role === "imprimeur") {
+    const aImprimer = (x) => x.pretImpression && !x.carteImprimee;
+    const ownersP = allOwners.filter(aImprimer), driversP = allDrivers.filter(aImprimer);
+    const elementsP = allElements.filter(aImprimer), vehiculesP = allVehicules.filter(aImprimer);
+    const idsVeh = new Set(vehiculesP.map((v) => v.id));
+    const idsOwners = new Set(ownersP.map((o) => o.id)), idsDrivers = new Set(driversP.map((d) => d.id));
+    for (const v of allVehicules) if (idsOwners.has(v.proprietaireId)) idsVeh.add(v.id);
+    for (const j of junctions) if (idsDrivers.has(j.chauffeurId)) idsVeh.add(j.vehiculeId);
+    const vehs = allVehicules.filter((v) => idsVeh.has(v.id));
+    for (const v of vehs) if (v.proprietaireId) idsOwners.add(v.proprietaireId);
+    return envoyerJson(req, res, {
+      proprietaires: allOwners.filter((o) => idsOwners.has(o.id)).map(toApiOwner),
+      chauffeurs: driversP.map(toApiDriver),
+      elements: elementsP.map(toApiElement),
+      vehicules: vehs.map((v) => toApiVehicule(v, junctions.filter((j) => j.vehiculeId === v.id).map((j) => j.chauffeurId), [])),
+      carburant: [],
+      commissionsMixtes: allCommissions.map(toApiCommission),
+      syndicats: allSyndicats.map(toApiSyndicat),
+      garesRoutieres: allGares.map(toApiGareRoutiere),
+      lignes: allLignes,
+      affectations: [],
+      associations: allAssociations,
+    });
+  }
+
   const isSyndicat = auth.role === "syndicat";
   const isCommission = auth.role === "commission_mixte";
   const isGare = auth.role === "gare";

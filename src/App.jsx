@@ -145,6 +145,22 @@ const FONCTIONS_COURANTES = [
 // Chaque commune est un Point Focal : TOUTE carte éditée via COMIX porte la
 // mention "Point Focal <COMMUNE>" (commune de rattachement du membre, ou du
 // véhicule pour la carte de droit de ligne).
+/* Identité d'impression d'une carte : lot MMAAAA et fin de validité
+   (2 ans à compter de la date d'impression). Tant que la carte n'est pas
+   imprimée, l'aperçu montre les valeurs qu'elle aura si on l'imprime ce jour. */
+function periodeImpression(d = new Date()) {
+  return String(d.getMonth() + 1).padStart(2, "0") + d.getFullYear();
+}
+function infosImpression(item) {
+  const imprimee = !!(item?.carteImprimee && item?.carteImprimeeAt);
+  const base = imprimee ? new Date(item.carteImprimeeAt) : new Date();
+  const fin = new Date(base);
+  fin.setFullYear(fin.getFullYear() + 2);
+  const jjmmaaaa = `${String(fin.getDate()).padStart(2, "0")}/${String(fin.getMonth() + 1).padStart(2, "0")}/${fin.getFullYear()}`;
+  const lot = imprimee ? (item.lotImpression || periodeImpression(base)) : periodeImpression();
+  return { finValidite: jjmmaaaa, lot, lotLisible: `${lot.slice(0, 2)}/${lot.slice(2)}`, imprimee };
+}
+
 function mentionPointFocal(commune) {
   const c = String(commune || "").trim();
   return c ? `Point Focal ${c.toUpperCase()}` : null;
@@ -1704,7 +1720,16 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
           <div className="flex items-end justify-between" style={{ background: theme.footerTint, padding: "4px 8px", borderRadius: 8 }}>
             <div className="font-body">
               <div style={{ fontSize: 7.5, color: tSecondaire }}>N° Carte</div>
-              <div className="font-mono" style={{ fontWeight: 700, fontSize: 12, color: theme.numColor }}>{numero || "—"}</div>
+              <div className="font-mono" style={{ fontWeight: 700, fontSize: 12, color: theme.numColor, lineHeight: 1.1 }}>{numero || "—"}</div>
+              {(() => {
+                const imp = infosImpression(member);
+                return (
+                  <div style={{ fontSize: 6.8, color: tPrincipal, fontWeight: 700, marginTop: 2, lineHeight: 1.15 }}>
+                    Valable jusqu'au <span className="font-mono">{imp.finValidite}</span>
+                    <span style={{ color: tSecondaire, fontWeight: 600 }}> · Lot {imp.lotLisible}</span>
+                  </div>
+                );
+              })()}
             </div>
             <div style={{ background: "#fff", borderRadius: 6, padding: 3, border: `1px solid ${C.border}`, flexShrink: 0 }}>
               <QRCodeSVG value={ficheValue} size={68} bgColor="#ffffff" fgColor={C.ink} level="M" />
@@ -1858,7 +1883,10 @@ function CarteDroitDeLigneFace({ vehicule, owner, collectifTransporteurs, collec
           </div>
 
           <div style={{ textAlign: "center", fontSize: 7.5, color: C.red, fontWeight: 700, marginTop: 1, flexShrink: 0 }}>
-            Date d'inscription : {dateInscription}
+            {(() => {
+              const imp = infosImpression(vehicule);
+              return <>Inscrit le {dateInscription} · Valable jusqu'au {imp.finValidite} · Lot {imp.lotLisible}</>;
+            })()}
           </div>
         </div>
 
@@ -3424,7 +3452,133 @@ export default function App() {
     return <LoginScreen onLogin={handleLogin} />;
   }
 
+  if (auth.role === "imprimeur") return <EspaceImprimeur auth={auth} onLogout={handleLogout} />;
   return <Dashboard auth={auth} onLogout={handleLogout} />;
+}
+
+/* ============================================================
+   ESPACE IMPRIMEUR (compte mensuel MMAAAA)
+   Ne montre QUE les nouvelles cartes envoyées à l'impression par un
+   collectif, une association ou l'administrateur. Après impression, la
+   carte est marquée « imprimée » : elle quitte la liste et passe aux
+   archives (duplicata), avec sa date et son lot d'impression.
+   ============================================================ */
+function EspaceImprimeur({ auth, onLogout }) {
+  const [data, setData] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const [onglet, setOnglet] = useState("transporteur");
+  const [groupement, setGroupement] = useState("");
+  const [selection, setSelection] = useState([]);
+  const [enCours, setEnCours] = useState(false);
+  const charger = async () => {
+    try { setErreur(null); setData(await apiGet("/api/bootstrap")); }
+    catch (e) { setErreur(e.message || "Chargement impossible."); }
+  };
+  React.useEffect(() => { charger(); }, []);
+  React.useEffect(() => { setSelection([]); }, [onglet, groupement]);
+
+  if (erreur) return <div className="font-body p-8" style={{ color: C.red }}>{erreur} <button onClick={onLogout} className="underline ml-2">Se déconnecter</button></div>;
+  if (!data) return <div className="font-body p-8" style={{ color: C.slate }}>Chargement des cartes à imprimer…</div>;
+
+  const { proprietaires: owners, chauffeurs: drivers, elements, vehicules: vehicles, commissionsMixtes, syndicats, associations, garesRoutieres, lignes } = data;
+  const aImprimer = (x) => x.pretImpression && !x.carteImprimee;
+  const parGroupement = (x) => !groupement
+    || (groupement.startsWith("s:") && x.syndicatId === groupement.slice(2))
+    || (groupement.startsWith("a:") && x.associationId === groupement.slice(2));
+  const listes = {
+    transporteur: owners.filter(aImprimer).filter(parGroupement),
+    chauffeur: drivers.filter(aImprimer).filter(parGroupement),
+    element: elements.filter(aImprimer).filter(parGroupement),
+    vehicule: vehicles.filter(aImprimer).filter(parGroupement),
+  };
+  const ONGLETS = [["transporteur", "Transporteurs"], ["chauffeur", "Chauffeurs"], ["element", "Éléments"], ["vehicule", "Droit de ligne"]];
+  const liste = listes[onglet];
+  const lot = liste.slice(0, 60);
+  const choisis = liste.filter((x) => selection.includes(x.id));
+  const nomGroupement = (x) => {
+    const sy = syndicats.find((s) => s.id === x.syndicatId), as = associations.find((a) => a.id === x.associationId);
+    return [sy?.sigle || sy?.nom, as?.sigle || as?.nom].filter(Boolean).join(" · ") || "—";
+  };
+  const marquerImprimees = async () => {
+    if (!choisis.length || !window.confirm(`Confirmer l'impression de ${choisis.length} carte(s) ? Elles quitteront la liste et passeront aux archives.`)) return;
+    setEnCours(true);
+    const chemin = { transporteur: "proprietaires", chauffeur: "chauffeurs", element: "elements", vehicule: "vehicules" }[onglet];
+    const echecs = [];
+    for (const x of choisis) {
+      try { await apiPatch(`/api/${chemin}?id=${x.id}`, { carteImprimee: true }); }
+      catch (e) { echecs.push(e.message); }
+    }
+    setEnCours(false); setSelection([]); await charger();
+    if (echecs.length) alert(`${echecs.length} carte(s) n'ont pas pu être confirmées : ${echecs[0]}`);
+  };
+  const normC = (x) => (x || "").trim().toUpperCase();
+
+  return (
+    <div className="font-body" style={{ minHeight: "100vh", background: C.cream }}>
+      <style>{FONTS}</style>
+      <div className="no-print flex items-center justify-between px-6 py-4" style={{ background: C.greenDark, color: "#fff" }}>
+        <div>
+          <div className="font-display" style={{ fontSize: 20, fontWeight: 800 }}>COMIX-CI — Espace imprimeur</div>
+          <div style={{ fontSize: 12.5, opacity: 0.85 }}>Lot d'impression <b>{auth.periode?.slice(0, 2)}/{auth.periode?.slice(2)}</b> · accès valable jusqu'à la fin du mois</div>
+        </div>
+        <button onClick={onLogout} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.12)" }}><LogOut size={15} /> Déconnexion</button>
+      </div>
+      <div className="no-print px-6 py-5" style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          {ONGLETS.map(([k, lab]) => (
+            <button key={k} onClick={() => setOnglet(k)} className="px-4 py-2 rounded-full text-sm font-semibold"
+              style={{ background: onglet === k ? C.orange : "#fff", color: onglet === k ? "#fff" : C.ink, border: `1px solid ${onglet === k ? C.orange : C.border}` }}>
+              {lab} ({listes[k].length})
+            </button>
+          ))}
+          <select value={groupement} onChange={(e) => setGroupement(e.target.value)} className="ml-auto text-sm px-3 py-2 rounded-lg" style={{ border: `1px solid ${C.border}`, background: "#fff" }}>
+            <option value="">Tous les collectifs et associations</option>
+            <optgroup label="Collectifs">{syndicats.map((sy) => <option key={sy.id} value={`s:${sy.id}`}>{sy.sigle || sy.nom}</option>)}</optgroup>
+            <optgroup label="Associations">{associations.map((as) => <option key={as.id} value={`a:${as.id}`}>{as.sigle || as.nom}</option>)}</optgroup>
+          </select>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 mb-3 px-4 py-3 rounded-xl" style={{ background: "#fff", border: `1px solid ${C.border}` }}>
+          <span className="text-sm" style={{ color: C.slate }}>{choisis.length ? `${choisis.length} carte(s) sélectionnée(s)` : "Sélectionnez les cartes à imprimer (par lots de 60 au plus)."}</span>
+          <div className="ml-auto flex items-center gap-2">
+            <button onClick={() => setSelection(choisis.length === lot.length && lot.length ? [] : lot.map((x) => x.id))} className="text-xs font-semibold px-3 py-1.5 rounded-full" style={{ border: `1px solid ${C.border}` }}>
+              {choisis.length === lot.length && lot.length ? "Tout désélectionner" : `Sélectionner les ${lot.length} premières`}
+            </button>
+            <button onClick={() => window.print()} disabled={!choisis.length} className="text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: choisis.length ? C.orange : "#ddd", color: "#fff" }}>
+              <Printer size={13} /> Imprimer la planche
+            </button>
+            <button onClick={marquerImprimees} disabled={!choisis.length || enCours} className="text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: choisis.length ? C.greenDark : "#ddd", color: "#fff" }}>
+              {enCours ? "Confirmation…" : "Confirmer l'impression"}
+            </button>
+          </div>
+        </div>
+        <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
+          {liste.length === 0 && <div className="p-6 text-sm text-center" style={{ color: C.slate }}>Aucune carte à imprimer dans cette catégorie.</div>}
+          {liste.map((x) => (
+            <label key={x.id} className="flex items-center gap-3 px-4 py-2.5" style={{ borderBottom: `1px solid ${C.border}`, cursor: "pointer" }}>
+              <input type="checkbox" checked={selection.includes(x.id)} onChange={() => setSelection((sel) => sel.includes(x.id) ? sel.filter((i) => i !== x.id) : [...sel, x.id])} style={{ accentColor: C.orange }} />
+              <span className="font-semibold text-sm" style={{ minWidth: 220 }}>{onglet === "vehicule" ? x.immatriculation : `${x.prenoms} ${x.nom}`}</span>
+              <span className="font-mono text-xs" style={{ color: C.slate, minWidth: 110 }}>{onglet === "transporteur" ? x.carteTransporteurNumero : onglet === "vehicule" ? x.numeroCarteLigne : x.numeroCarte}</span>
+              <span className="text-xs" style={{ color: C.slate }}>{nomGroupement(x)}</span>
+              <span className="text-xs ml-auto" style={{ color: C.slate }}>Envoyée par {x.pretImpressionPar || "—"}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+      {onglet === "vehicule" ? (
+        <LigneCardSheet title={`Planche — cartes de droit d'exploitation de ligne — lot ${auth.periode}`}
+          items={choisis.map((v) => {
+            const owner = owners.find((o) => o.id === v.proprietaireId);
+            const collectifTransporteurs = syndicats.find((sy) => sy.id === v.syndicatId) || null;
+            const collectifChauffeurs = collectifTransporteurs ? syndicats.find((sy) => normC(sy.commune) === normC(collectifTransporteurs.commune) && sy.type === "chauffeurs") : null;
+            return { key: v.id, name: v.immatriculation, vehicule: v, owner, collectifTransporteurs, collectifChauffeurs };
+          })} />
+      ) : (
+        <MemberCardSheet title={`Planche — cartes ${onglet}s — lot ${auth.periode}`}
+          items={choisis.map((m) => ({ key: m.id, name: `${m.prenoms} ${m.nom}`, member: m, category: onglet,
+            ...cardDataFor(m, onglet, commissionsMixtes, syndicats, vehicles, associations, garesRoutieres, lignes) }))} />
+      )}
+    </div>
+  );
 }
 
 function Dashboard({ auth, onLogout }) {
@@ -3891,6 +4045,7 @@ function Dashboard({ auth, onLogout }) {
         ...(estAdminGeneral || auth.role === "commission_mixte" ? [{ key: "syndicats", label: "Collectifs (Syndicats)", icon: <Building2 size={17} /> }] : []),
         ...(estAdminGeneral || auth.role === "syndicat" ? [{ key: "garesroutieres", label: "Gares Routières", icon: <MapPin size={17} /> }] : []),
         ...(estAdminGeneral || auth.role === "commission_mixte" || auth.role === "syndicat" ? [{ key: "agents", label: "Agents enrôleurs", icon: <Route size={17} /> }] : []),
+        ...(estAdminGeneral ? [{ key: "imprimeur", label: "Accès imprimeur", icon: <Printer size={17} /> }] : []),
         { key: "carburant", label: "Carburant", icon: <Fuel size={17} /> },
         { key: "alerts", label: "Alertes documents", icon: <Bell size={17} />, count: critical.length },
       ];
@@ -4295,6 +4450,23 @@ function Dashboard({ auth, onLogout }) {
                   {!showVehiclesArchive && (
                     <button
                       onClick={async () => {
+                        const ids = selectedVehicleIds.filter((id) => !vehicles.find((x) => x.id === id)?.pretImpression);
+                        if (!ids.length) { alert("Les cartes sélectionnées sont déjà chez l'imprimeur."); return; }
+                        if (!window.confirm(`Envoyer ${ids.length} carte(s) à l'imprimeur ? Elles apparaîtront dans sa liste de cartes à imprimer.`)) return;
+                        for (const id of ids) { await updateVehicle(id, { pretImpression: true }); }
+                        setSelectedVehicleIds([]);
+                      }}
+                      disabled={selectedVehicleIds.length === 0}
+                      className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+                      style={{ background: selectedVehicleIds.length ? C.greenDark : "#ddd", color: "#fff", cursor: selectedVehicleIds.length ? "pointer" : "not-allowed" }}
+                      title="Ajouter les cartes sélectionnées à la liste de l'imprimeur"
+                    >
+                      <Printer size={13} /> Envoyer à l'imprimeur
+                    </button>
+                  )}
+                  {!showVehiclesArchive && (
+                    <button
+                      onClick={async () => {
                         for (const id of selectedVehicleIds) { await updateVehicle(id, { carteImprimee: true }); }
                       }}
                       disabled={selectedVehicleIds.length === 0}
@@ -4367,6 +4539,23 @@ function Dashboard({ auth, onLogout }) {
                   >
                     {selectedOwnerIds.length > 0 && selectedOwnerIds.length === Math.min(nbAffiches, visibleOwners.length) ? "Tout désélectionner" : `Sélectionner les ${Math.min(nbAffiches, visibleOwners.length)} affichés`}
                   </button>
+                  {!showOwnersArchive && (
+                    <button
+                      onClick={async () => {
+                        const ids = selectedOwnerIds.filter((id) => !owners.find((x) => x.id === id)?.pretImpression);
+                        if (!ids.length) { alert("Les cartes sélectionnées sont déjà chez l'imprimeur."); return; }
+                        if (!window.confirm(`Envoyer ${ids.length} carte(s) à l'imprimeur ? Elles apparaîtront dans sa liste de cartes à imprimer.`)) return;
+                        for (const id of ids) { await updateOwner(id, { pretImpression: true }); }
+                        setSelectedOwnerIds([]);
+                      }}
+                      disabled={selectedOwnerIds.length === 0}
+                      className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+                      style={{ background: selectedOwnerIds.length ? C.greenDark : "#ddd", color: "#fff", cursor: selectedOwnerIds.length ? "pointer" : "not-allowed" }}
+                      title="Ajouter les cartes sélectionnées à la liste de l'imprimeur"
+                    >
+                      <Printer size={13} /> Envoyer à l'imprimeur
+                    </button>
+                  )}
                   <button
                     onClick={() => window.print()}
                     disabled={selectedOwnerIds.length === 0}
@@ -4404,7 +4593,12 @@ function Dashboard({ auth, onLogout }) {
                         <div className="text-xs" style={{ color: C.slate }}>{ownedCount} véhicule{ownedCount > 1 ? "s" : ""} · N° {o.carteTransporteurNumero || "—"}</div>
                       </div>
                     </div>
-                    <button onClick={() => setEditMember(o)} title="Modifier la fiche (liaison ORZAYAH)" className="mb-2"><OrzayahStatutPill membre={o} /></button>
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <button onClick={() => setEditMember(o)} title="Modifier la fiche (liaison ORZAYAH)"><OrzayahStatutPill membre={o} /></button>
+                    {o.pretImpression && !o.carteImprimee && (
+                      <span className="font-body text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: C.greenLight, color: C.greenDark, border: `1px solid ${C.green}` }} title={`Envoyée par ${o.pretImpressionPar || "—"}`}>🖨 Chez l'imprimeur</span>
+                    )}
+                    </div>
                     <div className="flex flex-col gap-1.5 text-xs mb-3" style={{ color: C.slate }}>
                       <div className="flex items-center gap-2"><BadgeCheck size={13} /> {o.cni}</div>
                       <div className="flex items-center gap-2"><Phone size={13} /> {o.contact1}{o.contact2 ? " · " + o.contact2 : ""}</div>
@@ -4474,6 +4668,23 @@ function Dashboard({ auth, onLogout }) {
                   >
                     {selectedElementIds.length > 0 && selectedElementIds.length === Math.min(nbAffiches, visibleElements.length) ? "Tout désélectionner" : `Sélectionner les ${Math.min(nbAffiches, visibleElements.length)} affichés`}
                   </button>
+                  {!showElementsArchive && (
+                    <button
+                      onClick={async () => {
+                        const ids = selectedElementIds.filter((id) => !elements.find((x) => x.id === id)?.pretImpression);
+                        if (!ids.length) { alert("Les cartes sélectionnées sont déjà chez l'imprimeur."); return; }
+                        if (!window.confirm(`Envoyer ${ids.length} carte(s) à l'imprimeur ? Elles apparaîtront dans sa liste de cartes à imprimer.`)) return;
+                        for (const id of ids) { await updateElement(id, { pretImpression: true }); }
+                        setSelectedElementIds([]);
+                      }}
+                      disabled={selectedElementIds.length === 0}
+                      className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+                      style={{ background: selectedElementIds.length ? C.greenDark : "#ddd", color: "#fff", cursor: selectedElementIds.length ? "pointer" : "not-allowed" }}
+                      title="Ajouter les cartes sélectionnées à la liste de l'imprimeur"
+                    >
+                      <Printer size={13} /> Envoyer à l'imprimeur
+                    </button>
+                  )}
                   <button
                     onClick={() => window.print()}
                     disabled={selectedElementIds.length === 0}
@@ -4508,7 +4719,12 @@ function Dashboard({ auth, onLogout }) {
                       <div>
                         <div className="font-display" style={{ fontSize: 15, fontWeight: 800, color: C.ink }}>{e.prenoms} {e.nom}</div>
                         <div className="text-xs" style={{ color: C.slate }}>{e.fonction || "—"} · N° {e.numeroCarte || "—"}</div>
-                        <button onClick={() => setEditElement(e)} title="Modifier la fiche (liaison ORZAYAH)" className="mt-1.5"><OrzayahStatutPill membre={e} /></button>
+                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        <button onClick={() => setEditElement(e)} title="Modifier la fiche (liaison ORZAYAH)"><OrzayahStatutPill membre={e} /></button>
+                        {e.pretImpression && !e.carteImprimee && (
+                      <span className="font-body text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: C.greenLight, color: C.greenDark, border: `1px solid ${C.green}` }} title={`Envoyée par ${e.pretImpressionPar || "—"}`}>🖨 Chez l'imprimeur</span>
+                    )}
+                    </div>
                       </div>
                     </div>
                     <div className="flex flex-col gap-1.5 text-xs mb-3" style={{ color: C.slate }}>
@@ -4555,6 +4771,7 @@ function Dashboard({ auth, onLogout }) {
             );
           })()}
 
+          {page === "imprimeur" && estAdminGeneral && <AccesImprimeurPage />}
           {page === "agents" && (
             <div className="flex flex-col gap-4">
               <div className="flex justify-end">
@@ -4635,6 +4852,23 @@ function Dashboard({ auth, onLogout }) {
                   >
                     {selectedDriverIds.length > 0 && selectedDriverIds.length === Math.min(nbAffiches, visibleDrivers.length) ? "Tout désélectionner" : `Sélectionner les ${Math.min(nbAffiches, visibleDrivers.length)} affichés`}
                   </button>
+                  {!showDriversArchive && (
+                    <button
+                      onClick={async () => {
+                        const ids = selectedDriverIds.filter((id) => !drivers.find((x) => x.id === id)?.pretImpression);
+                        if (!ids.length) { alert("Les cartes sélectionnées sont déjà chez l'imprimeur."); return; }
+                        if (!window.confirm(`Envoyer ${ids.length} carte(s) à l'imprimeur ? Elles apparaîtront dans sa liste de cartes à imprimer.`)) return;
+                        for (const id of ids) { await updateDriver(id, { pretImpression: true }); }
+                        setSelectedDriverIds([]);
+                      }}
+                      disabled={selectedDriverIds.length === 0}
+                      className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+                      style={{ background: selectedDriverIds.length ? C.greenDark : "#ddd", color: "#fff", cursor: selectedDriverIds.length ? "pointer" : "not-allowed" }}
+                      title="Ajouter les cartes sélectionnées à la liste de l'imprimeur"
+                    >
+                      <Printer size={13} /> Envoyer à l'imprimeur
+                    </button>
+                  )}
                   <button
                     onClick={() => window.print()}
                     disabled={selectedDriverIds.length === 0}
@@ -4676,6 +4910,7 @@ function Dashboard({ auth, onLogout }) {
                       <Badge status={s} />
                       <div className="flex items-center gap-2">
                         <OrzayahStatutPill membre={d} />
+                        {d.pretImpression && !d.carteImprimee && <span className="font-body text-xs font-semibold px-2 py-1 rounded-lg" style={{ background: C.greenLight, color: C.greenDark }}>🖨 Imprimeur</span>}
                         <button onClick={() => openCard(d)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: C.greenLight, color: C.greenDark }}>
                           <CreditCard size={13} /> {showDriversArchive ? "Réimprimer (duplicata)" : "Carte chauffeur"}
                         </button>
@@ -6694,6 +6929,59 @@ function BandeauRecherche({ saisie, critere, total, onEffacer }) {
   );
 }
 
+/* Administration : un accès imprimeur par mois (identifiant MMAAAA + code). */
+function AccesImprimeurPage() {
+  const [acces, setAcces] = useState(null);
+  const maintenant = new Date();
+  const proposer = (dec) => { const d = new Date(maintenant.getFullYear(), maintenant.getMonth() + dec, 1); return String(d.getMonth() + 1).padStart(2, "0") + d.getFullYear(); };
+  const [periode, setPeriode] = useState(proposer(0));
+  const [pin, setPin] = useState("");
+  const [msg, setMsg] = useState(null);
+  const charger = async () => { try { setAcces(await apiGet("/api/agents?resource=acces-impression")); } catch (e) { setMsg(e.message); } };
+  React.useEffect(() => { charger(); }, []);
+  const creer = async () => {
+    setMsg(null);
+    try { await apiPost("/api/agents?resource=acces-impression", { periode, pin }); setPin(""); setMsg(`Accès ${periode} enregistré.`); charger(); }
+    catch (e) { setMsg(e.message); }
+  };
+  const basculer = async (a) => { try { await apiPatch(`/api/agents?resource=acces-impression&id=${a.id}`, { actif: !a.actif }); charger(); } catch (e) { setMsg(e.message); } };
+  const courant = proposer(0);
+  return (
+    <div className="font-body" style={{ maxWidth: 760 }}>
+      <h1 className="font-display mb-1" style={{ fontSize: 26, fontWeight: 800, color: C.ink }}>Accès imprimeur</h1>
+      <p className="text-sm mb-5" style={{ color: C.slate }}>
+        L'imprimeur se connecte avec le <b>mois et l'année</b> comme identifiant (ex. <b>102026</b> pour octobre 2026) et le code défini ici.
+        Il ne voit que les cartes <b>envoyées à l'imprimeur</b> et ne peut que confirmer leur impression. L'accès n'est valable que pendant son mois.
+        Chaque carte imprimée porte son lot (mois/année) et est valable <b>2 ans</b> à compter de sa date d'impression.
+      </p>
+      <div className="flex flex-wrap items-end gap-3 p-4 mb-5 rounded-xl" style={{ background: "#fff", border: `1px solid ${C.border}` }}>
+        <Field label="Identifiant (MMAAAA)">
+          <select value={periode} onChange={(e) => setPeriode(e.target.value)} style={inputStyle}>
+            {[0, 1, 2].map((d) => proposer(d)).map((p) => <option key={p} value={p}>{p} ({p.slice(0, 2)}/{p.slice(2)})</option>)}
+          </select>
+        </Field>
+        <Field label="Code de l'imprimeur (4 caractères min.)"><TextInput value={pin} onChange={(e) => setPin(e.target.value)} placeholder="Ex. 4821" /></Field>
+        <button onClick={creer} disabled={pin.trim().length < 4} className="px-4 py-2.5 rounded-lg text-sm font-semibold" style={{ background: pin.trim().length >= 4 ? C.orange : "#ddd", color: "#fff" }}>
+          Créer / remplacer l'accès
+        </button>
+      </div>
+      {msg && <div className="text-sm mb-4" style={{ color: C.greenDark }}>{msg}</div>}
+      <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
+        {(acces || []).length === 0 && <div className="p-5 text-sm" style={{ color: C.slate }}>Aucun accès imprimeur pour l'instant.</div>}
+        {(acces || []).map((a) => (
+          <div key={a.id} className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: `1px solid ${C.border}` }}>
+            <span className="font-mono font-bold" style={{ fontSize: 15 }}>{a.periode}</span>
+            <span className="text-sm" style={{ color: C.slate }}>{a.periode.slice(0, 2)}/{a.periode.slice(2)}</span>
+            {a.periode === courant && <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: C.greenLight, color: C.greenDark }}>mois en cours</span>}
+            <span className="text-xs ml-auto" style={{ color: a.actif ? C.greenDark : C.red }}>{a.actif ? "Actif" : "Désactivé"}</span>
+            <button onClick={() => basculer(a)} className="text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ border: `1px solid ${C.border}` }}>{a.actif ? "Désactiver" : "Réactiver"}</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AfficherPlus({ total, affiches, onPlus, pas = 60 }) {
   if (total <= affiches) return null;
   return (
@@ -6745,6 +7033,7 @@ function VehicleGrid({ vehicles, owners, drivers, commissionsMixtes, lignes, aff
               <div style={{ minWidth: 0 }}>
                 <div className="font-mono" style={{ fontSize: 16, fontWeight: 800, color: C.ink, letterSpacing: 0.5 }}>{v.immatriculation}</div>
                 <div className="text-xs" style={{ color: C.slate }}>{[v.marque, v.modele].filter(Boolean).join(" ") || "—"} · N° {v.numeroCarteLigne || "—"}{v.numeroMacaron ? ` · Macaron ${v.numeroMacaron}` : ""}</div>
+                {v.pretImpression && !v.carteImprimee && <div className="font-body text-xs font-semibold mt-0.5" style={{ color: C.greenDark }} title={`Envoyée par ${v.pretImpressionPar || "—"}`}>🖨 Chez l'imprimeur</div>}
               </div>
             </div>
             <div className="flex items-center justify-between gap-2 mb-2">

@@ -52,6 +52,11 @@ export const proprietaires = pgTable("proprietaires", {
   carteTransporteurNumero: varchar("carte_transporteur_numero", { length: 60 }),
   carteImprimee: boolean("carte_imprimee").default(false).notNull(), // archivage — carte deja imprimee, masquee de la file des nouvelles cartes
   carteImprimeeAt: timestamp("carte_imprimee_at"),
+  // Impression : file de l'imprimeur et identité d'impression (lot MMAAAA)
+  pretImpression: boolean("pret_impression").default(false).notNull(),
+  pretImpressionAt: timestamp("pret_impression_at"),
+  pretImpressionPar: varchar("pret_impression_par", { length: 160 }),
+  lotImpression: varchar("lot_impression", { length: 6 }),
   numeroPermis: varchar("numero_permis", { length: 60 }),
   contact1: varchar("contact1", { length: 30 }),
   contact2: varchar("contact2", { length: 30 }),
@@ -111,6 +116,11 @@ export const chauffeurs = pgTable("chauffeurs", {
   numeroCarte: varchar("numero_carte", { length: 20 }), // généré automatiquement, préfixe C
   carteImprimee: boolean("carte_imprimee").default(false).notNull(),
   carteImprimeeAt: timestamp("carte_imprimee_at"),
+  // Impression : file de l'imprimeur et identité d'impression (lot MMAAAA)
+  pretImpression: boolean("pret_impression").default(false).notNull(),
+  pretImpressionAt: timestamp("pret_impression_at"),
+  pretImpressionPar: varchar("pret_impression_par", { length: 160 }),
+  lotImpression: varchar("lot_impression", { length: 6 }),
   syndicatId: uuid("syndicat_id"),
   commune: varchar("commune", { length: 60 }), // commune de rattachement — pilote le choix de la commission mixte
   associationId: uuid("association_id"), // association (syndicat de base) de rattachement du membre
@@ -155,6 +165,11 @@ export const elements = pgTable("elements", {
   numeroCarte: varchar("numero_carte", { length: 20 }), // généré automatiquement, préfixe E
   carteImprimee: boolean("carte_imprimee").default(false).notNull(),
   carteImprimeeAt: timestamp("carte_imprimee_at"),
+  // Impression : file de l'imprimeur et identité d'impression (lot MMAAAA)
+  pretImpression: boolean("pret_impression").default(false).notNull(),
+  pretImpressionAt: timestamp("pret_impression_at"),
+  pretImpressionPar: varchar("pret_impression_par", { length: 160 }),
+  lotImpression: varchar("lot_impression", { length: 6 }),
   syndicatId: uuid("syndicat_id"),
   commune: varchar("commune", { length: 60 }), // commune de rattachement — pilote le choix de la commission mixte
   associationId: uuid("association_id"), // association (syndicat de base) de rattachement du membre
@@ -205,6 +220,11 @@ export const vehicules = pgTable("vehicules", {
   numeroCarteLigne: varchar("numero_carte_ligne", { length: 20 }), // N° de la carte de droit de ligne (genere a la creation)
   carteImprimee: boolean("carte_imprimee").default(false).notNull(), // archivage de la carte de droit de ligne, meme logique que les autres categories
   carteImprimeeAt: timestamp("carte_imprimee_at"),
+  // Impression : file de l'imprimeur et identité d'impression (lot MMAAAA)
+  pretImpression: boolean("pret_impression").default(false).notNull(),
+  pretImpressionAt: timestamp("pret_impression_at"),
+  pretImpressionPar: varchar("pret_impression_par", { length: 160 }),
+  lotImpression: varchar("lot_impression", { length: 6 }),
   dateMiseCirculation: date("date_mise_circulation"),
   photoUrl: text("photo_url"), // photo generale du vehicule — non collectee au formulaire, gardee pour compatibilite
   photoCarteGrise: text("photo_carte_grise"),
@@ -341,6 +361,15 @@ export const affectations = pgTable("affectations", {
   gareRoutiereId: uuid("gare_routiere_id").references(() => garesRoutieres.id), // gare routière (lieu physique) où le véhicule opère
   dateAffectation: date("date_affectation").notNull(),
   dateFin: date("date_fin"),
+  actif: boolean("actif").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+/* ---------- Accès imprimeur (un par mois : identifiant MMAAAA) ---------- */
+export const accesImpression = pgTable("acces_impression", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  periode: varchar("periode", { length: 6 }).notNull().unique(), // ex. 102026
+  pinCode: varchar("pin_code", { length: 40 }).notNull(),
   actif: boolean("actif").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

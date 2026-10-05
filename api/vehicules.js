@@ -5,6 +5,7 @@ import {
 } from "../db/schema.js";
 import { requireAuth, agentPeutGerer } from "../lib/auth.js";
 import { normaliserImmatriculation, genererNumeroLigne } from "../lib/cards.js";
+import { champsImpression, gererImprimeur } from "../lib/impression.js";
 
 // Taux de commission de la mutuelle sur chaque achat de carburant.
 const COMMISSION_RATE = 0.02; // 2%
@@ -260,6 +261,8 @@ export default async function handler(req, res) {
 
   const auth = requireAuth(req, res);
   if (!auth) return;
+  // Compte imprimeur : uniquement la confirmation d'impression des cartes envoyées.
+  if (auth.role === "imprimeur") return gererImprimeur(req, res, auth, vehicules, toApiFlat);
 
   if (req.query.resource === "carburant") {
     return handleCarburant(req, res, auth);
@@ -407,9 +410,10 @@ export default async function handler(req, res) {
     if ("couleur" in body) patch.couleur = body.couleur || null;
     if ("typeTechnique" in body) patch.typeTechnique = body.typeTechnique || null;
     if ("puissanceFiscale" in body) patch.puissanceFiscale = body.puissanceFiscale || null;
-    if ("carteImprimee" in body) {
-      patch.carteImprimee = !!body.carteImprimee;
-      patch.carteImprimeeAt = body.carteImprimee ? new Date() : null;
+    // Impression : date et lot fixés à la première impression ; envoi à l'imprimeur
+    if ("carteImprimee" in body || "pretImpression" in body) {
+      const [avantImpression] = await db.select().from(vehicules).where(eq(vehicules.id, id));
+      Object.assign(patch, champsImpression(body, auth, avantImpression));
     }
     if ("photoCarteGrise" in body) patch.photoCarteGrise = body.photoCarteGrise || null;
     if ("photoVisiteTechnique" in body) patch.photoVisiteTechnique = body.photoVisiteTechnique || null;

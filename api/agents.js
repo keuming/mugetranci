@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { agents } from "../db/schema.js";
+import { agents, accesImpression } from "../db/schema.js";
 import { requireAuth , estAdministrateur } from "../lib/auth.js";
 
 function toApi(row) {
@@ -23,6 +23,34 @@ export default async function handler(req, res) {
   const id = Array.isArray(idParam) ? idParam[0] : idParam;
   const auth = requireAuth(req, res);
   if (!auth) return;
+
+  // Accès imprimeur mensuels (identifiant MMAAAA + code) : administrateur uniquement.
+  if (req.query.resource === "acces-impression") {
+    if (!estAdministrateur(auth)) return res.status(403).json({ error: "Réservé à l'administrateur général." });
+    const sansCode = ({ pinCode, ...r }) => ({ ...r, codeConfigure: !!pinCode });
+    if (req.method === "GET") {
+      const rows = await db.select().from(accesImpression);
+      return res.status(200).json(rows.sort((a, b) => (b.periode.slice(2) + b.periode.slice(0, 2)).localeCompare(a.periode.slice(2) + a.periode.slice(0, 2))).map(sansCode));
+    }
+    if (req.method === "POST") {
+      const periode = String(req.body?.periode || "").trim();
+      const pin = String(req.body?.pin || "").trim();
+      const m = /^(0[1-9]|1[0-2])(20\d{2})$/.exec(periode);
+      if (!m) return res.status(400).json({ error: "Identifiant invalide : mois et année sur 6 chiffres, ex. 102026 pour octobre 2026." });
+      if (pin.length < 4) return res.status(400).json({ error: "Le code doit comporter au moins 4 caractères." });
+      const [existant] = await db.select().from(accesImpression).where(eq(accesImpression.periode, periode));
+      const [row] = existant
+        ? await db.update(accesImpression).set({ pinCode: pin, actif: true }).where(eq(accesImpression.id, existant.id)).returning()
+        : await db.insert(accesImpression).values({ periode, pinCode: pin }).returning();
+      return res.status(existant ? 200 : 201).json(sansCode(row));
+    }
+    if (req.method === "PATCH" && id) {
+      const [row] = await db.update(accesImpression).set({ actif: !!req.body?.actif }).where(eq(accesImpression.id, id)).returning();
+      if (!row) return res.status(404).json({ error: "Accès introuvable." });
+      return res.status(200).json(sansCode(row));
+    }
+    return res.status(405).json({ error: "Méthode non autorisée" });
+  }
 
   if (!estAdministrateur(auth) && auth.role !== "commission_mixte" && auth.role !== "syndicat") {
     return res.status(403).json({ error: "Réservé à l'administrateur général, à une commission mixte ou à un collectif (syndicat)." });
