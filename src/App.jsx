@@ -1447,7 +1447,7 @@ function OrzayahMoyens({ tuile = 32 }) {
 }
 
 function OrzayahStatutPill({ membre }) {
-  const lie = membre?.orzayahStatut === "lie" && membre?.orzayahQrImage;
+  const lie = membre?.orzayahStatut === "lie" && (membre?.orzayahQrUrl || membre?.orzayahQrImage);
   const erreur = membre?.orzayahStatut === "erreur";
   const style = lie
     ? { background: C.greenLight, color: C.greenDark }
@@ -2000,7 +2000,7 @@ function MemberCard({ member, category, logo1, logo2, numero, ficheValue, infoFi
         <MemberCardFace {...props} side="recto" />
         <MemberCardFace {...props} side="verso" />
       </div>
-      {!(member.orzayahStatut === "lie" && member.orzayahQrImage) && (
+      {!(member.orzayahStatut === "lie" && (member.orzayahQrUrl || member.orzayahQrImage)) && (
         <div className="no-print font-body text-xs text-center" style={{ maxWidth: 340, color: member.orzayahStatut === "erreur" ? C.red : C.amber, fontWeight: 600 }}>
           {member.orzayahStatut === "erreur"
             ? `Liaison ORZAYAH échouée : ${member.orzayahErreur || "erreur inconnue"}. Modifiez la fiche du membre et enregistrez pour relancer.`
@@ -2784,7 +2784,7 @@ function MobileOrzayahBloc({ membre, categorie, onLier, compact = false }) {
   const [enCours, setEnCours] = useState(false);
   const [err, setErr] = useState(null);
   if (!membre) return null;
-  const lie = membre.orzayahStatut === "lie" && membre.orzayahQrImage;
+  const lie = membre.orzayahStatut === "lie" && (membre.orzayahQrUrl || membre.orzayahQrImage);
   const echec = membre.orzayahStatut === "erreur";
 
   const lier = async () => {
@@ -3699,7 +3699,7 @@ function Dashboard({ auth, onLogout }) {
      confirmée par l'imprimeur, enrôlement d'un agent sur le terrain…)
      apparaissent sans recharger la page. Les cartes imprimées quittent ainsi
      d'elles-mêmes « Nouvelles cartes » pour les « Archives ».
-     Déclenchée au retour sur l'onglet (au plus toutes les 20 s) et toutes les 2 minutes. */
+     Déclenchée au retour sur l'onglet (au plus une fois par minute) et toutes les 5 minutes. */
   const derniereActualisation = useRef(Date.now());
   const actualiserRef = useRef(null);
   actualiserRef.current = async () => {
@@ -3715,11 +3715,11 @@ function Dashboard({ auth, onLogout }) {
   };
   React.useEffect(() => {
     const auRetour = () => {
-      if (document.visibilityState === "visible" && navigator.onLine !== false && Date.now() - derniereActualisation.current > 20000) actualiserRef.current();
+      if (document.visibilityState === "visible" && navigator.onLine !== false && Date.now() - derniereActualisation.current > 60000) actualiserRef.current();
     };
     document.addEventListener("visibilitychange", auRetour);
     window.addEventListener("focus", auRetour);
-    const minuterie = setInterval(() => { if (document.visibilityState === "visible" && navigator.onLine !== false) actualiserRef.current(); }, 120000);
+    const minuterie = setInterval(() => { if (document.visibilityState === "visible" && navigator.onLine !== false) actualiserRef.current(); }, 300000);
     return () => { document.removeEventListener("visibilitychange", auRetour); window.removeEventListener("focus", auRetour); clearInterval(minuterie); };
   }, []);
   const [showCommissionForm, setShowCommissionForm] = useState(false);
@@ -6130,7 +6130,7 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo, qrPaiement, orzayahCompte, orzayahTelephone, fonction, fonctionAssociation, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
+      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo, orzayahCompte, orzayahTelephone, fonction, fonctionAssociation, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -6252,7 +6252,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, permisNumero, permisDateFin, contact1, contact2, contact3, email, photo, qrPaiement, orzayahCompte, orzayahTelephone, fonction, fonctionAssociation, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
+      await onSave({ nom, prenoms, cni, permisNumero, permisDateFin, contact1, contact2, contact3, email, photo, orzayahCompte, orzayahTelephone, fonction, fonctionAssociation, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -6362,7 +6362,7 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, fonction, fonctionAssociation, contact1, contact2, contact3, email, photo, qrPaiement, orzayahCompte, orzayahTelephone, logo1Type, logo1Id, logo2Type, logo2Id, gareRoutiereId, ligneId, syndicatId, commune, commissionMixteId, associationId });
+      await onSave({ nom, prenoms, cni, fonction, fonctionAssociation, contact1, contact2, contact3, email, photo, orzayahCompte, orzayahTelephone, logo1Type, logo1Id, logo2Type, logo2Id, gareRoutiereId, ligneId, syndicatId, commune, commissionMixteId, associationId });
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -6788,6 +6788,21 @@ function VehicleEditForm({ vehicle, onCancel, onSave }) {
   const [photoAssuranceAuto, setPhotoAssuranceAuto] = useState(vehicle.photoAssuranceAuto || null);
   const [photoVignette, setPhotoVignette] = useState(vehicle.photoVignette || null);
   const [photoCarteStationnement, setPhotoCarteStationnement] = useState(vehicle.photoCarteStationnement || null);
+  // Les photos des documents ne sont plus chargées au démarrage : on les lit à
+  // l'ouverture du formulaire. Tant qu'elles ne sont pas chargées, elles ne
+  // sont pas renvoyées (impossible de les effacer par erreur).
+  const [photosChargees, setPhotosChargees] = useState(false);
+  React.useEffect(() => {
+    let actif = true;
+    apiGet(`/api/vehicules?resource=photos&id=${vehicle.id}`).then((p) => {
+      if (!actif) return;
+      setPhotoCarteGrise(p.photoCarteGrise || null); setPhotoVisiteTechnique(p.photoVisiteTechnique || null);
+      setPhotoAssuranceAuto(p.photoAssuranceAuto || null); setPhotoVignette(p.photoVignette || null);
+      setPhotoCarteStationnement(p.photoCarteStationnement || null);
+      setPhotosChargees(true);
+    }).catch(() => {});
+    return () => { actif = false; };
+  }, [vehicle.id]);
   const [immatriculation, setImmatriculation] = useState(vehicle.immatriculation || "");
   const [dateMiseCirculation, setDateMiseCirculation] = useState(vehicle.dateMiseCirculation || "");
   const [docs, setDocs] = useState({
@@ -6805,7 +6820,7 @@ function VehicleEditForm({ vehicle, onCancel, onSave }) {
     setSaving(true);
     setError(null);
     try {
-      await onSave({ marque, modele, categorie, nombrePlaces, energie, couleur, typeTechnique, puissanceFiscale, chassis, carteGrise, nomCarteGrise, proprietaireReelNom, proprietaireReelContact, anciensDetenteurs: detenteursRemplis(anciensDetenteurs), immatriculation, dateMiseCirculation, documents: docs, photoCarteGrise, photoVisiteTechnique, photoAssuranceAuto, photoVignette, photoCarteStationnement });
+      await onSave({ marque, modele, categorie, nombrePlaces, energie, couleur, typeTechnique, puissanceFiscale, chassis, carteGrise, nomCarteGrise, proprietaireReelNom, proprietaireReelContact, anciensDetenteurs: detenteursRemplis(anciensDetenteurs), immatriculation, dateMiseCirculation, documents: docs, ...(photosChargees ? { photoCarteGrise, photoVisiteTechnique, photoAssuranceAuto, photoVignette, photoCarteStationnement } : {}) });
     } catch (err) {
       setError(err.message || "Erreur lors de la mise à jour.");
       setSaving(false);
@@ -6850,6 +6865,7 @@ function VehicleEditForm({ vehicle, onCancel, onSave }) {
           <Field label="Carte de stationnement"><DateInput value={docs.carteStationnement} onChange={(e) => setDocs({ ...docs, carteStationnement: e.target.value })} /></Field>
         </div>
         <div className="grid grid-cols-2 gap-4 mt-4" style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
+          {!photosChargees && <p className="font-body text-xs col-span-2" style={{ color: C.slate }}>Chargement des photos des documents…</p>}
           <PhotoUpload value={photoCarteGrise} onChange={setPhotoCarteGrise} label="Photo — carte grise" shape="square" />
           <PhotoUpload value={photoVisiteTechnique} onChange={setPhotoVisiteTechnique} label="Photo — visite technique" shape="square" />
           <PhotoUpload value={photoAssuranceAuto} onChange={setPhotoAssuranceAuto} label="Photo — attestation d'assurance auto" shape="square" />

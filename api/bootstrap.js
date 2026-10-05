@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, isNull, isNotNull, getTableColumns } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
   proprietaires, chauffeurs, elements, vehicules, historiqueProprietaires, vehiculeChauffeurs,
@@ -6,6 +6,25 @@ import {
 } from "../db/schema.js";
 import { requireAuth } from "../lib/auth.js";
 import { envoyerJson } from "../lib/reponse.js";
+
+/* Colonnes lourdes jamais envoyées au démarrage (plusieurs centaines de Ko
+   chacune) : photos des 5 documents du véhicule (chargées à l'ouverture de
+   sa fiche de modification), ancien QR Mobile Money (obsolète), image PNG du
+   QR ORZAYAH (redessiné en vectoriel à partir de son lien). */
+const COLONNES_LOURDES = new Set([
+  "photoCarteGrise", "photoVisiteTechnique", "photoAssuranceAuto", "photoVignette", "photoCarteStationnement",
+  "qrPaiementUrl", "orzayahQrImage",
+]);
+function colonnesLegeres(table) {
+  const cols = getTableColumns(table);
+  return Object.fromEntries(Object.entries(cols).filter(([k]) => !COLONNES_LOURDES.has(k)));
+}
+// Image ORZAYAH : seulement pour les rares membres liés sans lien de paiement.
+async function imagesOrzayahSansLien(table) {
+  const rows = await db.select({ id: table.id, img: table.orzayahQrImage }).from(table)
+    .where(and(isNull(table.orzayahQrUrl), isNotNull(table.orzayahQrImage)));
+  return new Map(rows.map((r) => [r.id, r.img]));
+}
 
 function toApiOwner(row) {
   const { photoUrl, ...rest } = row;
@@ -96,10 +115,10 @@ export default async function handler(req, res) {
     allOwners, allDrivers, allElements, allVehicules, junctions, historiques,
     allAchats, allCommissions, allSyndicats, allGares, allLignes, allAffectations, allAssociations,
   ] = await Promise.all([
-    db.select().from(proprietaires),
-    db.select().from(chauffeurs),
-    db.select().from(elements),
-    db.select().from(vehicules),
+    db.select(colonnesLegeres(proprietaires)).from(proprietaires),
+    db.select(colonnesLegeres(chauffeurs)).from(chauffeurs),
+    db.select(colonnesLegeres(elements)).from(elements),
+    db.select(colonnesLegeres(vehicules)).from(vehicules),
     db.select().from(vehiculeChauffeurs).where(eq(vehiculeChauffeurs.actif, true)),
     db.select().from(historiqueProprietaires),
     db.select().from(achatsCarburant).orderBy(desc(achatsCarburant.createdAt)),
@@ -110,6 +129,12 @@ export default async function handler(req, res) {
     db.select().from(affectations),
     db.select().from(associations),
   ]);
+  const [imgOwners, imgDrivers, imgElements] = await Promise.all([
+    imagesOrzayahSansLien(proprietaires), imagesOrzayahSansLien(chauffeurs), imagesOrzayahSansLien(elements),
+  ]);
+  for (const [liste, imgs] of [[allOwners, imgOwners], [allDrivers, imgDrivers], [allElements, imgElements]]) {
+    for (const r of liste) if (imgs.has(r.id)) r.orzayahQrImage = imgs.get(r.id);
+  }
 
   // Compte imprimeur : uniquement les cartes envoyées à l'impression (et non
   // encore imprimées), plus ce qu'il faut pour les composer (véhicule et

@@ -266,6 +266,21 @@ export default async function handler(req, res) {
   // Collectif / association / commission : marquage des cartes à imprimer de son périmètre.
   if (await gererMarquageImpression(req, res, auth, vehicules, toApiFlat)) return;
 
+  // Photos des 5 documents d'un véhicule (exclues du démarrage pour la rapidité)
+  if (req.query.resource === "photos" && req.method === "GET") {
+    const authP = requireAuth(req, res);
+    if (!authP) return;
+    if (authP.role === "imprimeur") return res.status(403).json({ error: "Accès refusé." });
+    const idP = Array.isArray(req.query.id) ? req.query.id[0] : req.query.id;
+    const [v] = idP ? await db.select({
+      photoCarteGrise: vehicules.photoCarteGrise, photoVisiteTechnique: vehicules.photoVisiteTechnique,
+      photoAssuranceAuto: vehicules.photoAssuranceAuto, photoVignette: vehicules.photoVignette,
+      photoCarteStationnement: vehicules.photoCarteStationnement,
+    }).from(vehicules).where(eq(vehicules.id, idP)) : [];
+    if (!v) return res.status(404).json({ error: "Véhicule introuvable." });
+    return res.status(200).json(v);
+  }
+
   if (req.query.resource === "carburant") {
     return handleCarburant(req, res, auth);
   }
