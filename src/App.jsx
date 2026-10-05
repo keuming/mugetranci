@@ -3769,13 +3769,27 @@ function Dashboard({ auth, onLogout }) {
   }
 
   const searchQuery = search.trim().toLowerCase();
+  // Recherche multicritère de l'en-tête : véhicules ET membres. Le même
+  // résultat alimente la liste déroulante ET filtre les pages Véhicules,
+  // Transporteurs, Chauffeurs et Éléments (cohérence entre les deux).
+  const indexRecherche = useMemo(() => construireIndexRecherche(vehicles, owners, drivers, elements), [vehicles, owners, drivers, elements]);
+  const resultatsRecherche = useMemo(
+    () => (searchQuery ? rechercherIndex(indexRecherche, search, critereRecherche, Infinity) : null),
+    [indexRecherche, search, searchQuery, critereRecherche]
+  );
+  const idsTrouves = useMemo(() => {
+    if (!resultatsRecherche) return null;
+    const m = { vehicule: new Set(), transporteur: new Set(), chauffeur: new Set(), element: new Set() };
+    for (const r of resultatsRecherche) m[r.kind].add(r.item.id);
+    return m;
+  }, [resultatsRecherche]);
   const filteredVehicles = vehicles.filter((v) => {
     if (onlyExpiredFilter && !vehicleHasExpiredDoc(v)) return false;
-    return vehicleMatchesSearch(v, searchQuery);
+    if (!idsTrouves) return true;
+    // « Tout » couvre aussi la gare et la ligne d'affectation du véhicule
+    return idsTrouves.vehicule.has(v.id) || (critereRecherche === "tout" && vehicleMatchesSearch(v, searchQuery));
   });
-  // Recherche multicritère de l'en-tête : véhicules ET membres
-  const indexRecherche = useMemo(() => construireIndexRecherche(vehicles, owners, drivers, elements), [vehicles, owners, drivers, elements]);
-  const searchResults = searchQuery ? rechercherIndex(indexRecherche, search, critereRecherche, 200) : [];
+  const searchResults = resultatsRecherche ? resultatsRecherche.slice(0, 200) : [];
   const ouvrirResultat = (r) => {
     if (r.kind === "vehicule") openFiche(r.item);
     else if (r.kind === "transporteur") setCardOwner(r.item);
@@ -3973,7 +3987,12 @@ function Dashboard({ auth, onLogout }) {
                     onChange={(e) => { setSearch(e.target.value); setSearchOpen(true); }}
                     onFocus={() => search && setSearchOpen(true)}
                     onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
-                    onKeyDown={(e) => { if (e.key === "Enter") { setPage("vehicles"); setSearchOpen(false); } }}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter" || !idsTrouves) return;
+                      const pages = [["vehicles", idsTrouves.vehicule.size], ["owners", idsTrouves.transporteur.size], ["drivers", idsTrouves.chauffeur.size], ["elements", idsTrouves.element.size]];
+                      const [cible] = pages.sort((a, b) => b[1] - a[1])[0];
+                      setPage(cible); setSearchOpen(false);
+                    }}
                     className="font-body text-sm"
                     style={{ border: "none", outline: "none", width: 230 }}
                   />
@@ -4252,6 +4271,7 @@ function Dashboard({ auth, onLogout }) {
                 )}
               >
                 <>
+                <BandeauRecherche saisie={search.trim()} critere={critereRecherche} total={eligibles.length} onEffacer={() => setSearch("")} />
                 <VehicleGrid
                   vehicles={eligibles.slice(0, nbAffiches)} owners={owners} drivers={drivers} onFiche={openFiche} onPhoto={updateVehiclePhoto}
                   commissionsMixtes={commissionsMixtes} lignes={lignes} affectations={affectations}
@@ -4270,7 +4290,7 @@ function Dashboard({ auth, onLogout }) {
           })()}
 
           {page === "owners" && (() => {
-            const visibleOwners = owners.filter((o) => !!o.carteImprimee === showOwnersArchive);
+            const visibleOwners = owners.filter((o) => !!o.carteImprimee === showOwnersArchive && (!idsTrouves || idsTrouves.transporteur.has(o.id)));
             return (
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-2">
@@ -4308,6 +4328,7 @@ function Dashboard({ auth, onLogout }) {
                   )}
                 </div>
               </div>
+              <BandeauRecherche saisie={search.trim()} critere={critereRecherche} total={visibleOwners.length} onEffacer={() => setSearch("")} />
               <div className="grid grid-cols-3 gap-4">
               {visibleOwners.slice(0, nbAffiches).map((o) => {
                 const ownedCount = vehicles.filter((v) => v.proprietaireId === o.id).length;
@@ -4376,7 +4397,7 @@ function Dashboard({ auth, onLogout }) {
           })()}
 
           {page === "elements" && (() => {
-            const visibleElements = elements.filter((e) => !!e.carteImprimee === showElementsArchive);
+            const visibleElements = elements.filter((e) => !!e.carteImprimee === showElementsArchive && (!idsTrouves || idsTrouves.element.has(e.id)));
             return (
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-2">
@@ -4414,6 +4435,7 @@ function Dashboard({ auth, onLogout }) {
                   )}
                 </div>
               </div>
+              <BandeauRecherche saisie={search.trim()} critere={critereRecherche} total={visibleElements.length} onEffacer={() => setSearch("")} />
               <div className="grid grid-cols-3 gap-4">
               {visibleElements.slice(0, nbAffiches).map((e) => {
                 const isSelected = selectedElementIds.includes(e.id);
@@ -4536,7 +4558,7 @@ function Dashboard({ auth, onLogout }) {
           )}
 
           {page === "drivers" && (() => {
-            const visibleDrivers = drivers.filter((d) => !!d.carteImprimee === showDriversArchive);
+            const visibleDrivers = drivers.filter((d) => !!d.carteImprimee === showDriversArchive && (!idsTrouves || idsTrouves.chauffeur.has(d.id)));
             return (
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-2">
@@ -4573,6 +4595,7 @@ function Dashboard({ auth, onLogout }) {
                 </div>
               </div>
 
+              <BandeauRecherche saisie={search.trim()} critere={critereRecherche} total={visibleDrivers.length} onEffacer={() => setSearch("")} />
               <div className="grid grid-cols-3 gap-4">
               {visibleDrivers.slice(0, nbAffiches).map((d) => {
                 const veh = vehicles.find((v) => v.chauffeurIds.includes(d.id));
@@ -4600,7 +4623,7 @@ function Dashboard({ auth, onLogout }) {
                       <div className="flex items-center gap-2">
                         <OrzayahStatutPill membre={d} />
                         <button onClick={() => openCard(d)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: C.greenLight, color: C.greenDark }}>
-                          <CreditCard size={13} /> {showDriversArchive ? "Réimprimer (duplicata)" : "Carte membre"}
+                          <CreditCard size={13} /> {showDriversArchive ? "Réimprimer (duplicata)" : "Carte chauffeur"}
                         </button>
                         <button
                           onClick={() => updateDriver(d.id, { carteImprimee: !showDriversArchive })}
@@ -6600,6 +6623,17 @@ function SyndicatMembersTable({ commissionSyndicats, owners, associations = [], 
    Transporteurs / Chauffeurs / Éléments. Chaque tuile montre les membres
    rattachés avec leur état ORZAYAH et un accès direct à leur carte et à
    leur fiche (liaison ORZAYAH) — plus besoin de passer par le dossier. */
+function BandeauRecherche({ saisie, critere, total, onEffacer }) {
+  if (!saisie) return null;
+  const lib = CRITERES_RECHERCHE.find((c) => c.key === critere)?.label || "Tout";
+  return (
+    <div className="font-body text-sm flex items-center justify-between gap-3 px-4 py-2.5 mb-3 rounded-lg" style={{ background: C.orangeLight, border: `1px solid ${C.orange}`, color: C.orangeDark }}>
+      <span><b>{total}</b> résultat{total > 1 ? "s" : ""} pour « {saisie} » ({lib})</span>
+      <button onClick={onEffacer} className="font-semibold flex items-center gap-1" style={{ color: C.orangeDark }}><X size={14} /> Effacer la recherche</button>
+    </div>
+  );
+}
+
 function AfficherPlus({ total, affiches, onPlus, pas = 60 }) {
   if (total <= affiches) return null;
   return (
