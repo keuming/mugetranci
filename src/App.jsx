@@ -243,6 +243,84 @@ function DoublonsAlerte({ messages, titre = "Enregistrement bloqué : doublon d�
   );
 }
 
+/* ============================================================
+   RECHERCHE MULTICRITÈRE (bureau et mobile)
+   Critères : tout, nom et prénoms, contact, immatriculation, n° de châssis,
+   n° de macaron. L'index est construit une seule fois par jeu de données
+   (useMemo) : chaque frappe ne fait ensuite que des comparaisons de chaînes.
+   ============================================================ */
+const CRITERES_RECHERCHE = [
+  { key: "tout", label: "Tout", ph: "Nom, contact, immat., châssis, macaron…" },
+  { key: "nom", label: "Nom et prénoms", ph: "Ex. Moussa KONE" },
+  { key: "contact", label: "Contact", ph: "Ex. 05 55 62 22 08" },
+  { key: "immatriculation", label: "Immatriculation", ph: "Ex. 9186 HZ 01" },
+  { key: "chassis", label: "N° châssis", ph: "Ex. JT731HB09" },
+  { key: "macaron", label: "N° macaron", ph: "Ex. 1534" },
+];
+// Majuscules, sans accents ni espaces multiples (« Kôné  moussa » = « KONE MOUSSA »)
+function normTexte(v) {
+  return String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9' ]+/g, " ").replace(/\s+/g, " ").trim();
+}
+function construireIndexRecherche(vehicles, owners, drivers, elements) {
+  const vehParProprio = new Map(), vehParChauffeur = new Map();
+  for (const v of vehicles) {
+    if (v.proprietaireId && !vehParProprio.has(v.proprietaireId)) vehParProprio.set(v.proprietaireId, v);
+    for (const id of v.chauffeurIds || []) if (!vehParChauffeur.has(id)) vehParChauffeur.set(id, v);
+  }
+  const ownersParId = new Map(owners.map((o) => [o.id, o]));
+  const tels = (...l) => l.map(normTel).filter((t) => t.length >= 4);
+  const entrees = [];
+  const membre = (kind, m, numero, veh) => entrees.push({
+    kind, item: m,
+    title: `${m.prenoms || ""} ${m.nom || ""}`.trim(),
+    sub: [numero, kind === "element" ? m.fonction : veh?.immatriculation].filter(Boolean).join(" · "),
+    noms: [normTexte(`${m.prenoms} ${m.nom}`)],
+    contacts: tels(m.contact1, m.contact2, m.contact3, m.orzayahTelephone),
+    immats: veh ? [normImmat(veh.immatriculation)] : [], chassis: [], macarons: [],
+  });
+  owners.forEach((o) => membre("transporteur", o, o.carteTransporteurNumero, vehParProprio.get(o.id)));
+  drivers.forEach((d) => membre("chauffeur", d, d.numeroCarte, vehParChauffeur.get(d.id)));
+  elements.forEach((e) => membre("element", e, e.numeroCarte, null));
+  vehicles.forEach((v) => {
+    const owner = ownersParId.get(v.proprietaireId);
+    const anciens = Array.isArray(v.anciensDetenteurs) ? v.anciensDetenteurs : [];
+    entrees.push({
+      kind: "vehicule", item: v,
+      title: v.immatriculation,
+      sub: [[v.marque, v.modele].filter(Boolean).join(" "), owner ? `${owner.prenoms} ${owner.nom}` : null, v.numeroMacaron ? `macaron ${v.numeroMacaron}` : null].filter(Boolean).join(" · ") || "Véhicule",
+      noms: [v.nomCarteGrise, v.proprietaireReelNom, owner ? `${owner.prenoms} ${owner.nom}` : null, ...anciens.map((r) => r.nom)].filter(Boolean).map(normTexte),
+      contacts: tels(v.proprietaireReelContact, owner?.contact1, owner?.contact2, ...anciens.map((r) => r.contact)),
+      immats: [normImmat(v.immatriculation)],
+      chassis: [normPiece(v.chassis), normPiece(v.carteGrise)].filter(Boolean),
+      macarons: v.numeroMacaron ? [String(v.numeroMacaron).replace(/^0+/, "")] : [],
+    });
+  });
+  return entrees;
+}
+// Renvoie les entrées correspondant à la saisie, selon le critère choisi.
+function rechercherIndex(index, saisie, critere = "tout", limite = 300) {
+  const q = String(saisie || "").trim();
+  if (!q) return [];
+  const mots = normTexte(q).split(" ").filter(Boolean);
+  const qTel = normTel(q), qImmat = normImmat(q), qPiece = normPiece(q), qMac = q.replace(/\D/g, "").replace(/^0+/, "");
+  const parNom = (e) => mots.length > 0 && e.noms.some((n) => mots.every((m) => n.includes(m)));
+  const parContact = (e) => qTel.length >= 4 && e.contacts.some((t) => t.includes(qTel));
+  const parImmat = (e) => qImmat.length >= 3 && e.immats.some((i) => i.includes(qImmat));
+  const parChassis = (e) => qPiece.length >= 3 && e.chassis.some((c) => c.includes(qPiece));
+  const parMacaron = (e) => !!qMac && e.macarons.includes(qMac);
+  const tests = { nom: [parNom], contact: [parContact], immatriculation: [parImmat], chassis: [parChassis], macaron: [parMacaron],
+    tout: [parNom, parContact, parImmat, parChassis, parMacaron] }[critere] || [parNom];
+  // En recherche par immatriculation, châssis ou macaron, on présente les véhicules ;
+  // les membres n'apparaissent que dans « Tout », « Nom » et « Contact ».
+  const vehiculesSeuls = ["immatriculation", "chassis", "macaron"].includes(critere);
+  const out = [];
+  for (const e of index) {
+    if (vehiculesSeuls && e.kind !== "vehicule") continue;
+    if (tests.some((t) => t(e))) { out.push(e); if (out.length >= limite) break; }
+  }
+  return out;
+}
+
 function initials(nom, prenoms) {
   return `${(prenoms || "?")[0] || ""}${(nom || "?")[0] || ""}`.toUpperCase();
 }
@@ -2949,12 +3027,11 @@ function MobileView({
   const [tab, setTab] = useState("ajout");
   const [nbHist, setNbHist] = useState(100);
   const [q, setQ] = useState("");
-  const [critere, setCritere] = useState("nom");
+  const [critere, setCritere] = useState("tout");
   const [communeF, setCommuneF] = useState("");
   const [selected, setSelected] = useState(null);
 
   const query = q.trim().toLowerCase();
-  const match = (...vals) => vals.filter(Boolean).join(" ").toLowerCase().includes(query);
 
   // 1er filtre : la commune reduit le volume a parcourir.
   const sameCommune = (x) => !communeF || COMMUNE_EQ(x.commune, communeF);
@@ -2963,26 +3040,12 @@ function MobileView({
   const driversF = drivers.filter(sameCommune);
   const elementsF = elements.filter(sameCommune);
 
-  // 2e filtre : le critere determine les champs interroges — et donc
-  // quelles categories sont pertinentes.
-  const chercheVehicule = critere === "chassis" || critere === "immatriculation";
-  const results = !query ? [] : (
-    chercheVehicule
-      ? vehiculesF
-          .filter((v) => critere === "chassis" ? match(v.chassis, v.carteGrise) : normImmat(v.immatriculation).includes(normImmat(query)))
-          .map((v) => ({ kind: "vehicule", item: v, title: v.immatriculation, sub: [v.marque, v.modele].filter(Boolean).join(" ") || "Véhicule" }))
-      : [
-          ...ownersF
-            .filter((o) => critere === "nom" ? match(o.nom, o.prenoms) : match(o.contact1, o.contact2, o.contact3))
-            .map((o) => ({ kind: "transporteur", item: o, title: `${o.prenoms} ${o.nom}`, sub: o.carteTransporteurNumero || "Transporteur" })),
-          ...driversF
-            .filter((d) => critere === "nom" ? match(d.nom, d.prenoms) : match(d.contact1, d.contact2, d.contact3))
-            .map((d) => ({ kind: "chauffeur", item: d, title: `${d.prenoms} ${d.nom}`, sub: d.numeroCarte || "Chauffeur" })),
-          ...elementsF
-            .filter((e) => critere === "nom" ? match(e.nom, e.prenoms) : match(e.contact1, e.contact2, e.contact3))
-            .map((e) => ({ kind: "element", item: e, title: `${e.prenoms} ${e.nom}`, sub: e.fonction || "Élément" })),
-        ]
-  );
+  // 2e filtre : le critère détermine les champs interrogés (moteur commun
+  // au bureau et au mobile, index construit une seule fois).
+  const indexRecherche = useMemo(() => construireIndexRecherche(vehicles, owners, drivers, elements), [vehicles, owners, drivers, elements]);
+  const communeDeResultat = (r) => r.item.commune || commissionsMixtes.find((c) => c.id === r.item.commissionMixteId)?.commune;
+  const results = !query ? [] : rechercherIndex(indexRecherche, q, critere, 500)
+    .filter((r) => !communeF || COMMUNE_EQ(communeDeResultat(r), communeF));
 
   // Historique : UNE LIGNE PAR PERSONNE (transporteur, chauffeur, élément),
   // toutes présentées de la même façon et ouvrant directement la fiche du
@@ -3020,12 +3083,7 @@ function MobileView({
   // Affichage progressif : seuls les plus récents sont rendus (listes de plusieurs milliers de lignes)
   const historiqueGroupe = grouperParJour(historique.slice(0, nbHist));
 
-  const CRITERES = [
-    { key: "nom", label: "Nom complet", ph: "Ex. Moussa KONE" },
-    { key: "telephone", label: "Téléphone", ph: "Ex. 0555622208" },
-    { key: "chassis", label: "N° châssis", ph: "Ex. JT731HB09" },
-    { key: "immatriculation", label: "Immatriculation", ph: "Ex. 9186 HZ 01" },
-  ];
+  const CRITERES = CRITERES_RECHERCHE;
   const critereActif = CRITERES.find((x) => x.key === critere);
   const totalCommune = communeF ? vehiculesF.length + ownersF.length + driversF.length + elementsF.length : null;
 
@@ -3215,7 +3273,7 @@ function MobileView({
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder={critereActif.ph}
-                inputMode={critere === "telephone" ? "tel" : "text"}
+                inputMode={critere === "contact" || critere === "macaron" ? "tel" : "text"}
                 className="font-body"
                 style={{ border: "none", outline: "none", flex: 1, fontSize: 16, fontWeight: 600, background: "transparent", minWidth: 0 }}
               />
@@ -3409,6 +3467,7 @@ function Dashboard({ auth, onLogout }) {
   const [reassignVehicle, setReassignVehicle] = useState(null);
   const [editVehicle, setEditVehicle] = useState(null);
   const [search, setSearch] = useState("");
+  const [critereRecherche, setCritereRecherche] = useState("tout");
   const [searchOpen, setSearchOpen] = useState(false);
   const [onlyExpiredFilter, setOnlyExpiredFilter] = useState(false);
 
@@ -3714,7 +3773,23 @@ function Dashboard({ auth, onLogout }) {
     if (onlyExpiredFilter && !vehicleHasExpiredDoc(v)) return false;
     return vehicleMatchesSearch(v, searchQuery);
   });
-  const searchResults = searchQuery ? vehicles.filter((v) => vehicleMatchesSearch(v, searchQuery)) : [];
+  // Recherche multicritère de l'en-tête : véhicules ET membres
+  const indexRecherche = useMemo(() => construireIndexRecherche(vehicles, owners, drivers, elements), [vehicles, owners, drivers, elements]);
+  const searchResults = searchQuery ? rechercherIndex(indexRecherche, search, critereRecherche, 200) : [];
+  const ouvrirResultat = (r) => {
+    if (r.kind === "vehicule") openFiche(r.item);
+    else if (r.kind === "transporteur") setCardOwner(r.item);
+    else if (r.kind === "chauffeur") openCard(r.item);
+    else setCardElement(r.item);
+    setSearchOpen(false); setSearch("");
+  };
+  const modifierResultat = (r) => {
+    if (r.kind === "vehicule") setEditVehicle(r.item);
+    else if (r.kind === "transporteur") setEditMember(r.item);
+    else if (r.kind === "chauffeur") setEditDriver(r.item);
+    else setEditElement(r.item);
+    setSearchOpen(false); setSearch("");
+  };
 
   // Un agent cree par l'administrateur general partage son profil :
   // menu complet et acces aux pages d'administration.
@@ -3882,16 +3957,25 @@ function Dashboard({ auth, onLogout }) {
               </button>
               <div className="relative">
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ border: `1px solid ${C.border}`, background: "#fff" }}>
+                  <select
+                    value={critereRecherche}
+                    onChange={(e) => { setCritereRecherche(e.target.value); if (search) setSearchOpen(true); }}
+                    title="Critère de recherche"
+                    className="font-body text-xs font-semibold"
+                    style={{ border: "none", outline: "none", background: C.greenLight, color: C.greenDark, borderRadius: 6, padding: "3px 4px", cursor: "pointer" }}
+                  >
+                    {CRITERES_RECHERCHE.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+                  </select>
                   <Search size={15} color={C.slate} />
                   <input
-                    placeholder="Nom, téléphone, immat., châssis, carte grise, gare, ligne…"
+                    placeholder={CRITERES_RECHERCHE.find((c) => c.key === critereRecherche)?.ph}
                     value={search}
                     onChange={(e) => { setSearch(e.target.value); setSearchOpen(true); }}
                     onFocus={() => search && setSearchOpen(true)}
                     onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
                     onKeyDown={(e) => { if (e.key === "Enter") { setPage("vehicles"); setSearchOpen(false); } }}
                     className="font-body text-sm"
-                    style={{ border: "none", outline: "none", width: 260 }}
+                    style={{ border: "none", outline: "none", width: 230 }}
                   />
                   {search && (
                     <button onClick={() => { setSearch(""); setSearchOpen(false); }} style={{ color: C.slate }}>
@@ -3905,30 +3989,32 @@ function Dashboard({ auth, onLogout }) {
                 {searchOpen && searchQuery && (
                   <div className="absolute right-0 mt-1.5" style={{ width: 380, background: "#fff", border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: "0 14px 32px rgba(0,0,0,0.14)", maxHeight: 360, overflowY: "auto", zIndex: 50 }}>
                     {searchResults.length === 0 ? (
-                      <div className="font-body text-sm p-4" style={{ color: C.slate }}>Aucun résultat pour "{search}".</div>
+                      <div className="font-body text-sm p-4" style={{ color: C.slate }}>Aucun résultat pour « {search} ».</div>
                     ) : (
                       <>
-                        {searchResults.slice(0, 8).map((v) => {
-                          const owner = owners.find((o) => o.id === v.proprietaireId);
-                          return (
-                            <button
-                              key={v.id}
-                              onClick={() => { openFiche(v); setSearchOpen(false); setSearch(""); }}
-                              className="w-full text-left px-4 py-2.5 flex items-center justify-between"
-                              style={{ borderBottom: `1px solid ${C.border}` }}
-                            >
-                              <div>
-                                <div className="font-body text-sm font-medium" style={{ color: C.ink }}>{v.immatriculation} <span style={{ color: C.slate, fontWeight: 400 }}>· {v.marque} {v.modele}</span></div>
-                                <div className="font-body text-xs" style={{ color: C.slate }}>{owner ? `${owner.prenoms} ${owner.nom}` : "Sans transporteur"}</div>
+                        <div className="font-body text-xs px-4 py-2" style={{ color: C.slate, background: C.cream, borderBottom: `1px solid ${C.border}` }}>
+                          {searchResults.length >= 200 ? "200+" : searchResults.length} résultat{searchResults.length > 1 ? "s" : ""}
+                          {" — "}{["vehicule", "transporteur", "chauffeur", "element"].map((k) => [k, searchResults.filter((r) => r.kind === k).length]).filter(([, n]) => n)
+                            .map(([k, n]) => `${n} ${{ vehicule: "véhicule", transporteur: "transporteur", chauffeur: "chauffeur", element: "élément" }[k]}${n > 1 ? "s" : ""}`).join(", ")}
+                        </div>
+                        {searchResults.slice(0, 50).map((r) => (
+                          <div key={`${r.kind}-${r.item.id}`} className="flex items-center" style={{ borderBottom: `1px solid ${C.border}` }}>
+                            <button onMouseDown={(e) => e.preventDefault()} onClick={() => ouvrirResultat(r)} className="flex-1 text-left px-4 py-2.5" style={{ minWidth: 0 }}>
+                              <div className="font-body text-sm font-medium" style={{ color: C.ink }}>
+                                {r.kind === "vehicule" ? <span className="font-mono">{r.title}</span> : r.title}
+                                <span className="font-body text-xs" style={{ marginLeft: 6, padding: "1px 6px", borderRadius: 5, background: r.kind === "vehicule" ? C.greenLight : C.orangeLight, color: r.kind === "vehicule" ? C.greenDark : C.orangeDark, fontWeight: 700 }}>
+                                  {{ vehicule: "Véhicule", transporteur: "Transporteur", chauffeur: "Chauffeur", element: "Élément" }[r.kind]}
+                                </span>
                               </div>
-                              <ChevronRight size={14} color={C.slate} />
+                              <div className="font-body text-xs" style={{ color: C.slate, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.sub || "—"}</div>
                             </button>
-                          );
-                        })}
-                        {searchResults.length > 8 && (
-                          <button onClick={() => { setPage("vehicles"); setSearchOpen(false); }} className="w-full font-body text-xs font-semibold p-2.5 text-center" style={{ color: C.green }}>
-                            +{searchResults.length - 8} autre(s) résultat(s) — voir tout
-                          </button>
+                            <button onMouseDown={(e) => e.preventDefault()} onClick={() => modifierResultat(r)} title="Modifier" className="px-3" style={{ color: C.slate }}><Pencil size={14} /></button>
+                          </div>
+                        ))}
+                        {searchResults.length > 50 && (
+                          <div className="font-body text-xs p-2.5 text-center" style={{ color: C.slate }}>
+                            50 premiers affichés — précisez la recherche ou changez de critère.
+                          </div>
                         )}
                       </>
                     )}
