@@ -5,7 +5,7 @@ import {
 } from "../db/schema.js";
 import { requireAuth, agentPeutGerer } from "../lib/auth.js";
 import { normaliserImmatriculation, genererNumeroLigne } from "../lib/cards.js";
-import { champsImpression, gererImprimeur } from "../lib/impression.js";
+import { champsImpression, gererImprimeur, gererMarquageImpression } from "../lib/impression.js";
 
 // Taux de commission de la mutuelle sur chaque achat de carburant.
 const COMMISSION_RATE = 0.02; // 2%
@@ -263,6 +263,8 @@ export default async function handler(req, res) {
   if (!auth) return;
   // Compte imprimeur : uniquement la confirmation d'impression des cartes envoyées.
   if (auth.role === "imprimeur") return gererImprimeur(req, res, auth, vehicules, toApiFlat);
+  // Collectif / association / commission : marquage des cartes à imprimer de son périmètre.
+  if (await gererMarquageImpression(req, res, auth, vehicules, toApiFlat)) return;
 
   if (req.query.resource === "carburant") {
     return handleCarburant(req, res, auth);

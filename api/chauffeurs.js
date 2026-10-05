@@ -5,7 +5,7 @@ import { requireAuth, agentPeutGerer } from "../lib/auth.js";
 import { genererNumeroCarte } from "../lib/cards.js";
 import { chercherDoublon } from "../lib/doublons.js";
 import { lierCompteOrzayah, traiterPatchOrzayah, retirerChampsOrzayahServeur, normaliserCodeOrzayah, normaliserTelephone } from "../lib/orzayah.js";
-import { champsImpression, gererImprimeur } from "../lib/impression.js";
+import { champsImpression, gererImprimeur, gererMarquageImpression } from "../lib/impression.js";
 
 function toApi(row) {
   const { photoUrl, qrPaiementUrl, ...rest } = row;
@@ -23,6 +23,8 @@ export default async function handler(req, res) {
   if (!auth) return;
   // Compte imprimeur : uniquement la confirmation d'impression des cartes envoyées.
   if (auth.role === "imprimeur") return gererImprimeur(req, res, auth, chauffeurs, toApi);
+  // Collectif / association / commission : marquage des cartes à imprimer de son périmètre.
+  if (await gererMarquageImpression(req, res, auth, chauffeurs, toApi)) return;
 
   if (!id) {
     if (req.method === "GET") {

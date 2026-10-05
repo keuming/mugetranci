@@ -3531,12 +3531,40 @@ function EspaceImprimeur({ auth, onLogout }) {
               {lab} ({listes[k].length})
             </button>
           ))}
-          <select value={groupement} onChange={(e) => setGroupement(e.target.value)} className="ml-auto text-sm px-3 py-2 rounded-lg" style={{ border: `1px solid ${C.border}`, background: "#fff" }}>
-            <option value="">Tous les collectifs et associations</option>
-            <optgroup label="Collectifs">{syndicats.map((sy) => <option key={sy.id} value={`s:${sy.id}`}>{sy.sigle || sy.nom}</option>)}</optgroup>
-            <optgroup label="Associations">{associations.map((as) => <option key={as.id} value={`a:${as.id}`}>{as.sigle || as.nom}</option>)}</optgroup>
-          </select>
         </div>
+        {/* Sélection par collectif ou par association (seuls ceux qui ont des cartes à imprimer) */}
+        {(() => {
+          const toutes = [...owners, ...drivers, ...elements, ...vehicles].filter(aImprimer);
+          const compte = (fn) => toutes.filter(fn).length;
+          const collectifs = syndicats.map((sy) => ({ cle: `s:${sy.id}`, lib: sy.sigle || sy.nom, n: compte((x) => x.syndicatId === sy.id) })).filter((g) => g.n);
+          const assos = associations.map((as) => ({ cle: `a:${as.id}`, lib: as.sigle || as.nom, n: compte((x) => x.associationId === as.id) })).filter((g) => g.n);
+          const puce = (g) => (
+            <button key={g.cle} onClick={() => setGroupement(g.cle)} className="px-3 py-1.5 rounded-full text-xs font-semibold"
+              style={{ background: groupement === g.cle ? C.greenDark : "#fff", color: groupement === g.cle ? "#fff" : C.ink, border: `1px solid ${groupement === g.cle ? C.greenDark : C.border}` }}>
+              {g.lib} ({g.n})
+            </button>
+          );
+          return (
+            <div className="mb-4 p-3 rounded-xl" style={{ background: "#fff", border: `1px solid ${C.border}` }}>
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="text-xs font-semibold" style={{ color: C.slate, width: 92 }}>Afficher</span>
+                {puce({ cle: "", lib: "Tous", n: toutes.length })}
+              </div>
+              {collectifs.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <span className="text-xs font-semibold" style={{ color: C.slate, width: 92 }}>Collectifs</span>
+                  {collectifs.map(puce)}
+                </div>
+              )}
+              {assos.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold" style={{ color: C.slate, width: 92 }}>Associations</span>
+                  {assos.map(puce)}
+                </div>
+              )}
+            </div>
+          );
+        })()}
         <div className="flex flex-wrap items-center gap-2 mb-3 px-4 py-3 rounded-xl" style={{ background: "#fff", border: `1px solid ${C.border}` }}>
           <span className="text-sm" style={{ color: C.slate }}>{choisis.length ? `${choisis.length} carte(s) sélectionnée(s)` : "Sélectionnez les cartes à imprimer (par lots de 60 au plus)."}</span>
           <div className="ml-auto flex items-center gap-2">
@@ -3676,6 +3704,8 @@ function Dashboard({ auth, onLogout }) {
   const [editVehicle, setEditVehicle] = useState(null);
   const [search, setSearch] = useState("");
   const [critereRecherche, setCritereRecherche] = useState("tout");
+  // Filtre des pages : seulement les cartes envoyées à l'imprimeur
+  const [filtreImprimeur, setFiltreImprimeur] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [onlyExpiredFilter, setOnlyExpiredFilter] = useState(false);
 
@@ -4424,7 +4454,7 @@ function Dashboard({ auth, onLogout }) {
           )}
 
           {page === "vehicles" && (() => {
-            const eligibles = filteredVehicles.filter((v) => !!v.carteImprimee === showVehiclesArchive);
+            const eligibles = filteredVehicles.filter((v) => !!v.carteImprimee === showVehiclesArchive && (!filtreImprimeur || showVehiclesArchive || v.pretImpression));
             return (
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-2">
@@ -4464,6 +4494,21 @@ function Dashboard({ auth, onLogout }) {
                       <Printer size={13} /> Envoyer à l'imprimeur
                     </button>
                   )}
+                  {!showVehiclesArchive && selectedVehicleIds.some((id) => vehicles.find((x) => x.id === id)?.pretImpression) && (
+                    <button
+                      onClick={async () => {
+                        const ids = selectedVehicleIds.filter((id) => vehicles.find((x) => x.id === id)?.pretImpression);
+                        if (!window.confirm(`Retirer ${ids.length} carte(s) de la liste de l'imprimeur ?`)) return;
+                        for (const id of ids) { await updateVehicle(id, { pretImpression: false }); }
+                        setSelectedVehicleIds([]);
+                      }}
+                      className="font-body text-xs font-semibold px-3 py-1.5 rounded-lg"
+                      style={{ border: `1px solid ${C.border}`, color: C.red, background: "#fff" }}
+                      title="Retirer les cartes sélectionnées de la liste de l'imprimeur"
+                    >
+                      Retirer de l'imprimeur
+                    </button>
+                  )}
                   {!showVehiclesArchive && (
                     <button
                       onClick={async () => {
@@ -4497,7 +4542,13 @@ function Dashboard({ auth, onLogout }) {
                 )}
               >
                 <>
-                <BandeauRecherche saisie={search.trim()} critere={critereRecherche} total={eligibles.length} onEffacer={() => setSearch("")} />
+                {!showVehiclesArchive && (
+                <button onClick={() => setFiltreImprimeur((f) => !f)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 mb-3 rounded-full"
+                  style={{ background: filtreImprimeur ? C.greenDark : "#fff", color: filtreImprimeur ? "#fff" : C.greenDark, border: `1px solid ${C.green}` }}>
+                  🖨 Chez l'imprimeur ({vehicles.filter((x) => !x.carteImprimee && x.pretImpression).length}){filtreImprimeur ? " — afficher tout" : ""}
+                </button>
+              )}
+              <BandeauRecherche saisie={search.trim()} critere={critereRecherche} total={eligibles.length} onEffacer={() => setSearch("")} />
                 <VehicleGrid
                   vehicles={eligibles.slice(0, nbAffiches)} owners={owners} drivers={drivers} onFiche={openFiche} onPhoto={updateVehiclePhoto}
                   commissionsMixtes={commissionsMixtes} lignes={lignes} affectations={affectations}
@@ -4516,7 +4567,7 @@ function Dashboard({ auth, onLogout }) {
           })()}
 
           {page === "owners" && (() => {
-            const visibleOwners = owners.filter((o) => !!o.carteImprimee === showOwnersArchive && (!idsTrouves || idsTrouves.transporteur.has(o.id)));
+            const visibleOwners = owners.filter((o) => !!o.carteImprimee === showOwnersArchive && (!idsTrouves || idsTrouves.transporteur.has(o.id)) && (!filtreImprimeur || showOwnersArchive || o.pretImpression));
             return (
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-2">
@@ -4556,6 +4607,21 @@ function Dashboard({ auth, onLogout }) {
                       <Printer size={13} /> Envoyer à l'imprimeur
                     </button>
                   )}
+                  {!showOwnersArchive && selectedOwnerIds.some((id) => owners.find((x) => x.id === id)?.pretImpression) && (
+                    <button
+                      onClick={async () => {
+                        const ids = selectedOwnerIds.filter((id) => owners.find((x) => x.id === id)?.pretImpression);
+                        if (!window.confirm(`Retirer ${ids.length} carte(s) de la liste de l'imprimeur ?`)) return;
+                        for (const id of ids) { await updateOwner(id, { pretImpression: false }); }
+                        setSelectedOwnerIds([]);
+                      }}
+                      className="font-body text-xs font-semibold px-3 py-1.5 rounded-lg"
+                      style={{ border: `1px solid ${C.border}`, color: C.red, background: "#fff" }}
+                      title="Retirer les cartes sélectionnées de la liste de l'imprimeur"
+                    >
+                      Retirer de l'imprimeur
+                    </button>
+                  )}
                   <button
                     onClick={() => window.print()}
                     disabled={selectedOwnerIds.length === 0}
@@ -4571,6 +4637,12 @@ function Dashboard({ auth, onLogout }) {
                   )}
                 </div>
               </div>
+              {!showOwnersArchive && (
+                <button onClick={() => setFiltreImprimeur((f) => !f)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 mb-3 rounded-full"
+                  style={{ background: filtreImprimeur ? C.greenDark : "#fff", color: filtreImprimeur ? "#fff" : C.greenDark, border: `1px solid ${C.green}` }}>
+                  🖨 Chez l'imprimeur ({owners.filter((x) => !x.carteImprimee && x.pretImpression).length}){filtreImprimeur ? " — afficher tout" : ""}
+                </button>
+              )}
               <BandeauRecherche saisie={search.trim()} critere={critereRecherche} total={visibleOwners.length} onEffacer={() => setSearch("")} />
               <div className="grid grid-cols-3 gap-4">
               {visibleOwners.slice(0, nbAffiches).map((o) => {
@@ -4645,7 +4717,7 @@ function Dashboard({ auth, onLogout }) {
           })()}
 
           {page === "elements" && (() => {
-            const visibleElements = elements.filter((e) => !!e.carteImprimee === showElementsArchive && (!idsTrouves || idsTrouves.element.has(e.id)));
+            const visibleElements = elements.filter((e) => !!e.carteImprimee === showElementsArchive && (!idsTrouves || idsTrouves.element.has(e.id)) && (!filtreImprimeur || showElementsArchive || e.pretImpression));
             return (
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-2">
@@ -4685,6 +4757,21 @@ function Dashboard({ auth, onLogout }) {
                       <Printer size={13} /> Envoyer à l'imprimeur
                     </button>
                   )}
+                  {!showElementsArchive && selectedElementIds.some((id) => elements.find((x) => x.id === id)?.pretImpression) && (
+                    <button
+                      onClick={async () => {
+                        const ids = selectedElementIds.filter((id) => elements.find((x) => x.id === id)?.pretImpression);
+                        if (!window.confirm(`Retirer ${ids.length} carte(s) de la liste de l'imprimeur ?`)) return;
+                        for (const id of ids) { await updateElement(id, { pretImpression: false }); }
+                        setSelectedElementIds([]);
+                      }}
+                      className="font-body text-xs font-semibold px-3 py-1.5 rounded-lg"
+                      style={{ border: `1px solid ${C.border}`, color: C.red, background: "#fff" }}
+                      title="Retirer les cartes sélectionnées de la liste de l'imprimeur"
+                    >
+                      Retirer de l'imprimeur
+                    </button>
+                  )}
                   <button
                     onClick={() => window.print()}
                     disabled={selectedElementIds.length === 0}
@@ -4700,6 +4787,12 @@ function Dashboard({ auth, onLogout }) {
                   )}
                 </div>
               </div>
+              {!showElementsArchive && (
+                <button onClick={() => setFiltreImprimeur((f) => !f)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 mb-3 rounded-full"
+                  style={{ background: filtreImprimeur ? C.greenDark : "#fff", color: filtreImprimeur ? "#fff" : C.greenDark, border: `1px solid ${C.green}` }}>
+                  🖨 Chez l'imprimeur ({elements.filter((x) => !x.carteImprimee && x.pretImpression).length}){filtreImprimeur ? " — afficher tout" : ""}
+                </button>
+              )}
               <BandeauRecherche saisie={search.trim()} critere={critereRecherche} total={visibleElements.length} onEffacer={() => setSearch("")} />
               <div className="grid grid-cols-3 gap-4">
               {visibleElements.slice(0, nbAffiches).map((e) => {
@@ -4829,7 +4922,7 @@ function Dashboard({ auth, onLogout }) {
           )}
 
           {page === "drivers" && (() => {
-            const visibleDrivers = drivers.filter((d) => !!d.carteImprimee === showDriversArchive && (!idsTrouves || idsTrouves.chauffeur.has(d.id)));
+            const visibleDrivers = drivers.filter((d) => !!d.carteImprimee === showDriversArchive && (!idsTrouves || idsTrouves.chauffeur.has(d.id)) && (!filtreImprimeur || showDriversArchive || d.pretImpression));
             return (
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-2">
@@ -4869,6 +4962,21 @@ function Dashboard({ auth, onLogout }) {
                       <Printer size={13} /> Envoyer à l'imprimeur
                     </button>
                   )}
+                  {!showDriversArchive && selectedDriverIds.some((id) => drivers.find((x) => x.id === id)?.pretImpression) && (
+                    <button
+                      onClick={async () => {
+                        const ids = selectedDriverIds.filter((id) => drivers.find((x) => x.id === id)?.pretImpression);
+                        if (!window.confirm(`Retirer ${ids.length} carte(s) de la liste de l'imprimeur ?`)) return;
+                        for (const id of ids) { await updateDriver(id, { pretImpression: false }); }
+                        setSelectedDriverIds([]);
+                      }}
+                      className="font-body text-xs font-semibold px-3 py-1.5 rounded-lg"
+                      style={{ border: `1px solid ${C.border}`, color: C.red, background: "#fff" }}
+                      title="Retirer les cartes sélectionnées de la liste de l'imprimeur"
+                    >
+                      Retirer de l'imprimeur
+                    </button>
+                  )}
                   <button
                     onClick={() => window.print()}
                     disabled={selectedDriverIds.length === 0}
@@ -4883,6 +4991,12 @@ function Dashboard({ auth, onLogout }) {
                 </div>
               </div>
 
+              {!showDriversArchive && (
+                <button onClick={() => setFiltreImprimeur((f) => !f)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 mb-3 rounded-full"
+                  style={{ background: filtreImprimeur ? C.greenDark : "#fff", color: filtreImprimeur ? "#fff" : C.greenDark, border: `1px solid ${C.green}` }}>
+                  🖨 Chez l'imprimeur ({drivers.filter((x) => !x.carteImprimee && x.pretImpression).length}){filtreImprimeur ? " — afficher tout" : ""}
+                </button>
+              )}
               <BandeauRecherche saisie={search.trim()} critere={critereRecherche} total={visibleDrivers.length} onEffacer={() => setSearch("")} />
               <div className="grid grid-cols-3 gap-4">
               {visibleDrivers.slice(0, nbAffiches).map((d) => {
