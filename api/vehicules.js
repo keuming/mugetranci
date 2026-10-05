@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
   vehicules, historiqueProprietaires, vehiculeChauffeurs, affectations, achatsCarburant, syndicats, chauffeurs, proprietaires,
@@ -297,7 +297,8 @@ export default async function handler(req, res) {
         return res.status(403).json({ error: "La commission mixte est en lecture seule — c'est au syndicat de gérer les véhicules." });
       }
       const body = req.body || {};
-      const { chauffeurIds = [] } = body;
+      // Un même chauffeur n'est rattaché qu'une fois à un véhicule.
+      const chauffeurIds = [...new Set((body.chauffeurIds || []).filter(Boolean))];
 
       if (!body.carteGrise || !body.immatriculation) {
         return res.status(400).json({ error: "carteGrise et immatriculation sont requis pour créer le dossier" });
@@ -449,8 +450,11 @@ export default async function handler(req, res) {
       }
 
       // Rattachement d'un chauffeur supplémentaire au dossier.
+      // Ignoré s'il est déjà rattaché (double clic, renvoi de la file hors ligne…).
       if (body.addChauffeurId) {
-        await db.insert(vehiculeChauffeurs).values({ vehiculeId: id, chauffeurId: body.addChauffeurId });
+        const [dejaLie] = await db.select().from(vehiculeChauffeurs)
+          .where(and(eq(vehiculeChauffeurs.vehiculeId, id), eq(vehiculeChauffeurs.chauffeurId, body.addChauffeurId)));
+        if (!dejaLie) await db.insert(vehiculeChauffeurs).values({ vehiculeId: id, chauffeurId: body.addChauffeurId });
         if (!updated) [updated] = await db.select().from(vehicules).where(eq(vehicules.id, id));
       }
 
