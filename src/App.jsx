@@ -782,11 +782,11 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
 
   const [ownerMode, setOwnerMode] = useState(owners.length ? "existing" : "new"); // existing | new
   const [ownerId, setOwnerId] = useState(owners[0]?.id || "");
-  const [newOwner, setNewOwner] = useState({ nom: "", prenoms: "", cni: "", numeroPermis: "", contact1: "", contact2: "", contact3: "", email: "", ville: "", quartier: "", photo: null, qrPaiement: null, orzayahCompte: "", orzayahTelephone: "", fonction: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" });
+  const [newOwner, setNewOwner] = useState({ nom: "", prenoms: "", cni: "", numeroPermis: "", contact1: "", contact2: "", contact3: "", email: "", ville: "", quartier: "", photo: null, qrPaiement: null, orzayahCompte: "", orzayahTelephone: "", fonction: "", fonctionAssociation: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" });
 
-  const [driverRows, setDriverRows] = useState([{ mode: drivers.length ? "existing" : "new", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, orzayahCompte: "", orzayahTelephone: "", fonction: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
+  const [driverRows, setDriverRows] = useState([{ mode: drivers.length ? "existing" : "new", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, orzayahCompte: "", orzayahTelephone: "", fonction: "", fonctionAssociation: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
 
-  const addDriverRow = () => setDriverRows((r) => r.length >= 3 ? r : [...r, { mode: "existing", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, orzayahCompte: "", orzayahTelephone: "", fonction: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
+  const addDriverRow = () => setDriverRows((r) => r.length >= 3 ? r : [...r, { mode: "existing", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, orzayahCompte: "", orzayahTelephone: "", fonction: "", fonctionAssociation: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
   const removeDriverRow = (i) => setDriverRows((r) => r.filter((_, idx) => idx !== i));
   const updateDriverRow = (i, patch) => setDriverRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
   const updateDriverDraft = (i, patch) => setDriverRows((r) => r.map((row, idx) => (idx === i ? { ...row, draft: { ...row.draft, ...patch } } : row)));
@@ -978,7 +978,8 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
                   <Field label="Nom"><TextInput value={newOwner.nom} onChange={(e) => setNewOwner({ ...newOwner, nom: e.target.value })} /></Field>
                   <Field label="Prénoms"><TextInput value={newOwner.prenoms} onChange={(e) => setNewOwner({ ...newOwner, prenoms: e.target.value })} /></Field>
                   <Field label="Numéro CNI"><TextInput value={newOwner.cni} onChange={(e) => setNewOwner({ ...newOwner, cni: e.target.value })} /></Field>
-                  <FonctionField value={newOwner.fonction} onChange={(v) => setNewOwner({ ...newOwner, fonction: v })} dejaUtilisees={[...owners, ...drivers].map((m) => m.fonction)} />
+                  <FonctionField label="Fonction dans le collectif" value={newOwner.fonction} onChange={(v) => setNewOwner({ ...newOwner, fonction: v })} dejaUtilisees={[...owners, ...drivers].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
+                  <FonctionField label="Fonction dans l'association" value={newOwner.fonctionAssociation} onChange={(v) => setNewOwner({ ...newOwner, fonctionAssociation: v })} dejaUtilisees={[...owners, ...drivers].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
                   <Field label="Numéro permis de conduire"><TextInput value={newOwner.numeroPermis} onChange={(e) => setNewOwner({ ...newOwner, numeroPermis: e.target.value })} /></Field>
                   <Field label="Adresse email"><TextInput value={newOwner.email} onChange={(e) => setNewOwner({ ...newOwner, email: e.target.value })} /></Field>
                   <Field label="Contact 1"><TextInput value={newOwner.contact1} onChange={(e) => setNewOwner({ ...newOwner, contact1: e.target.value })} /></Field>
@@ -1052,7 +1053,8 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
                         <Field label="Nom"><TextInput value={row.draft.nom} onChange={(e) => updateDriverDraft(i, { nom: e.target.value })} /></Field>
                         <Field label="Prénoms"><TextInput value={row.draft.prenoms} onChange={(e) => updateDriverDraft(i, { prenoms: e.target.value })} /></Field>
                         <Field label="Numéro CNI"><TextInput value={row.draft.cni} onChange={(e) => updateDriverDraft(i, { cni: e.target.value })} /></Field>
-                        <FonctionField value={row.draft.fonction} onChange={(v) => updateDriverDraft(i, { fonction: v })} dejaUtilisees={[...owners, ...drivers].map((m) => m.fonction)} />
+                        <FonctionField label="Fonction dans le collectif" value={row.draft.fonction} onChange={(v) => updateDriverDraft(i, { fonction: v })} dejaUtilisees={[...owners, ...drivers].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
+                        <FonctionField label="Fonction dans l'association" value={row.draft.fonctionAssociation} onChange={(v) => updateDriverDraft(i, { fonctionAssociation: v })} dejaUtilisees={[...owners, ...drivers].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
                         <Field label="Numéro permis de conduire"><TextInput value={row.draft.permisNumero} onChange={(e) => updateDriverDraft(i, { permisNumero: e.target.value })} /></Field>
                         <Field label="Fin de validité du permis"><DateInput value={row.draft.permisDateFin} onChange={(e) => updateDriverDraft(i, { permisDateFin: e.target.value })} /></Field>
                         <Field label="Adresse email"><TextInput value={row.draft.email} onChange={(e) => updateDriverDraft(i, { email: e.target.value })} /></Field>
@@ -1215,6 +1217,8 @@ function FicheVehicule({ vehicle, owners, drivers, commissionsMixtes, syndicats,
                 <div><span style={{ color: C.slate, fontSize: 8.5 }}>Email</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.email || "—"}</div></div>
                 <div><span style={{ color: C.slate, fontSize: 8.5 }}>Ville</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.ville}</div></div>
                 <div><span style={{ color: C.slate, fontSize: 8.5 }}>Quartier</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.quartier}</div></div>
+                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Fonction (collectif)</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.fonction || "—"}</div></div>
+                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Fonction (association)</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.fonctionAssociation || "—"}</div></div>
               </div>
             </div>
           ) : <div className="font-body text-xs" style={{ color: C.slate }}>Aucun transporteur enregistré.</div>}
@@ -1301,6 +1305,7 @@ function FicheVehicule({ vehicle, owners, drivers, commissionsMixtes, syndicats,
                   <th className="text-left" style={{ paddingBottom: 3, fontWeight: 500 }}>Permis n°</th>
                   <th className="text-left" style={{ paddingBottom: 3, fontWeight: 500 }}>Fin validité</th>
                   <th className="text-left" style={{ paddingBottom: 3, fontWeight: 500 }}>Contacts</th>
+                  <th className="text-left" style={{ paddingBottom: 3, fontWeight: 500 }}>Fonctions (collectif / association)</th>
                 </tr>
               </thead>
               <tbody>
@@ -1320,6 +1325,7 @@ function FicheVehicule({ vehicle, owners, drivers, commissionsMixtes, syndicats,
                         <div className="flex items-center gap-1.5">{fmt(d.permisDateFin)} <Badge status={s} small /></div>
                       </td>
                       <td style={{ padding: "4px 6px" }}>{[d.contact1, d.contact2].filter(Boolean).join(" · ")}</td>
+                      <td style={{ padding: "4px 6px" }}>{[d.fonction, d.fonctionAssociation].filter(Boolean).join(" / ") || "—"}</td>
                     </tr>
                   );
                 })}
@@ -1631,20 +1637,32 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
               membre peut n'appartenir a aucune association : dans ce cas la
               case de droite et le separateur disparaissent entierement,
               plutot que d'afficher un cadre vide. */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5" style={{ maxWidth: logo1 ? "48%" : "100%" }}>
+          <div className="flex items-start justify-between">
+            <div style={{ maxWidth: logo1 ? "48%" : "100%" }}>
+            <div className="flex items-center gap-1.5">
               <div style={{ width: 28, height: 28, borderRadius: 7, overflow: "hidden", background: C.cream, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 {logo2?.logoUrl ? <img src={logo2.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Building2 size={14} color={C.green} />}
               </div>
               <div className="font-display" style={{ fontSize: 7.3, fontWeight: 700, color: surFondColore ? "#fff" : C.greenDark, lineHeight: 1.05 }}>{logo2 ? (logo2.sigle || logo2.nom) : "COMIX-CI"}</div>
             </div>
+            {/* Fonction du membre dans le collectif (sous le logo de gauche) */}
+            {member.fonction && (
+              <div className="font-body" style={{ fontSize: 7, fontWeight: 800, color: surFondColore ? "#FFD9A8" : theme.numColor, marginTop: 1.5, lineHeight: 1.05, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{member.fonction}</div>
+            )}
+            </div>
             {logo1 && <div style={{ width: 1, height: 22, background: surFondColore ? "rgba(255,255,255,0.35)" : C.border }} />}
             {logo1 && (
-              <div className="flex items-center gap-1.5 flex-row-reverse" style={{ maxWidth: "48%" }}>
+              <div style={{ maxWidth: "48%" }}>
+              <div className="flex items-center gap-1.5 flex-row-reverse">
                 <div style={{ width: 28, height: 28, borderRadius: 7, overflow: "hidden", background: C.cream, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   {logo1.logoUrl ? <img src={logo1.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Building2 size={14} color={C.orangeDark} />}
                 </div>
                 <div className="font-display text-right" style={{ fontSize: 7.3, fontWeight: 700, color: surFondColore ? "#FFD9A8" : C.orangeDark, lineHeight: 1.05 }}>{logo1.sigle || logo1.nom}</div>
+              </div>
+              {/* Fonction du membre dans l'association (sous le logo de droite) */}
+              {member.fonctionAssociation && (
+                <div className="font-body text-right" style={{ fontSize: 7, fontWeight: 800, color: surFondColore ? "#FFD9A8" : theme.numColor, marginTop: 1.5, lineHeight: 1.05, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{member.fonctionAssociation}</div>
+              )}
               </div>
             )}
           </div>
@@ -1668,9 +1686,6 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
             <div className="font-body">
               <div style={{ fontSize: 13.5, fontWeight: 700, color: tPrincipal, lineHeight: 1.15 }}>{member.prenoms} {member.nom}</div>
               <div style={{ fontSize: 9, color: tSecondaire }}>{theme.label}</div>
-              {member.fonction && (
-                <div style={{ fontSize: 9, color: surFondColore ? "#FFD9A8" : theme.numColor, fontWeight: 800, marginTop: 1, lineHeight: 1.1 }}>{member.fonction}</div>
-              )}
               {mentionPointFocal(communePointFocal) && (
                 <div style={{ fontSize: 7.5, color: tPrincipal, fontWeight: 800, marginTop: 1, letterSpacing: 0.3 }}>{mentionPointFocal(communePointFocal)}</div>
               )}
@@ -1781,21 +1796,27 @@ function CarteDroitDeLigneFace({ vehicule, owner, collectifTransporteurs, collec
         <div className="font-body" style={{ padding: "8px 14px 22px", display: "flex", flexDirection: "column", height: "100%", boxSizing: "border-box" }}>
           {/* Logos des deux collectifs + titre */}
           <div className="flex items-start justify-between">
+            <div style={{ width: 62, display: "flex", flexDirection: "column", alignItems: "flex-start", flexShrink: 0 }}>
             <div style={{ width: 30, height: 30, borderRadius: 999, overflow: "hidden", background: C.cream, border: `1.5px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               {collectifTransporteurs?.logoUrl ? <img src={collectifTransporteurs.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Building2 size={15} color={C.green} />}
+            </div>
+            {owner?.fonction && <div style={{ fontSize: 5.8, fontWeight: 800, color: C.greenDark, lineHeight: 1.05, marginTop: 1, maxWidth: 62, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{owner.fonction}</div>}
             </div>
             <div style={{ flex: 1, textAlign: "center", padding: "0 6px" }}>
               <div className="font-display" style={{ fontSize: 16, fontWeight: 800, color: C.orangeDark, letterSpacing: 0.5, lineHeight: 1 }}>{collectifTransporteurs?.sigle || "COMIX-CI"}</div>
               <div style={{ fontSize: 6, color: C.slate, lineHeight: 1.15, marginTop: 1 }}>{collectifTransporteurs?.nom || "Collectif des syndicats des transporteurs"}</div>
             </div>
+            <div style={{ width: 62, display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0 }}>
             <div style={{ width: 30, height: 30, borderRadius: 999, overflow: "hidden", background: C.cream, border: `1.5px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               {collectifChauffeurs?.logoUrl ? <img src={collectifChauffeurs.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Users size={15} color={C.greenDark} />}
+            </div>
+            {owner?.fonctionAssociation && <div style={{ fontSize: 5.8, fontWeight: 800, color: C.orangeDark, lineHeight: 1.05, marginTop: 1, maxWidth: 62, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{owner.fonctionAssociation}</div>}
             </div>
           </div>
 
           {/* Immatriculation en evidence */}
-          <div style={{ textAlign: "center", background: C.greenLight, borderRadius: 8, padding: "2px 0", margin: "3px 0" }}>
-            <span className="font-mono" style={{ fontSize: 19, fontWeight: 800, color: C.ink, letterSpacing: 1 }}>{vehicule.immatriculation}</span>
+          <div style={{ textAlign: "center", background: C.greenLight, borderRadius: 8, padding: "1px 0", margin: (owner?.fonction || owner?.fonctionAssociation) ? "1px 0 2px" : "3px 0" }}>
+            <span className="font-mono" style={{ fontSize: (owner?.fonction || owner?.fonctionAssociation) ? 16.5 : 19, fontWeight: 800, color: C.ink, letterSpacing: 1, lineHeight: 1.2 }}>{vehicule.immatriculation}</span>
           </div>
 
           <div className="flex" style={{ flex: 1, gap: 10, minHeight: 0 }}>
@@ -2815,6 +2836,8 @@ function MobileTransporteurSection({ owner, onLierOrzayah }) {
       </div>
       <MobileOrzayahBloc key={owner.id + (owner.orzayahStatut || "")} membre={owner} categorie="transporteur" onLier={onLierOrzayah} />
       <div style={{ height: 6 }} />
+      <MobileField label="Fonction dans le collectif" value={owner.fonction} />
+      <MobileField label="Fonction dans l'association" value={owner.fonctionAssociation} />
       <MobileField label="N° CNI" value={owner.cni} mono />
       <MobileField label="N° permis" value={owner.numeroPermis} mono />
       <MobileField label="Téléphone" value={[owner.contact1, owner.contact2, owner.contact3].filter(Boolean).join(" · ")} mono />
@@ -2869,6 +2892,8 @@ function MobileChauffeurFiche({ d, onLierOrzayah }) {
       </div>
       <MobileOrzayahBloc key={d.id + (d.orzayahStatut || "")} membre={d} categorie="chauffeur" onLier={onLierOrzayah} />
       <div style={{ height: 6 }} />
+      <MobileField label="Fonction dans le collectif" value={d.fonction} />
+      <MobileField label="Fonction dans l'association" value={d.fonctionAssociation} />
       <MobileField label="N° CNI" value={d.cni} mono />
       <MobileField label="N° permis" value={d.permisNumero} mono />
       <div className="flex items-center justify-between" style={{ padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
@@ -2898,7 +2923,8 @@ function MobileElementSection({ el, syndicats, onLierOrzayah }) {
       </div>
       <MobileOrzayahBloc key={el.id + (el.orzayahStatut || "")} membre={el} categorie="element" onLier={onLierOrzayah} />
       <div style={{ height: 6 }} />
-      <MobileField label="Fonction / Poste" value={el.fonction} />
+      <MobileField label="Fonction dans le collectif" value={el.fonction} />
+      <MobileField label="Fonction dans l'association" value={el.fonctionAssociation} />
       <MobileField label="Association" value={syn ? (syn.sigle || syn.nom) : "—"} />
       <MobileField label="N° CNI" value={el.cni} mono />
       <MobileField label="Téléphone" value={[el.contact1, el.contact2, el.contact3].filter(Boolean).join(" · ")} mono />
@@ -5690,6 +5716,7 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
   const [prenoms, setPrenoms] = useState(initialMember?.prenoms || "");
   const [cni, setCni] = useState(initialMember?.cni || "");
   const [fonction, setFonction] = useState(initialMember?.fonction || "");
+  const [fonctionAssociation, setFonctionAssociation] = useState(initialMember?.fonctionAssociation || "");
   const [numeroPermis, setNumeroPermis] = useState(initialMember?.numeroPermis || "");
   const [contact1, setContact1] = useState(initialMember?.contact1 || "");
   const [contact2, setContact2] = useState(initialMember?.contact2 || "");
@@ -5726,7 +5753,7 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo, qrPaiement, orzayahCompte, orzayahTelephone, fonction, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
+      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo, qrPaiement, orzayahCompte, orzayahTelephone, fonction, fonctionAssociation, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -5775,7 +5802,8 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
         <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
         <Field label="Numéro CNI"><TextInput value={cni} onChange={(e) => setCni(e.target.value)} /></Field>
-        <FonctionField value={fonction} onChange={setFonction} dejaUtilisees={tousMembres.map((m) => m.fonction)} />
+        <FonctionField label="Fonction dans le collectif" value={fonction} onChange={setFonction} dejaUtilisees={tousMembres.flatMap((m) => [m.fonction, m.fonctionAssociation])} />
+        <FonctionField label="Fonction dans l'association" value={fonctionAssociation} onChange={setFonctionAssociation} dejaUtilisees={tousMembres.flatMap((m) => [m.fonction, m.fonctionAssociation])} />
         <Field label="Numéro permis de conduire"><TextInput value={numeroPermis} onChange={(e) => setNumeroPermis(e.target.value)} /></Field>
         <Field label="Adresse email"><TextInput value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
         <Field label="Contact 1"><TextInput value={contact1} onChange={(e) => setContact1(e.target.value)} /></Field>
@@ -5812,6 +5840,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
   const [prenoms, setPrenoms] = useState(initialDriver?.prenoms || "");
   const [cni, setCni] = useState(initialDriver?.cni || "");
   const [fonction, setFonction] = useState(initialDriver?.fonction || "");
+  const [fonctionAssociation, setFonctionAssociation] = useState(initialDriver?.fonctionAssociation || "");
   const [permisNumero, setPermisNumero] = useState(initialDriver?.permisNumero || "");
   const [permisDateFin, setPermisDateFin] = useState(initialDriver?.permisDateFin || "");
   const [contact1, setContact1] = useState(initialDriver?.contact1 || "");
@@ -5846,7 +5875,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, permisNumero, permisDateFin, contact1, contact2, contact3, email, photo, qrPaiement, orzayahCompte, orzayahTelephone, fonction, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
+      await onSave({ nom, prenoms, cni, permisNumero, permisDateFin, contact1, contact2, contact3, email, photo, qrPaiement, orzayahCompte, orzayahTelephone, fonction, fonctionAssociation, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -5893,7 +5922,8 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
         <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
         <Field label="Numéro CNI"><TextInput value={cni} onChange={(e) => setCni(e.target.value)} /></Field>
-        <FonctionField value={fonction} onChange={setFonction} dejaUtilisees={tousMembres.map((m) => m.fonction)} />
+        <FonctionField label="Fonction dans le collectif" value={fonction} onChange={setFonction} dejaUtilisees={tousMembres.flatMap((m) => [m.fonction, m.fonctionAssociation])} />
+        <FonctionField label="Fonction dans l'association" value={fonctionAssociation} onChange={setFonctionAssociation} dejaUtilisees={tousMembres.flatMap((m) => [m.fonction, m.fonctionAssociation])} />
         <Field label="Numéro permis de conduire"><TextInput value={permisNumero} onChange={(e) => setPermisNumero(e.target.value)} /></Field>
         <Field label="Fin de validité du permis"><DateInput value={permisDateFin} onChange={(e) => setPermisDateFin(e.target.value)} /></Field>
         <Field label="Adresse email"><TextInput value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
@@ -5920,6 +5950,7 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
   const [prenoms, setPrenoms] = useState(initialElement?.prenoms || "");
   const [cni, setCni] = useState(initialElement?.cni || "");
   const [fonction, setFonction] = useState(initialElement?.fonction || "");
+  const [fonctionAssociation, setFonctionAssociation] = useState(initialElement?.fonctionAssociation || "");
   const [contact1, setContact1] = useState(initialElement?.contact1 || "");
   const [contact2, setContact2] = useState(initialElement?.contact2 || "");
   const [contact3, setContact3] = useState(initialElement?.contact3 || "");
@@ -5954,7 +5985,7 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, fonction, contact1, contact2, contact3, email, photo, qrPaiement, orzayahCompte, orzayahTelephone, logo1Type, logo1Id, logo2Type, logo2Id, gareRoutiereId, ligneId, syndicatId, commune, commissionMixteId, associationId });
+      await onSave({ nom, prenoms, cni, fonction, fonctionAssociation, contact1, contact2, contact3, email, photo, qrPaiement, orzayahCompte, orzayahTelephone, logo1Type, logo1Id, logo2Type, logo2Id, gareRoutiereId, ligneId, syndicatId, commune, commissionMixteId, associationId });
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -5988,7 +6019,8 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
         <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
         <Field label="Numéro CNI"><TextInput value={cni} onChange={(e) => setCni(e.target.value)} /></Field>
-        <FonctionField value={fonction} onChange={setFonction} dejaUtilisees={[...elements, ...tousMembres].map((m) => m.fonction)} />
+        <FonctionField label="Fonction dans le collectif" value={fonction} onChange={setFonction} dejaUtilisees={[...elements, ...tousMembres].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
+        <FonctionField label="Fonction dans l'association" value={fonctionAssociation} onChange={setFonctionAssociation} dejaUtilisees={[...elements, ...tousMembres].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
         <Field label="Adresse email"><TextInput value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
         <Field label="Contact 1"><TextInput value={contact1} onChange={(e) => setContact1(e.target.value)} /></Field>
         <Field label="Contact 2"><TextInput value={contact2} onChange={(e) => setContact2(e.target.value)} /></Field>

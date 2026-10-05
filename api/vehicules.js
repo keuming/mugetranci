@@ -231,11 +231,13 @@ async function handleFichePublique(req, res, vehiculeId) {
       nom: proprio.nom, prenoms: proprio.prenoms,
       carteTransporteurNumero: proprio.carteTransporteurNumero,
       contact1: proprio.contact1, photoUrl: proprio.photoUrl,
+      fonction: proprio.fonction || null, fonctionAssociation: proprio.fonctionAssociation || null,
       orzayah: orzayahPublic(proprio),
     } : null,
     chauffeurs: tousChauffeurs.map((c) => ({
       nom: c.nom, prenoms: c.prenoms, numeroCarte: c.numeroCarte,
       contact1: c.contact1, photoUrl: c.photoUrl, permisDateFin: c.permisDateFin,
+      fonction: c.fonction || null, fonctionAssociation: c.fonctionAssociation || null,
       orzayah: orzayahPublic(c),
     })),
     pointFocal: gare ? {

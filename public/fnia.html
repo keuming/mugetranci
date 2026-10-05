@@ -118,6 +118,8 @@
       html += `<div class="ligne"><span class="cle">Commission mixte</span><span class="val">${cm ? (cm.sigle || cm.nom) : "—"}</span></div>`;
       html += `<div class="ligne"><span class="cle">Collectif</span><span class="val">${col ? (col.sigle || col.nom) + (col.type ? ` (${col.type === "transporteurs" ? "Transporteurs" : "Chauffeurs"})` : "") : "—"}</span></div>`;
       html += `<div class="ligne"><span class="cle">Association</span><span class="val">${asso ? (asso.sigle || asso.nom) : "—"}</span></div>`;
+      html += `<div class="ligne"><span class="cle">Fonction dans le collectif</span><span class="val">${a.fonction || "—"}</span></div>`;
+      html += `<div class="ligne"><span class="cle">Fonction dans l'association</span><span class="val">${a.fonctionAssociation || "—"}</span></div>`;
       html += `</div>`;
 
       // Gare et chef de gare

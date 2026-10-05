@@ -50,7 +50,7 @@ async function handleFniaPublique(req, res, elementId) {
   return res.status(200).json({
     agent: {
       nom: e.nom, prenoms: e.prenoms, photoUrl: e.photoUrl,
-      numeroCarte: e.numeroCarte, fonction: e.fonction, commune: e.commune,
+      numeroCarte: e.numeroCarte, fonction: e.fonction, fonctionAssociation: e.fonctionAssociation, commune: e.commune,
       contact1: e.contact1,
     },
     collectif: collectif ? { nom: collectif.nom, sigle: collectif.sigle, type: collectif.type, commune: collectif.commune } : null,
@@ -196,6 +196,7 @@ export default async function handler(req, res) {
     // CNI modifiable (correction d'une erreur de saisie) ; jamais vidée, et soumise au contrôle anti-doublons.
     if ("cni" in body && String(body.cni || "").trim()) patch.cni = String(body.cni).trim();
     if ("contact1" in body) patch.contact1 = body.contact1;
+    if ("fonctionAssociation" in body) patch.fonctionAssociation = String(body.fonctionAssociation || "").trim() || null;
     if ("contact2" in body) patch.contact2 = body.contact2;
     if ("contact3" in body) patch.contact3 = body.contact3;
     if ("email" in body) patch.email = body.email;
