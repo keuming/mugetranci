@@ -1724,10 +1724,47 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
    commune, l'identite du transporteur, les caracteristiques techniques
    du vehicule et un QR d'acces a sa fiche publique.
    ============================================================ */
+// Nom et prénoms tels qu'inscrits sur la carte grise : premier mot = nom,
+// le reste = prénoms ; une société garde sa raison sociale entière en nom.
+const MOTS_SOCIETE = /\b(SARL|SA|SAS|SERVICES?|TRANSPORTS?|COMPAGNY|COMPANY|CIE|GROUPE?|ETS|ENTREPRISES?|INTERNATIONAL|SOCIETE|STE|HOLDING|BUSINESS|LOGISTIQUE|TRADING|COOPERATIVE|EXPRESS)\b/i;
+function decouperNomCarteGrise(nomComplet) {
+  const t = String(nomComplet || "").trim().replace(/\s+/g, " ");
+  if (!t) return { nom: "", prenoms: "" };
+  if (MOTS_SOCIETE.test(t) || !t.includes(" ")) return { nom: t, prenoms: "" };
+  const i = t.indexOf(" ");
+  return { nom: t.slice(0, i), prenoms: t.slice(i + 1) };
+}
+
 function CarteDroitDeLigneFace({ vehicule, owner, collectifTransporteurs, collectifChauffeurs, scale = 1 }) {
   const numero = vehicule.numeroCarteLigne || "—";
   const dateInscription = vehicule.createdAt ? fmt(vehicule.createdAt) : "—";
   const president = collectifTransporteurs?.presidentNom;
+  // Identité : celle de la CARTE GRISE ; à défaut, le transporteur rattaché.
+  const cg = decouperNomCarteGrise(vehicule.nomCarteGrise);
+  const identite = cg.nom ? cg : { nom: owner?.nom || "", prenoms: owner?.prenoms || "" };
+  const nomExploitant = owner ? `${owner.prenoms || ""} ${owner.nom || ""}`.trim() : "";
+  const exploitantDifferent = nomExploitant && vehicule.nomCarteGrise
+    && normTexte(nomExploitant) !== normTexte(vehicule.nomCarteGrise)
+    && normTexte(`${owner.nom} ${owner.prenoms}`) !== normTexte(vehicule.nomCarteGrise);
+  // Caractéristiques : toutes celles qui sont renseignées, par ordre de priorité
+  // (7 lignes au plus) ; si aucune n'est connue, les rubriques de base restent affichées.
+  const caracteristiques = [
+    ["Énergie", vehicule.energie],
+    ["Places assises", vehicule.nombrePlaces],
+    ["Type technique", vehicule.typeTechnique],
+    ["Type commercial", vehicule.modele || vehicule.marque],
+    ["Puissance fiscale", vehicule.puissanceFiscale ? `${vehicule.puissanceFiscale} CV` : null],
+    ["N° macaron", vehicule.numeroMacaron],
+    ["Exploitant", exploitantDifferent ? nomExploitant : null],
+    ["Propriétaire réel", vehicule.proprietaireReelNom],
+    ["Marque", vehicule.modele ? vehicule.marque : null],
+    ["Couleur", vehicule.couleur],
+    ["1ère circulation", vehicule.dateMiseCirculation ? fmt(vehicule.dateMiseCirculation) : null],
+    ["Catégorie", vehicule.categorie],
+    ["Châssis", vehicule.chassis],
+  ];
+  const renseignees = caracteristiques.filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== "");
+  const lignesCaracteristiques = (renseignees.length ? renseignees : caracteristiques.slice(0, 6)).slice(0, 7);
 
   return (
     <div style={{ width: 340 * scale, height: 214 * scale, overflow: "hidden", flexShrink: 0 }}>
@@ -1763,13 +1800,13 @@ function CarteDroitDeLigneFace({ vehicule, owner, collectifTransporteurs, collec
 
           <div className="flex" style={{ flex: 1, gap: 10, minHeight: 0 }}>
             {/* Colonne gauche : identite du transporteur + N carte + president */}
-            <div style={{ width: 128, display: "flex", flexDirection: "column", gap: 2 }}>
-              <div style={{ fontSize: 7.5, color: C.slate }}>Nom</div>
-              <div style={{ fontSize: 9.5, fontWeight: 700, color: C.ink, marginTop: -2 }}>{owner?.nom || "—"}</div>
-              <div style={{ fontSize: 7.5, color: C.slate, marginTop: 2 }}>Prénoms</div>
-              <div style={{ fontSize: 9.5, fontWeight: 700, color: C.ink, marginTop: -2 }}>{owner?.prenoms || "—"}</div>
-              <div style={{ fontSize: 7.5, color: C.slate, marginTop: 2 }}>Matricule</div>
-              <div className="font-mono" style={{ fontSize: 8.5, fontWeight: 700, color: C.orangeDark, marginTop: -2 }}>{owner?.carteTransporteurNumero || "—"}</div>
+            <div style={{ width: 128, display: "flex", flexDirection: "column", gap: 0 }}>
+              <div style={{ fontSize: 7, color: C.slate, lineHeight: 1.15 }}>Nom</div>
+              <div style={{ fontSize: identite.nom.length > 16 ? 8 : 9.5, fontWeight: 700, color: C.ink, lineHeight: 1.2, flexShrink: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{identite.nom || "—"}</div>
+              <div style={{ fontSize: 7, color: C.slate, lineHeight: 1.15, marginTop: 2 }}>Prénoms</div>
+              <div style={{ fontSize: identite.prenoms.length > 16 ? 8 : 9.5, fontWeight: 700, color: C.ink, lineHeight: 1.2, flexShrink: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{identite.prenoms || "—"}</div>
+              <div style={{ fontSize: 7, color: C.slate, lineHeight: 1.15, marginTop: 2 }}>Matricule</div>
+              <div className="font-mono" style={{ fontSize: 8.5, fontWeight: 700, color: C.orangeDark, lineHeight: 1.2 }}>{owner?.carteTransporteurNumero || "—"}</div>
 
               <div style={{ marginTop: "auto" }}>
                 <div style={{ border: `1px solid ${C.ink}`, borderRadius: 4, padding: "2px 6px", display: "inline-block" }}>
@@ -1785,16 +1822,7 @@ function CarteDroitDeLigneFace({ vehicule, owner, collectifTransporteurs, collec
 
             {/* Colonne droite : caracteristiques techniques */}
             <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 1, fontSize: 7.5, minWidth: 0 }}>
-              {[
-                ["Énergie", vehicule.energie],
-                ["Places assises", vehicule.nombrePlaces],
-                ["Type technique", vehicule.typeTechnique],
-                // Type commercial = le modèle (COROLLA, YARIS…), comme sur la carte grise ; la marque seule à défaut
-                ["Type commercial", vehicule.modele || vehicule.marque],
-                ["Puissance fiscale", vehicule.puissanceFiscale],
-                // Couleur, ou à défaut le n° de macaron de l'association (6 lignes fixes : la mise en page ne bouge pas)
-                vehicule.couleur || !vehicule.numeroMacaron ? ["Couleur", vehicule.couleur] : ["N° macaron", vehicule.numeroMacaron],
-              ].map(([label, val]) => (
+              {lignesCaracteristiques.map(([label, val]) => (
                 <div key={label} className="flex justify-between" style={{ borderBottom: `1px dotted ${C.border}`, paddingBottom: 1, gap: 6 }}>
                   <span style={{ color: C.slate, whiteSpace: "nowrap" }}>{label}</span>
                   <span style={{ fontWeight: 700, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{val || "—"}</span>
