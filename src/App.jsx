@@ -458,6 +458,51 @@ function FonctionField({ value, onChange, dejaUtilisees = [], label = "Fonction 
   );
 }
 
+/* Propriété réelle du véhicule : dans le transport, un véhicule est souvent
+   racheté et exploité sans mutation de la carte grise. On garde donc, à côté
+   du nom inscrit sur la carte grise, le propriétaire réel et la liste des
+   anciens détenteurs (autant que nécessaire). */
+function ProprieteVehiculeFields({ nomReel, onNomReel, contactReel, onContactReel, anciens, onAnciens }) {
+  const lignes = anciens && anciens.length ? anciens : [];
+  const maj = (i, champ, val) => onAnciens(lignes.map((r, j) => (j === i ? { ...r, [champ]: val } : r)));
+  return (
+    <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14, marginTop: 14 }}>
+      <p className="font-body text-xs font-semibold mb-3" style={{ color: C.ink }}>Propriété du véhicule (si différente de la carte grise)</p>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Nom et prénoms du propriétaire" hint="Propriétaire réel, même sans mutation de la carte grise">
+          <TextInput value={nomReel || ""} onChange={(e) => onNomReel(e.target.value)} placeholder="Nom et prénoms" />
+        </Field>
+        <Field label="Contact du propriétaire">
+          <TextInput type="tel" inputMode="tel" value={contactReel || ""} onChange={(e) => onContactReel(e.target.value)} placeholder="07 00 00 00 00" />
+        </Field>
+      </div>
+      <p className="font-body text-xs font-semibold mt-4 mb-2" style={{ color: C.ink }}>Anciens détenteurs du véhicule</p>
+      {lignes.map((r, i) => (
+        <div key={i} className="grid gap-3 mb-2" style={{ gridTemplateColumns: "1fr 1fr auto", alignItems: "end" }}>
+          <Field label={`Nom et prénoms (ancien détenteur ${i + 1})`}>
+            <TextInput value={r.nom || ""} onChange={(e) => maj(i, "nom", e.target.value)} placeholder="Nom et prénoms" />
+          </Field>
+          <Field label="Contact">
+            <TextInput type="tel" inputMode="tel" value={r.contact || ""} onChange={(e) => maj(i, "contact", e.target.value)} placeholder="07 00 00 00 00" />
+          </Field>
+          <button type="button" onClick={() => onAnciens(lignes.filter((_, j) => j !== i))} title="Retirer"
+            className="flex items-center justify-center rounded-lg" style={{ width: 40, height: 40, border: `1px solid ${C.border}`, color: C.red, background: "#fff", marginBottom: 1 }}>
+            <X size={15} />
+          </button>
+        </div>
+      ))}
+      <button type="button" onClick={() => onAnciens([...lignes, { nom: "", contact: "" }])}
+        className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-2 rounded-lg" style={{ background: C.greenLight, color: C.greenDark }}>
+        <Plus size={14} /> Ajouter un ancien détenteur
+      </button>
+    </div>
+  );
+}
+// Retire les lignes vides avant l'enregistrement.
+function detenteursRemplis(liste) {
+  return (liste || []).map((r) => ({ nom: String(r.nom || "").trim(), contact: String(r.contact || "").trim() })).filter((r) => r.nom || r.contact);
+}
+
 function PhotoUpload({ value, onChange, label, shape = "circle" }) {
   const ref = useRef(null);       // galerie / fichiers
   const camRef = useRef(null);    // appareil photo
@@ -644,6 +689,9 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
   const [chassis, setChassis] = useState("");
   const [carteGrise, setCarteGrise] = useState("");
   const [nomCarteGrise, setNomCarteGrise] = useState("");
+  const [proprietaireReelNom, setProprietaireReelNom] = useState("");
+  const [proprietaireReelContact, setProprietaireReelContact] = useState("");
+  const [anciensDetenteurs, setAnciensDetenteurs] = useState([]);
   const [immatriculation, setImmatriculation] = useState("");
   const [dateMiseCirculation, setDateMiseCirculation] = useState("");
   const [photo, setPhoto] = useState(null);
@@ -724,7 +772,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
       }
 
       const createdVehicle = await onSave({
-        marque, modele, categorie, nombrePlaces, energie, couleur, typeTechnique, puissanceFiscale, commune, commissionMixteId, chassis, carteGrise, nomCarteGrise, immatriculation, dateMiseCirculation, photo,
+        marque, modele, categorie, nombrePlaces, energie, couleur, typeTechnique, puissanceFiscale, commune, commissionMixteId, chassis, carteGrise, nomCarteGrise, proprietaireReelNom, proprietaireReelContact, anciensDetenteurs: detenteursRemplis(anciensDetenteurs), immatriculation, dateMiseCirculation, photo,
         photoCarteGrise, photoVisiteTechnique, photoAssuranceAuto, photoVignette, photoCarteStationnement,
         documents: docs,
         proprietaireId: finalOwnerId || null,
@@ -791,6 +839,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
               <Field label="Numéro d'immatriculation *" hint="Majuscules, sans espace ni tiret (saisie corrigée automatiquement)"><TextInput value={immatriculation} onChange={(e) => setImmatriculation(normImmat(e.target.value))} placeholder="1234AB01" autoCapitalize="characters" style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5 }} /></Field>
               <Field label="1ère mise en circulation"><DateInput value={dateMiseCirculation} onChange={(e) => setDateMiseCirculation(e.target.value)} /></Field>
             </div>
+            <ProprieteVehiculeFields nomReel={proprietaireReelNom} onNomReel={setProprietaireReelNom} contactReel={proprietaireReelContact} onContactReel={setProprietaireReelContact} anciens={anciensDetenteurs} onAnciens={setAnciensDetenteurs} />
             <p className="font-body text-xs mt-3" style={{ color: C.slate }}>* Champs obligatoires pour créer le dossier — tout le reste peut être complété plus tard.</p>
           </SectionCard>
         )}
@@ -1120,8 +1169,15 @@ function FicheVehicule({ vehicle, owners, drivers, commissionsMixtes, syndicats,
               <div><span style={{ color: C.slate, fontSize: 8.5 }}>Carte grise n°</span><div className="font-mono font-medium" style={{ lineHeight: 1.3 }}>{vehicle.carteGrise || "—"}</div></div>
               <div><span style={{ color: C.slate, fontSize: 8.5 }}>Nom sur carte grise</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{vehicle.nomCarteGrise || "—"}</div></div>
               <div><span style={{ color: C.slate, fontSize: 8.5 }}>Mise en circulation</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{fmt(vehicle.dateMiseCirculation)}</div></div>
+              <div><span style={{ color: C.slate, fontSize: 8.5 }}>Propriétaire réel</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{vehicle.proprietaireReelNom || "—"}{vehicle.proprietaireReelContact ? ` · ${vehicle.proprietaireReelContact}` : ""}</div></div>
             </div>
           </div>
+          {Array.isArray(vehicle.anciensDetenteurs) && vehicle.anciensDetenteurs.length > 0 && (
+            <div className="font-body mt-1.5" style={{ fontSize: 10, color: C.ink }}>
+              <span style={{ color: C.slate, fontSize: 8.5 }}>Anciens détenteurs : </span>
+              {vehicle.anciensDetenteurs.map((r) => [r.nom, r.contact].filter(Boolean).join(" · ")).join("  |  ")}
+            </div>
+          )}
           <div className="grid grid-cols-4 gap-2 mt-2">
             {[["Visite technique", vehicle.documents.visiteTechnique], ["Assurance auto", vehicle.documents.assuranceAuto], ["Vignette", vehicle.documents.vignette], ["Carte stationnement", vehicle.documents.carteStationnement]].map(([label, date]) => {
               const s = statusOf(date);
@@ -2543,6 +2599,10 @@ function MobileVehiculeSection({ v }) {
       <MobileField label="Nombre de places" value={v.nombrePlaces} />
       <MobileField label="N° châssis" value={v.chassis} mono />
       <MobileField label="Nom sur la carte grise" value={v.nomCarteGrise} />
+      <MobileField label="Propriétaire réel" value={[v.proprietaireReelNom, v.proprietaireReelContact].filter(Boolean).join(" · ")} />
+      {Array.isArray(v.anciensDetenteurs) && v.anciensDetenteurs.map((r, i) => (
+        <MobileField key={i} label={`Ancien détenteur ${i + 1}`} value={[r.nom, r.contact].filter(Boolean).join(" · ")} />
+      ))}
       <MobileField label="1ère mise en circulation" value={v.dateMiseCirculation ? fmt(v.dateMiseCirculation) : "—"} />
       <MobileSectionTitle icon={<FileText size={15} />} accent={C.orangeDark}>Documents</MobileSectionTitle>
       {[["Visite technique", docs.visiteTechnique], ["Assurance auto", docs.assuranceAuto], ["Vignette", docs.vignette], ["Carte de stationnement", docs.carteStationnement]].map(([lab, d]) => {
@@ -3635,7 +3695,8 @@ function Dashboard({ auth, onLogout }) {
     const gare = affectation ? garesRoutieres.find((g) => g.id === affectation.gareRoutiereId) : null;
     const ligne = affectation ? lignes.find((l) => l.id === affectation.ligneId) : null;
     const haystack = [
-      v.immatriculation, v.chassis, v.carteGrise, v.marque, v.modele, v.numeroMacaron ? `macaron ${v.numeroMacaron}` : "", v.numeroCarteLigne,
+      v.immatriculation, v.chassis, v.carteGrise, v.nomCarteGrise, v.marque, v.modele, v.proprietaireReelNom, v.proprietaireReelContact,
+      ...(Array.isArray(v.anciensDetenteurs) ? v.anciensDetenteurs.flatMap((r) => [r.nom, r.contact]) : []), v.numeroMacaron ? `macaron ${v.numeroMacaron}` : "", v.numeroCarteLigne,
       owner ? `${owner.prenoms} ${owner.nom}` : "", owner?.contact1, owner?.contact2, owner?.contact3,
       ...vDrivers.flatMap((d) => [`${d.prenoms} ${d.nom}`, d.contact1, d.contact2, d.contact3]),
       gare?.nom, gare?.sigle,
@@ -6173,6 +6234,9 @@ function VehicleEditForm({ vehicle, onCancel, onSave }) {
   const [chassis, setChassis] = useState(vehicle.chassis || "");
   const [carteGrise, setCarteGrise] = useState(vehicle.carteGrise || "");
   const [nomCarteGrise, setNomCarteGrise] = useState(vehicle.nomCarteGrise || "");
+  const [proprietaireReelNom, setProprietaireReelNom] = useState(vehicle.proprietaireReelNom || "");
+  const [proprietaireReelContact, setProprietaireReelContact] = useState(vehicle.proprietaireReelContact || "");
+  const [anciensDetenteurs, setAnciensDetenteurs] = useState(Array.isArray(vehicle.anciensDetenteurs) ? vehicle.anciensDetenteurs : []);
   const [photoCarteGrise, setPhotoCarteGrise] = useState(vehicle.photoCarteGrise || null);
   const [photoVisiteTechnique, setPhotoVisiteTechnique] = useState(vehicle.photoVisiteTechnique || null);
   const [photoAssuranceAuto, setPhotoAssuranceAuto] = useState(vehicle.photoAssuranceAuto || null);
@@ -6195,7 +6259,7 @@ function VehicleEditForm({ vehicle, onCancel, onSave }) {
     setSaving(true);
     setError(null);
     try {
-      await onSave({ marque, modele, categorie, nombrePlaces, energie, couleur, typeTechnique, puissanceFiscale, chassis, carteGrise, nomCarteGrise, immatriculation, dateMiseCirculation, documents: docs, photoCarteGrise, photoVisiteTechnique, photoAssuranceAuto, photoVignette, photoCarteStationnement });
+      await onSave({ marque, modele, categorie, nombrePlaces, energie, couleur, typeTechnique, puissanceFiscale, chassis, carteGrise, nomCarteGrise, proprietaireReelNom, proprietaireReelContact, anciensDetenteurs: detenteursRemplis(anciensDetenteurs), immatriculation, dateMiseCirculation, documents: docs, photoCarteGrise, photoVisiteTechnique, photoAssuranceAuto, photoVignette, photoCarteStationnement });
     } catch (err) {
       setError(err.message || "Erreur lors de la mise à jour.");
       setSaving(false);
@@ -6229,6 +6293,7 @@ function VehicleEditForm({ vehicle, onCancel, onSave }) {
         <Field label="Nom sur la carte grise"><TextInput value={nomCarteGrise} onChange={(e) => setNomCarteGrise(e.target.value)} /></Field>
         <Field label="1ère mise en circulation"><DateInput value={dateMiseCirculation} onChange={(e) => setDateMiseCirculation(e.target.value)} /></Field>
       </div>
+      <ProprieteVehiculeFields nomReel={proprietaireReelNom} onNomReel={setProprietaireReelNom} contactReel={proprietaireReelContact} onContactReel={setProprietaireReelContact} anciens={anciensDetenteurs} onAnciens={setAnciensDetenteurs} />
 
       <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
         <p className="font-body text-xs font-semibold mb-3" style={{ color: C.ink }}>Documents administratifs</p>

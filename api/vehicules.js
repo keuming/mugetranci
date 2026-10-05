@@ -108,12 +108,23 @@ function toApiFlat(row) {
   const { photoUrl, ...rest } = row;
   return { ...rest, photo: photoUrl };
 }
+// Anciens détenteurs : liste propre de { nom, contact } (lignes vides retirées, 30 au plus).
+function nettoyerDetenteurs(liste) {
+  if (!Array.isArray(liste)) return [];
+  return liste
+    .map((r) => ({ nom: String(r?.nom || "").trim().slice(0, 160), contact: String(r?.contact || "").trim().slice(0, 30) }))
+    .filter((r) => r.nom || r.contact)
+    .slice(0, 30);
+}
 function toDbVehicule(body) {
   const { photo, documents = {}, chauffeurIds, historiqueProprietaires: _h, ...rest } = body;
   return {
     ...rest,
     immatriculation: normaliserImmatriculation(rest.immatriculation),
     marque: rest.marque || null,
+    proprietaireReelNom: String(rest.proprietaireReelNom || "").trim() || null,
+    proprietaireReelContact: String(rest.proprietaireReelContact || "").trim() || null,
+    anciensDetenteurs: nettoyerDetenteurs(rest.anciensDetenteurs),
     modele: rest.modele || null,
     chassis: rest.chassis || null, // nullable + unique : jamais de chaîne vide, sinon conflit d'unicité entre dossiers sans châssis renseigné
     commissionMixteId: rest.commissionMixteId || null,
@@ -379,6 +390,9 @@ export default async function handler(req, res) {
     if ("chassis" in body) patch.chassis = body.chassis || null;
     if ("carteGrise" in body) patch.carteGrise = body.carteGrise;
     if ("nomCarteGrise" in body) patch.nomCarteGrise = body.nomCarteGrise;
+    if ("proprietaireReelNom" in body) patch.proprietaireReelNom = String(body.proprietaireReelNom || "").trim() || null;
+    if ("proprietaireReelContact" in body) patch.proprietaireReelContact = String(body.proprietaireReelContact || "").trim() || null;
+    if ("anciensDetenteurs" in body) patch.anciensDetenteurs = nettoyerDetenteurs(body.anciensDetenteurs);
     if ("categorie" in body) patch.categorie = body.categorie;
     if ("immatriculation" in body) patch.immatriculation = normaliserImmatriculation(body.immatriculation);
     if ("dateMiseCirculation" in body) patch.dateMiseCirculation = body.dateMiseCirculation || null;

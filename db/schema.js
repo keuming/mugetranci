@@ -1,5 +1,5 @@
 import {
-  pgTable, uuid, varchar, text, date, timestamp, boolean, integer, numeric,
+  pgTable, uuid, varchar, text, date, timestamp, boolean, integer, numeric, jsonb,
 } from "drizzle-orm/pg-core";
 
 /* ---------- Commissions Mixtes (COMIX-CI) ----------
@@ -186,6 +186,10 @@ export const vehicules = pgTable("vehicules", {
   chassis: varchar("chassis", { length: 60 }).unique(), // idem
   carteGrise: varchar("carte_grise", { length: 60 }).notNull(), // obligatoire — pièce d'identité minimale du dossier
   nomCarteGrise: varchar("nom_carte_grise", { length: 160 }),
+  // Propriété réelle (véhicule racheté et exploité sans mutation de la carte grise)
+  proprietaireReelNom: varchar("proprietaire_reel_nom", { length: 160 }),
+  proprietaireReelContact: varchar("proprietaire_reel_contact", { length: 30 }),
+  anciensDetenteurs: jsonb("anciens_detenteurs").default([]), // [{ nom, contact }]
   categorie: varchar("categorie", { length: 40 }), // VTC, Minibus, Taxi brousse, Taxi compteur…
   nombrePlaces: integer("nombre_places"), // capacite du vehicule — "Places Assises" sur la carte de droit de ligne
   immatriculation: varchar("immatriculation", { length: 30 }).notNull().unique(), // obligatoire
