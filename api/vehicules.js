@@ -321,10 +321,14 @@ export default async function handler(req, res) {
       // l'administrateur n'avait aucun collectif : il devenait invisible pour
       // tout le monde, y compris son createur. On le fait donc heriter du
       // rattachement de son transporteur, qui est la reference du dossier.
-      if (!dbValues.syndicatId && body.proprietaireId) {
+      // L'association (et à défaut la commune, la commission) suit TOUJOURS le
+      // transporteur, même quand le collectif gestionnaire est choisi dans le
+      // formulaire : sinon le véhicule échappait à son association (invisible
+      // pour elle, carte de ligne impossible à envoyer à l'imprimeur).
+      if (body.proprietaireId) {
         const [prop] = await db.select().from(proprietaires).where(eq(proprietaires.id, body.proprietaireId));
         if (prop) {
-          dbValues.syndicatId = prop.syndicatId || null;
+          if (!dbValues.syndicatId) dbValues.syndicatId = prop.syndicatId || null;
           if (!dbValues.associationId) dbValues.associationId = prop.associationId || null;
           if (!dbValues.commune) dbValues.commune = prop.commune || null;
           if (!dbValues.commissionMixteId) dbValues.commissionMixteId = prop.commissionMixteId || null;
