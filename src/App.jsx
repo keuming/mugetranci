@@ -427,6 +427,42 @@ function OrzayahCompteField({ value, onChange, telephone, onTelephone, membre })
   );
 }
 
+/* Fonction / qualification du membre dans son association (Président,
+   Secrétaire général, Chef de gare…), commune aux trois catégories et
+   imprimée au recto de la carte. Liste ouverte : fonctions courantes +
+   toutes celles déjà saisies, avec possibilité d'en ajouter une nouvelle. */
+function FonctionField({ value, onChange, dejaUtilisees = [], label = "Fonction / Qualification" }) {
+  const [nouvelle, setNouvelle] = useState(false);
+  const proposees = Array.from(new Set([...FONCTIONS_COURANTES, ...dejaUtilisees.filter(Boolean), ...(value ? [value] : [])]))
+    .sort((a, b) => a.localeCompare(b, "fr"));
+  return (
+    <Field label={label} hint={nouvelle ? "Elle sera proposée aux prochains enrôlements." : "Imprimée au recto de la carte."}>
+      {nouvelle ? (
+        <div className="flex items-center gap-2">
+          <TextInput value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder="Ex. Chef de parc" autoFocus />
+          <button type="button" onClick={() => { setNouvelle(false); onChange(""); }} className="font-body" style={{ color: C.slate, fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
+            Annuler
+          </button>
+        </div>
+      ) : (
+        <select
+          style={inputStyle}
+          className="font-body"
+          value={value || ""}
+          onChange={(e) => {
+            if (e.target.value === "__nouvelle__") { setNouvelle(true); onChange(""); }
+            else onChange(e.target.value);
+          }}
+        >
+          <option value="">— Aucune —</option>
+          {proposees.map((f) => <option key={f} value={f}>{f}</option>)}
+          <option value="__nouvelle__">+ Ajouter une autre fonction…</option>
+        </select>
+      )}
+    </Field>
+  );
+}
+
 function PhotoUpload({ value, onChange, label, shape = "circle" }) {
   const ref = useRef(null);       // galerie / fichiers
   const camRef = useRef(null);    // appareil photo
@@ -664,11 +700,11 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
 
   const [ownerMode, setOwnerMode] = useState(owners.length ? "existing" : "new"); // existing | new
   const [ownerId, setOwnerId] = useState(owners[0]?.id || "");
-  const [newOwner, setNewOwner] = useState({ nom: "", prenoms: "", cni: "", numeroPermis: "", contact1: "", contact2: "", contact3: "", email: "", ville: "", quartier: "", photo: null, qrPaiement: null, orzayahCompte: "", orzayahTelephone: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" });
+  const [newOwner, setNewOwner] = useState({ nom: "", prenoms: "", cni: "", numeroPermis: "", contact1: "", contact2: "", contact3: "", email: "", ville: "", quartier: "", photo: null, qrPaiement: null, orzayahCompte: "", orzayahTelephone: "", fonction: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" });
 
-  const [driverRows, setDriverRows] = useState([{ mode: drivers.length ? "existing" : "new", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, orzayahCompte: "", orzayahTelephone: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
+  const [driverRows, setDriverRows] = useState([{ mode: drivers.length ? "existing" : "new", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, orzayahCompte: "", orzayahTelephone: "", fonction: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
 
-  const addDriverRow = () => setDriverRows((r) => r.length >= 3 ? r : [...r, { mode: "existing", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, orzayahCompte: "", orzayahTelephone: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
+  const addDriverRow = () => setDriverRows((r) => r.length >= 3 ? r : [...r, { mode: "existing", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, orzayahCompte: "", orzayahTelephone: "", fonction: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
   const removeDriverRow = (i) => setDriverRows((r) => r.filter((_, idx) => idx !== i));
   const updateDriverRow = (i, patch) => setDriverRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
   const updateDriverDraft = (i, patch) => setDriverRows((r) => r.map((row, idx) => (idx === i ? { ...row, draft: { ...row.draft, ...patch } } : row)));
@@ -861,6 +897,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
                   <Field label="Nom"><TextInput value={newOwner.nom} onChange={(e) => setNewOwner({ ...newOwner, nom: e.target.value })} /></Field>
                   <Field label="Prénoms"><TextInput value={newOwner.prenoms} onChange={(e) => setNewOwner({ ...newOwner, prenoms: e.target.value })} /></Field>
                   <Field label="Numéro CNI"><TextInput value={newOwner.cni} onChange={(e) => setNewOwner({ ...newOwner, cni: e.target.value })} /></Field>
+                  <FonctionField value={newOwner.fonction} onChange={(v) => setNewOwner({ ...newOwner, fonction: v })} dejaUtilisees={[...owners, ...drivers].map((m) => m.fonction)} />
                   <Field label="Numéro permis de conduire"><TextInput value={newOwner.numeroPermis} onChange={(e) => setNewOwner({ ...newOwner, numeroPermis: e.target.value })} /></Field>
                   <Field label="Adresse email"><TextInput value={newOwner.email} onChange={(e) => setNewOwner({ ...newOwner, email: e.target.value })} /></Field>
                   <Field label="Contact 1"><TextInput value={newOwner.contact1} onChange={(e) => setNewOwner({ ...newOwner, contact1: e.target.value })} /></Field>
@@ -934,6 +971,7 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
                         <Field label="Nom"><TextInput value={row.draft.nom} onChange={(e) => updateDriverDraft(i, { nom: e.target.value })} /></Field>
                         <Field label="Prénoms"><TextInput value={row.draft.prenoms} onChange={(e) => updateDriverDraft(i, { prenoms: e.target.value })} /></Field>
                         <Field label="Numéro CNI"><TextInput value={row.draft.cni} onChange={(e) => updateDriverDraft(i, { cni: e.target.value })} /></Field>
+                        <FonctionField value={row.draft.fonction} onChange={(v) => updateDriverDraft(i, { fonction: v })} dejaUtilisees={[...owners, ...drivers].map((m) => m.fonction)} />
                         <Field label="Numéro permis de conduire"><TextInput value={row.draft.permisNumero} onChange={(e) => updateDriverDraft(i, { permisNumero: e.target.value })} /></Field>
                         <Field label="Fin de validité du permis"><DateInput value={row.draft.permisDateFin} onChange={(e) => updateDriverDraft(i, { permisDateFin: e.target.value })} /></Field>
                         <Field label="Adresse email"><TextInput value={row.draft.email} onChange={(e) => updateDriverDraft(i, { email: e.target.value })} /></Field>
@@ -1460,7 +1498,7 @@ function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles, a
     logo1, logo2,
     numero: member.numeroCarte,
     ficheValue: fniaUrl(member.id),
-    infoFields: [{ label: "Fonction", value: member.fonction }, { label: "Téléphone", value: member.contact1 }],
+    infoFields: [{ label: "Téléphone", value: member.contact1 }],
   };
 }
 
@@ -1474,7 +1512,7 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
   // Point Focal : commune du membre, à défaut celle de la commission mixte ou
   // du collectif de rattachement (logos de la carte) — un membre enregistré
   // sans commune reçoit ainsi quand même la mention de sa commune.
-  const communePointFocal = member.commune || logo2?.commune || logo1?.commune || null;
+  const communePointFocal = member.commune || logo2?.commune || logo1?.commune || null; // commune choisie dans la liste du formulaire, sinon celle du rattachement
   const card = (
     <div
       style={{
@@ -1529,7 +1567,10 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
             </div>
             <div className="font-body">
               <div style={{ fontSize: 13.5, fontWeight: 700, color: tPrincipal, lineHeight: 1.15 }}>{member.prenoms} {member.nom}</div>
-              <div style={{ fontSize: 9, color: tSecondaire }}>{category === "element" && member.fonction ? member.fonction : theme.label}</div>
+              <div style={{ fontSize: 9, color: tSecondaire }}>{theme.label}</div>
+              {member.fonction && (
+                <div style={{ fontSize: 9, color: surFondColore ? "#FFD9A8" : theme.numColor, fontWeight: 800, marginTop: 1, lineHeight: 1.1 }}>{member.fonction}</div>
+              )}
               {mentionPointFocal(communePointFocal) && (
                 <div style={{ fontSize: 7.5, color: tPrincipal, fontWeight: 800, marginTop: 1, letterSpacing: 0.3 }}>{mentionPointFocal(communePointFocal)}</div>
               )}
@@ -1670,9 +1711,16 @@ function CarteDroitDeLigneFace({ vehicule, owner, collectifTransporteurs, collec
           </div>
         </div>
 
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: C.ink, color: "#fff", textAlign: "center", fontSize: 9, fontWeight: 800, padding: "3px 0", letterSpacing: 0.5 }}>
-          DROIT D'EXPLOITATION DE LIGNE
-        </div>
+        {(() => {
+          // Point Focal dans le bandeau : n'affecte pas la mise en page de la carte.
+          const pf = mentionPointFocal(vehicule.commune || owner?.commune || collectifTransporteurs?.commune);
+          const texte = `DROIT D'EXPLOITATION DE LIGNE${pf ? ` · ${pf.toUpperCase()}` : ""}`;
+          return (
+            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: C.ink, color: "#fff", textAlign: "center", fontSize: texte.length > 50 ? 7.5 : 9, fontWeight: 800, padding: "3px 4px", letterSpacing: texte.length > 50 ? 0.2 : 0.5, whiteSpace: "nowrap", overflow: "hidden" }}>
+              {texte}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
@@ -5442,6 +5490,7 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
   const [nom, setNom] = useState(initialMember?.nom || "");
   const [prenoms, setPrenoms] = useState(initialMember?.prenoms || "");
   const [cni, setCni] = useState(initialMember?.cni || "");
+  const [fonction, setFonction] = useState(initialMember?.fonction || "");
   const [numeroPermis, setNumeroPermis] = useState(initialMember?.numeroPermis || "");
   const [contact1, setContact1] = useState(initialMember?.contact1 || "");
   const [contact2, setContact2] = useState(initialMember?.contact2 || "");
@@ -5477,7 +5526,7 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo, qrPaiement, orzayahCompte, orzayahTelephone, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
+      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo, qrPaiement, orzayahCompte, orzayahTelephone, fonction, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -5526,6 +5575,7 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
         <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
         <Field label="Numéro CNI"><TextInput value={cni} onChange={(e) => setCni(e.target.value)} /></Field>
+        <FonctionField value={fonction} onChange={setFonction} dejaUtilisees={tousMembres.map((m) => m.fonction)} />
         <Field label="Numéro permis de conduire"><TextInput value={numeroPermis} onChange={(e) => setNumeroPermis(e.target.value)} /></Field>
         <Field label="Adresse email"><TextInput value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
         <Field label="Contact 1"><TextInput value={contact1} onChange={(e) => setContact1(e.target.value)} /></Field>
@@ -5561,6 +5611,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
   const [nom, setNom] = useState(initialDriver?.nom || "");
   const [prenoms, setPrenoms] = useState(initialDriver?.prenoms || "");
   const [cni, setCni] = useState(initialDriver?.cni || "");
+  const [fonction, setFonction] = useState(initialDriver?.fonction || "");
   const [permisNumero, setPermisNumero] = useState(initialDriver?.permisNumero || "");
   const [permisDateFin, setPermisDateFin] = useState(initialDriver?.permisDateFin || "");
   const [contact1, setContact1] = useState(initialDriver?.contact1 || "");
@@ -5594,7 +5645,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, permisNumero, permisDateFin, contact1, contact2, contact3, email, photo, qrPaiement, orzayahCompte, orzayahTelephone, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
+      await onSave({ nom, prenoms, cni, permisNumero, permisDateFin, contact1, contact2, contact3, email, photo, qrPaiement, orzayahCompte, orzayahTelephone, fonction, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -5641,6 +5692,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
         <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
         <Field label="Numéro CNI"><TextInput value={cni} onChange={(e) => setCni(e.target.value)} /></Field>
+        <FonctionField value={fonction} onChange={setFonction} dejaUtilisees={tousMembres.map((m) => m.fonction)} />
         <Field label="Numéro permis de conduire"><TextInput value={permisNumero} onChange={(e) => setPermisNumero(e.target.value)} /></Field>
         <Field label="Fin de validité du permis"><DateInput value={permisDateFin} onChange={(e) => setPermisDateFin(e.target.value)} /></Field>
         <Field label="Adresse email"><TextInput value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
@@ -5667,15 +5719,6 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
   const [prenoms, setPrenoms] = useState(initialElement?.prenoms || "");
   const [cni, setCni] = useState(initialElement?.cni || "");
   const [fonction, setFonction] = useState(initialElement?.fonction || "");
-  const [nouvelleFonction, setNouvelleFonction] = useState(false);
-
-  // Liste proposee : fonctions courantes + toutes celles deja utilisees,
-  // sans doublon, classees alphabetiquement.
-  const fonctionsProposees = Array.from(new Set([
-    ...FONCTIONS_COURANTES,
-    ...elements.map((e) => e.fonction).filter(Boolean),
-    ...(initialElement?.fonction ? [initialElement.fonction] : []),
-  ])).sort((a, b) => a.localeCompare(b, "fr"));
   const [contact1, setContact1] = useState(initialElement?.contact1 || "");
   const [contact2, setContact2] = useState(initialElement?.contact2 || "");
   const [contact3, setContact3] = useState(initialElement?.contact3 || "");
@@ -5743,35 +5786,7 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
         <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
         <Field label="Numéro CNI"><TextInput value={cni} onChange={(e) => setCni(e.target.value)} /></Field>
-        <Field label="Fonction / Poste" hint={nouvelleFonction ? "Elle sera proposée aux prochains enrôlements." : undefined}>
-          {nouvelleFonction ? (
-            <div className="flex items-center gap-2">
-              <TextInput value={fonction} onChange={(e) => setFonction(e.target.value)} placeholder="Ex. Chef de parc" autoFocus />
-              <button
-                type="button"
-                onClick={() => { setNouvelleFonction(false); setFonction(""); }}
-                className="font-body"
-                style={{ color: C.slate, fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}
-              >
-                Annuler
-              </button>
-            </div>
-          ) : (
-            <select
-              style={inputStyle}
-              className="font-body"
-              value={fonction}
-              onChange={(e) => {
-                if (e.target.value === "__nouvelle__") { setNouvelleFonction(true); setFonction(""); }
-                else setFonction(e.target.value);
-              }}
-            >
-              <option value="">— Sélectionner —</option>
-              {fonctionsProposees.map((f) => <option key={f} value={f}>{f}</option>)}
-              <option value="__nouvelle__">+ Ajouter une autre fonction…</option>
-            </select>
-          )}
-        </Field>
+        <FonctionField value={fonction} onChange={setFonction} dejaUtilisees={[...elements, ...tousMembres].map((m) => m.fonction)} />
         <Field label="Adresse email"><TextInput value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
         <Field label="Contact 1"><TextInput value={contact1} onChange={(e) => setContact1(e.target.value)} /></Field>
         <Field label="Contact 2"><TextInput value={contact2} onChange={(e) => setContact2(e.target.value)} /></Field>
