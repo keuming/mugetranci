@@ -149,13 +149,6 @@ function mentionPointFocal(commune) {
   const c = String(commune || "").trim();
   return c ? `Point Focal ${c.toUpperCase()}` : null;
 }
-// Qualites operationnelles d'un agent de gare/ligne (liste conservée pour les
-// autres usages de l'application).
-const QUALITES_POINT_FOCAL = new Set([
-  "Chef de gare", "Chef de ligne", "Chargeur", "Chauffeur",
-  "Transporteur", "Vendeur de ticket", "Contrôleur",
-]);
-
 const SYNDICAT_TYPES = [
   { value: "transporteurs", label: "Collectif des syndicats des transporteurs" },
   { value: "chauffeurs", label: "Collectif des syndicats des chauffeurs" },
@@ -180,9 +173,6 @@ function fmt(dateStr) {
   if (!dateStr) return "—";
   const d = new Date(dateStr);
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
-}
-function uid(prefix) {
-  return prefix + "-" + Math.random().toString(36).slice(2, 8);
 }
 // Immatriculation normalisée à la saisie : majuscules, sans espace, tiret
 // ni point (même règle que lib/cards.js côté serveur).
@@ -260,13 +250,6 @@ function fniaUrl(elementId) {
 // Résout l'entité (commission mixte, syndicat ou gare routière) qui a créé
 // un transporteur donné — utilisé pour personnaliser l'entête de la fiche
 // et de la carte transporteur.
-function getCreatorEntity(owner, commissionsMixtes, syndicats, garesRoutieres) {
-  if (!owner) return null;
-  if (owner.creatorType === "commission_mixte") return commissionsMixtes.find((c) => c.id === owner.creatorId) || null;
-  if (owner.creatorType === "syndicat") return syndicats.find((s) => s.id === owner.creatorId) || null;
-  if (owner.creatorType === "gare") return garesRoutieres.find((g) => g.id === owner.creatorId) || null;
-  return null;
-}
 // Résout à la fois le syndicat et sa commission mixte parente pour un
 // transporteur — la carte de membre affiche les deux logos ensemble.
 function getMemberHierarchy(owner, commissionsMixtes, syndicats) {
@@ -524,45 +507,6 @@ function PhotoUpload({ value, onChange, label, shape = "circle" }) {
 
 /* Bouton compact déclenchant un import de fichier immédiat (upload direct,
    pas de formulaire). Utilisé pour le QR de paiement d'un chauffeur existant. */
-function FileUploadButton({ label, icon, onUpload, style }) {
-  const ref = useRef(null);
-  const camRef = useRef(null);
-  const [busy, setBusy] = useState(false);
-  const [menu, setMenu] = useState(false);
-  const onFile = async (e) => {
-    const f = e.target.files?.[0];
-    e.target.value = "";
-    setMenu(false);
-    if (!f) return;
-    setBusy(true);
-    try {
-      // Qualite preservee : un QR trop compresse devient illisible.
-      await onUpload(await readImageFile(f, { maxSide: 1400, quality: 0.92 }));
-    } catch (err) {
-      alert(err.message || "Échec de l'envoi du fichier.");
-    } finally { setBusy(false); }
-  };
-  return (
-    <span style={{ position: "relative", display: "inline-block" }}>
-      <button type="button" onClick={() => setMenu((m) => !m)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={style}>
-        {icon} {busy ? "Envoi…" : label}
-      </button>
-      {menu && (
-        <span style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, background: "#fff", border: `1px solid ${C.border}`, borderRadius: 10, boxShadow: "0 8px 20px rgba(0,0,0,0.12)", zIndex: 40, display: "flex", flexDirection: "column", minWidth: 150 }}>
-          <button type="button" onClick={() => camRef.current?.click()} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-2" style={{ color: C.greenDark }}>
-            <Camera size={13} /> Appareil photo
-          </button>
-          <button type="button" onClick={() => ref.current?.click()} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-2" style={{ color: C.orangeDark, borderTop: `1px solid ${C.border}` }}>
-            <FileText size={13} /> Galerie
-          </button>
-        </span>
-      )}
-      <input ref={camRef} type="file" accept="image/*" capture="environment" onChange={onFile} style={{ display: "none" }} />
-      <input ref={ref} type="file" accept="image/*" onChange={onFile} style={{ display: "none" }} />
-    </span>
-  );
-}
-
 /* Avatar circulaire cliquable : clic → sélection d'image → upload immédiat
    via onUpload(dataUrl). Utilisé pour ajouter/changer la photo d'une
    personne déjà créée (ex. chauffeur) directement depuis sa fiche/liste. */
@@ -711,8 +655,6 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
 
   // Affectation (étape 5, optionnelle)
   const isSyndicatAccount = auth?.role === "syndicat";
-  const communes = [...new Set(commissionsMixtes.map((c) => c.commune))].sort();
-  const [communeSel, setCommuneSel] = useState("");
   const [commissionId, setCommissionId] = useState(isSyndicatAccount ? auth.commissionMixteId : "");
   const [ligneId, setLigneId] = useState("");
   const [gareRoutiereId, setGareRoutiereId] = useState("");
@@ -1291,12 +1233,6 @@ function FicheVehicule({ vehicle, owners, drivers, commissionsMixtes, syndicats,
 /* ============================================================
    CARTE DE MEMBRE (chauffeur)
    ============================================================ */
-function fuelQrData(driverId, carteGrise) {
-  // Format lu par l'app mobile du pompiste au scan : identifiant de la
-  // carte + numéro de carte grise du véhicule (pas une URL vers le dashboard).
-  return `carte=${driverId}&carteGrise=${encodeURIComponent(carteGrise || "")}`;
-}
-
 /* ============================================================
    ORZAYAH — QR DE PAIEMENT MARCHAND (verso de TOUTES les cartes)
    Permet au titulaire d'encaisser ses passagers via ORZAYAH : Orange
@@ -1468,7 +1404,7 @@ function resolveLogoEntity(type, id, commissionsMixtes, syndicats, associations 
 // carte, valeur du QR (vers la fiche pour transporteur/chauffeur, référence
 // d'identité pour un élément qui n'a pas de véhicule), et champs d'info.
 function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles, associations = []) {
-  const { syndicat: autoSyndicat, commission: autoCommission } = getMemberHierarchy(member, commissionsMixtes, syndicats);
+  const { commission: autoCommission } = getMemberHierarchy(member, commissionsMixtes, syndicats);
   // logo1 = haut a DROITE (association) ; logo2 = haut a GAUCHE (collectif)
   // Pas de repli automatique sur le collectif : un membre sans association
   // explicitement choisie n'affiche simplement aucun logo a droite.
@@ -2961,8 +2897,18 @@ function MobileView({
   // membre (compte ORZAYAH en tête). Le véhicule apparaît en sous-titre ; un
   // véhicule sans aucun membre rattaché garde sa propre ligne.
   const communeCommission = (m) => commissionsMixtes.find((c) => c.id === m.commissionMixteId)?.commune;
-  const vehiculeDe = (kind, m) => kind === "transporteur" ? vehicles.find((x) => x.proprietaireId === m.id)
-    : kind === "chauffeur" ? vehicles.find((x) => x.chauffeurIds.includes(m.id)) : null;
+  // Index calculés une seule fois (plusieurs milliers de véhicules) : évite
+  // une recherche linéaire par membre à chaque affichage de l'historique.
+  const indexVehicules = useMemo(() => {
+    const parProprio = new Map(), parChauffeur = new Map();
+    for (const x of vehicles) {
+      if (x.proprietaireId && !parProprio.has(x.proprietaireId)) parProprio.set(x.proprietaireId, x);
+      for (const id of x.chauffeurIds || []) if (!parChauffeur.has(id)) parChauffeur.set(id, x);
+    }
+    return { parProprio, parChauffeur };
+  }, [vehicles]);
+  const vehiculeDe = (kind, m) => kind === "transporteur" ? indexVehicules.parProprio.get(m.id)
+    : kind === "chauffeur" ? indexVehicules.parChauffeur.get(m.id) : null;
   const memeCommuneMembre = (kind, m) => !communeF
     || COMMUNE_EQ(m.commune, communeF) || COMMUNE_EQ(communeCommission(m), communeF)
     || COMMUNE_EQ(vehiculeDe(kind, m)?.commune, communeF);
@@ -3287,7 +3233,7 @@ function Dashboard({ auth, onLogout }) {
   // Affichage progressif des tuiles (listes de plusieurs milliers de membres / véhicules)
   const PAS_AFFICHAGE = 60;
   const [nbAffiches, setNbAffiches] = useState(PAS_AFFICHAGE);
-  useEffect(() => { setNbAffiches(PAS_AFFICHAGE); }, [page]);
+  React.useEffect(() => { setNbAffiches(PAS_AFFICHAGE); }, [page]);
   const [showForm, setShowForm] = useState(false);
   const [ficheVehicle, setFicheVehicle] = useState(null);
   const [cardDriver, setCardDriver] = useState(null);
@@ -3642,15 +3588,22 @@ function Dashboard({ auth, onLogout }) {
     return created;
   };
 
+  // Index par identifiant : la recherche parcourt plusieurs milliers de
+  // véhicules à chaque frappe, sans re-parcourir toute la liste des membres.
+  const ownersParId = useMemo(() => new Map(owners.map((o) => [o.id, o])), [owners]);
+  const driversParId = useMemo(() => new Map(drivers.map((d) => [d.id, d])), [drivers]);
   function vehicleMatchesSearch(v, q) {
     if (!q) return true;
-    const owner = owners.find((o) => o.id === v.proprietaireId);
-    const vDrivers = v.chauffeurIds.map((id) => drivers.find((d) => d.id === id)).filter(Boolean);
+    // Immatriculation : tolère espaces et tirets ("1234 hh-01" retrouve 1234HH01)
+    const qImmat = normImmat(q);
+    if (qImmat.length >= 3 && normImmat(v.immatriculation).includes(qImmat)) return true;
+    const owner = ownersParId.get(v.proprietaireId);
+    const vDrivers = (v.chauffeurIds || []).map((id) => driversParId.get(id)).filter(Boolean);
     const affectation = affectations.find((a) => a.vehiculeId === v.id && a.actif);
     const gare = affectation ? garesRoutieres.find((g) => g.id === affectation.gareRoutiereId) : null;
     const ligne = affectation ? lignes.find((l) => l.id === affectation.ligneId) : null;
     const haystack = [
-      v.immatriculation, v.chassis, v.carteGrise, v.marque, v.modele,
+      v.immatriculation, v.chassis, v.carteGrise, v.marque, v.modele, v.numeroMacaron ? `macaron ${v.numeroMacaron}` : "", v.numeroCarteLigne,
       owner ? `${owner.prenoms} ${owner.nom}` : "", owner?.contact1, owner?.contact2, owner?.contact3,
       ...vDrivers.flatMap((d) => [`${d.prenoms} ${d.nom}`, d.contact1, d.contact2, d.contact3]),
       gare?.nom, gare?.sigle,
@@ -4064,7 +4017,6 @@ function Dashboard({ auth, onLogout }) {
           )}
 
           {page === "vehicles" && (() => {
-            const norm = (s) => (s || "").trim().toUpperCase();
             const eligibles = filteredVehicles.filter((v) => !!v.carteImprimee === showVehiclesArchive);
             return (
             <div className="flex flex-col gap-4">
@@ -4082,11 +4034,11 @@ function Dashboard({ auth, onLogout }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setSelectedVehicleIds(selectedVehicleIds.length === eligibles.length ? [] : eligibles.map((v) => v.id))}
+                    onClick={() => { const lot = eligibles.slice(0, nbAffiches).map((v) => v.id); setSelectedVehicleIds(selectedVehicleIds.length === lot.length && lot.every((id) => selectedVehicleIds.includes(id)) ? [] : lot); }}
                     className="font-body text-xs font-semibold px-3 py-1.5 rounded-full"
                     style={{ border: `1px solid ${C.border}`, color: C.ink }}
                   >
-                    {selectedVehicleIds.length === eligibles.length && eligibles.length > 0 ? "Tout désélectionner" : "Tout sélectionner"}
+                    {selectedVehicleIds.length > 0 && selectedVehicleIds.length === Math.min(nbAffiches, eligibles.length) ? "Tout désélectionner" : `Sélectionner les ${Math.min(nbAffiches, eligibles.length)} affichés`}
                   </button>
                   {!showVehiclesArchive && (
                     <button
@@ -4156,11 +4108,11 @@ function Dashboard({ auth, onLogout }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setSelectedOwnerIds(selectedOwnerIds.length === visibleOwners.length ? [] : visibleOwners.map((o) => o.id))}
+                    onClick={() => { const lot = visibleOwners.slice(0, nbAffiches).map((o) => o.id); setSelectedOwnerIds(selectedOwnerIds.length === lot.length && lot.every((id) => selectedOwnerIds.includes(id)) ? [] : lot); }}
                     className="font-body text-xs font-semibold px-3 py-1.5 rounded-full"
                     style={{ border: `1px solid ${C.border}`, color: C.ink }}
                   >
-                    {selectedOwnerIds.length === visibleOwners.length && visibleOwners.length > 0 ? "Tout désélectionner" : "Tout sélectionner"}
+                    {selectedOwnerIds.length > 0 && selectedOwnerIds.length === Math.min(nbAffiches, visibleOwners.length) ? "Tout désélectionner" : `Sélectionner les ${Math.min(nbAffiches, visibleOwners.length)} affichés`}
                   </button>
                   <button
                     onClick={() => window.print()}
@@ -4262,11 +4214,11 @@ function Dashboard({ auth, onLogout }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setSelectedElementIds(selectedElementIds.length === visibleElements.length ? [] : visibleElements.map((e) => e.id))}
+                    onClick={() => { const lot = visibleElements.slice(0, nbAffiches).map((e) => e.id); setSelectedElementIds(selectedElementIds.length === lot.length && lot.every((id) => selectedElementIds.includes(id)) ? [] : lot); }}
                     className="font-body text-xs font-semibold px-3 py-1.5 rounded-full"
                     style={{ border: `1px solid ${C.border}`, color: C.ink }}
                   >
-                    {selectedElementIds.length === visibleElements.length && visibleElements.length > 0 ? "Tout désélectionner" : "Tout sélectionner"}
+                    {selectedElementIds.length > 0 && selectedElementIds.length === Math.min(nbAffiches, visibleElements.length) ? "Tout désélectionner" : `Sélectionner les ${Math.min(nbAffiches, visibleElements.length)} affichés`}
                   </button>
                   <button
                     onClick={() => window.print()}
@@ -4422,11 +4374,11 @@ function Dashboard({ auth, onLogout }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setSelectedDriverIds(selectedDriverIds.length === visibleDrivers.length ? [] : visibleDrivers.map((d) => d.id))}
+                    onClick={() => { const lot = visibleDrivers.slice(0, nbAffiches).map((d) => d.id); setSelectedDriverIds(selectedDriverIds.length === lot.length && lot.every((id) => selectedDriverIds.includes(id)) ? [] : lot); }}
                     className="font-body text-xs font-semibold px-3 py-1.5 rounded-full"
                     style={{ border: `1px solid ${C.border}`, color: C.ink }}
                   >
-                    {selectedDriverIds.length === visibleDrivers.length && visibleDrivers.length > 0 ? "Tout désélectionner" : "Tout sélectionner"}
+                    {selectedDriverIds.length > 0 && selectedDriverIds.length === Math.min(nbAffiches, visibleDrivers.length) ? "Tout désélectionner" : `Sélectionner les ${Math.min(nbAffiches, visibleDrivers.length)} affichés`}
                   </button>
                   <button
                     onClick={() => window.print()}

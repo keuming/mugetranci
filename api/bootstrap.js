@@ -5,6 +5,7 @@ import {
   achatsCarburant, commissionsMixtes, syndicats, garesRoutieres, lignes, affectations, associations,
 } from "../db/schema.js";
 import { requireAuth } from "../lib/auth.js";
+import { envoyerJson } from "../lib/reponse.js";
 
 function toApiOwner(row) {
   const { photoUrl, ...rest } = row;
@@ -201,7 +202,9 @@ export default async function handler(req, res) {
   const visibleDriverIds = new Set(visibleDrivers.map((d) => d.id));
   const visibleAchats = (isSyndicat || isCommission) ? allAchats.filter((a) => visibleDriverIds.has(a.chauffeurId)) : isGare ? [] : allAchats;
 
-  res.status(200).json({
+  // Réponse compressée : au-delà de quelques milliers d'enregistrements, la
+  // version non compressée dépasse la limite de 4,5 Mo des fonctions Vercel.
+  return envoyerJson(req, res, {
     proprietaires: visibleOwners.map(toApiOwner),
     chauffeurs: visibleDrivers.map(toApiDriver),
     vehicules: visibleVehicules.map((v) => toApiVehicule(
