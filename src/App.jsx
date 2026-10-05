@@ -3694,6 +3694,34 @@ function Dashboard({ auth, onLogout }) {
   };
   const [lignes, setLignes] = useState([]);
   const [affectations, setAffectations] = useState([]);
+
+  /* Actualisation automatique : les changements faits AILLEURS (impression
+     confirmée par l'imprimeur, enrôlement d'un agent sur le terrain…)
+     apparaissent sans recharger la page. Les cartes imprimées quittent ainsi
+     d'elles-mêmes « Nouvelles cartes » pour les « Archives ».
+     Déclenchée au retour sur l'onglet (au plus toutes les 20 s) et toutes les 2 minutes. */
+  const derniereActualisation = useRef(Date.now());
+  const actualiserRef = useRef(null);
+  actualiserRef.current = async () => {
+    derniereActualisation.current = Date.now();
+    try {
+      const data = await apiGet("/api/bootstrap");
+      setOwners(data.proprietaires); setDrivers(data.chauffeurs); setElements(data.elements);
+      setVehicles(data.vehicules); setAchats(data.carburant);
+      setCommissionsMixtes(data.commissionsMixtes); setSyndicats(data.syndicats);
+      setGaresRoutieres(data.garesRoutieres); setLignes(data.lignes);
+      setAffectations(data.affectations); setAssociations(data.associations || []);
+    } catch (err) { console.warn("actualisation:", err.message); }
+  };
+  React.useEffect(() => {
+    const auRetour = () => {
+      if (document.visibilityState === "visible" && navigator.onLine !== false && Date.now() - derniereActualisation.current > 20000) actualiserRef.current();
+    };
+    document.addEventListener("visibilitychange", auRetour);
+    window.addEventListener("focus", auRetour);
+    const minuterie = setInterval(() => { if (document.visibilityState === "visible" && navigator.onLine !== false) actualiserRef.current(); }, 120000);
+    return () => { document.removeEventListener("visibilitychange", auRetour); window.removeEventListener("focus", auRetour); clearInterval(minuterie); };
+  }, []);
   const [showCommissionForm, setShowCommissionForm] = useState(false);
   const [showSyndicatFormFor, setShowSyndicatFormFor] = useState(null); // commissionMixteId
   const [ligneFormGareId, setLigneFormGareId] = useState(null);
