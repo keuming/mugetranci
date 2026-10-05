@@ -154,7 +154,8 @@ export default async function handler(req, res) {
     }
 
     try {
-      const doublon = await chercherDoublon("chauffeur", patch, id);
+      const [ficheActuelle] = await db.select().from(chauffeurs).where(eq(chauffeurs.id, id));
+      const doublon = await chercherDoublon("chauffeur", patch, id, ficheActuelle || null);
       if (doublon) return res.status(409).json({ error: doublon });
       const [avant] = ("orzayahCompte" in patch || "orzayahTelephone" in patch) ? await db.select().from(chauffeurs).where(eq(chauffeurs.id, id)) : [null];
       let [updated] = await db.update(chauffeurs).set(patch).where(eq(chauffeurs.id, id)).returning();

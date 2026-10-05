@@ -200,6 +200,18 @@ function designationMembre(m) {
   return `${m.prenoms || ""} ${m.nom || ""}`.trim() + (num ? ` (carte ${num})` : "");
 }
 // `liste` : membres de la même catégorie ; `tous` : toutes catégories (compte ORZAYAH).
+// En modification, on ne contrôle que les valeurs réellement changées :
+// une fiche importée avec un téléphone partagé reste modifiable (fonction,
+// compte ORZAYAH…) tant qu'on ne touche pas à ce téléphone.
+function champsModifies(fiche, initial) {
+  if (!initial) return fiche;
+  const out = {};
+  for (const [k, v] of Object.entries(fiche)) {
+    const norm = k.toLowerCase().includes("telephone") || k.startsWith("contact") ? normTel : normPiece;
+    if (norm(v) !== norm(initial[k])) out[k] = v;
+  }
+  return out;
+}
 function detecterDoublons(categorie, fiche, liste = [], idCourant = null, tous = []) {
   const msgs = [];
   for (const [col, libelle, norm] of CHAMPS_DOUBLONS[categorie] || []) {
@@ -1403,7 +1415,7 @@ function resolveLogoEntity(type, id, commissionsMixtes, syndicats, associations 
 // sur la hiérarchie syndicat/commission si non renseignée), numéro de
 // carte, valeur du QR (vers la fiche pour transporteur/chauffeur, référence
 // d'identité pour un élément qui n'a pas de véhicule), et champs d'info.
-function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles, associations = []) {
+function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles, associations = [], garesRoutieres = [], lignes = []) {
   const { commission: autoCommission } = getMemberHierarchy(member, commissionsMixtes, syndicats);
   // logo1 = haut a DROITE (association) ; logo2 = haut a GAUCHE (collectif)
   // Pas de repli automatique sur le collectif : un membre sans association
@@ -1412,12 +1424,17 @@ function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles, a
   const logo2 = resolveLogoEntity(member.logo2Type, member.logo2Id, commissionsMixtes, syndicats, associations) || autoCommission;
 
   if (category === "transporteur") {
-    const vehiculeDuProprietaire = vehicles.find((v) => v.proprietaireId === member.id);
+    const sesVehicules = vehicles.filter((v) => v.proprietaireId === member.id);
+    const vehiculeDuProprietaire = sesVehicules[0];
     return {
       logo1, logo2,
       numero: member.carteTransporteurNumero,
       ficheValue: vehiculeDuProprietaire ? ficheUrl(vehiculeDuProprietaire.id) : `transporteur:${member.id}`,
-      infoFields: [{ label: "N° Permis", value: member.numeroPermis }, { label: "Téléphone", value: member.contact1 }],
+      infoFields: [
+        { label: "Téléphone", value: member.contact1 },
+        { label: sesVehicules.length > 1 ? `Véhicules (${sesVehicules.length})` : "Véhicule", value: sesVehicules.length ? sesVehicules[0].immatriculation + (sesVehicules.length > 1 ? ` +${sesVehicules.length - 1}` : "") : null },
+        ...(member.numeroPermis ? [{ label: "N° Permis", value: member.numeroPermis }] : []),
+      ],
     };
   }
   if (category === "chauffeur") {
@@ -1426,7 +1443,12 @@ function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles, a
       logo1, logo2,
       numero: member.numeroCarte, // sert aussi d'identifiant unique pour la consommation carburant (lu/saisi tel quel, pas de QR dédié)
       ficheValue: vehicule ? ficheUrl(vehicule.id) : `chauffeur:${member.id}`, // QR d'accès à la fiche du transporteur
-      infoFields: [{ label: "N° Permis", value: member.permisNumero }, { label: "Téléphone", value: member.contact1 }],
+      infoFields: [
+        { label: "N° Permis", value: member.permisNumero },
+        { label: "Permis valide au", value: member.permisDateFin ? fmt(member.permisDateFin) : null },
+        { label: "Téléphone", value: member.contact1 },
+        ...(vehicule ? [{ label: "Véhicule", value: vehicule.immatriculation }] : []),
+      ],
     };
   }
   // element
@@ -1434,7 +1456,15 @@ function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles, a
     logo1, logo2,
     numero: member.numeroCarte,
     ficheValue: fniaUrl(member.id),
-    infoFields: [{ label: "Téléphone", value: member.contact1 }],
+    infoFields: (() => {
+      const gare = garesRoutieres.find((g) => g.id === member.gareRoutiereId);
+      const ligne = lignes.find((l) => l.id === member.ligneId);
+      return [
+        { label: "Téléphone", value: member.contact1 },
+        ...(gare ? [{ label: "Gare", value: gare.sigle || gare.nom }] : []),
+        ...(ligne ? [{ label: "Ligne", value: `${ligne.lieuDepart} → ${ligne.lieuArrivee}` }] : []),
+      ];
+    })(),
   };
 }
 
@@ -1513,11 +1543,11 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
             </div>
           </div>
 
-          <div className="font-body flex items-center gap-4" style={{ fontSize: 8, color: tSecondaire }}>
+          <div className="font-body flex items-start" style={{ fontSize: 8, color: tSecondaire, gap: infoFields.length > 2 ? 9 : 16, minWidth: 0 }}>
             {infoFields.map((f, i) => (
-              <div key={i}>
-                <span style={{ fontSize: 7, color: tSecondaire }}>{f.label}</span>
-                <div className="font-mono" style={{ fontSize: 9, color: tPrincipal, fontWeight: 600, lineHeight: 1.2 }}>{f.value || "—"}</div>
+              <div key={i} style={{ minWidth: 0, flexShrink: i === 0 ? 0 : 1 }}>
+                <span style={{ fontSize: 6.8, color: tSecondaire, whiteSpace: "nowrap" }}>{f.label}</span>
+                <div className="font-mono" style={{ fontSize: infoFields.length > 3 ? 8 : 9, color: tPrincipal, fontWeight: 600, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.value || "—"}</div>
               </div>
             ))}
           </div>
@@ -1625,13 +1655,15 @@ function CarteDroitDeLigneFace({ vehicule, owner, collectifTransporteurs, collec
                 ["Énergie", vehicule.energie],
                 ["Places assises", vehicule.nombrePlaces],
                 ["Type technique", vehicule.typeTechnique],
-                ["Type commercial", [vehicule.marque, vehicule.modele].filter(Boolean).join(" ")],
+                // Type commercial = le modèle (COROLLA, YARIS…), comme sur la carte grise ; la marque seule à défaut
+                ["Type commercial", vehicule.modele || vehicule.marque],
                 ["Puissance fiscale", vehicule.puissanceFiscale],
-                ["Couleur", vehicule.couleur],
+                // Couleur, ou à défaut le n° de macaron de l'association (6 lignes fixes : la mise en page ne bouge pas)
+                vehicule.couleur || !vehicule.numeroMacaron ? ["Couleur", vehicule.couleur] : ["N° macaron", vehicule.numeroMacaron],
               ].map(([label, val]) => (
-                <div key={label} className="flex justify-between" style={{ borderBottom: `1px dotted ${C.border}`, paddingBottom: 1 }}>
-                  <span style={{ color: C.slate }}>{label}</span>
-                  <span style={{ fontWeight: 700, color: C.ink }}>{val || "—"}</span>
+                <div key={label} className="flex justify-between" style={{ borderBottom: `1px dotted ${C.border}`, paddingBottom: 1, gap: 6 }}>
+                  <span style={{ color: C.slate, whiteSpace: "nowrap" }}>{label}</span>
+                  <span style={{ fontWeight: 700, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{val || "—"}</span>
                 </div>
               ))}
             </div>
@@ -4758,7 +4790,7 @@ function Dashboard({ auth, onLogout }) {
 
       {cardDriver && <Modal onClose={closeCard} title="Carte de membre — Chauffeur">
         {(() => {
-          const data = cardDataFor(cardDriver, "chauffeur", commissionsMixtes, syndicats, vehicles, associations);
+          const data = cardDataFor(cardDriver, "chauffeur", commissionsMixtes, syndicats, vehicles, associations, garesRoutieres, lignes);
           return <MemberCard member={cardDriver} category="chauffeur" initialFace={cardFace} {...data} />;
         })()}
       </Modal>}
@@ -4767,13 +4799,13 @@ function Dashboard({ auth, onLogout }) {
         title="Planche de production, cartes de membre chauffeurs"
         items={drivers.filter((d) => selectedDriverIds.includes(d.id)).map((d) => ({
           key: d.id, name: `${d.prenoms} ${d.nom}`, member: d, category: "chauffeur",
-          ...cardDataFor(d, "chauffeur", commissionsMixtes, syndicats, vehicles, associations),
+          ...cardDataFor(d, "chauffeur", commissionsMixtes, syndicats, vehicles, associations, garesRoutieres, lignes),
         }))}
       />
 
       {cardOwner && <Modal onClose={() => setCardOwner(null)} title="Carte de membre — Transporteur">
         {(() => {
-          const data = cardDataFor(cardOwner, "transporteur", commissionsMixtes, syndicats, vehicles, associations);
+          const data = cardDataFor(cardOwner, "transporteur", commissionsMixtes, syndicats, vehicles, associations, garesRoutieres, lignes);
           return <MemberCard member={cardOwner} category="transporteur" {...data} />;
         })()}
       </Modal>}
@@ -4782,13 +4814,13 @@ function Dashboard({ auth, onLogout }) {
         title="Planche de production, cartes transporteurs"
         items={owners.filter((o) => selectedOwnerIds.includes(o.id)).map((o) => ({
           key: o.id, name: `${o.prenoms} ${o.nom}`, member: o, category: "transporteur",
-          ...cardDataFor(o, "transporteur", commissionsMixtes, syndicats, vehicles, associations),
+          ...cardDataFor(o, "transporteur", commissionsMixtes, syndicats, vehicles, associations, garesRoutieres, lignes),
         }))}
       />
 
       {cardElement && <Modal onClose={() => setCardElement(null)} title="Carte de membre — Élément">
         {(() => {
-          const data = cardDataFor(cardElement, "element", commissionsMixtes, syndicats, vehicles, associations);
+          const data = cardDataFor(cardElement, "element", commissionsMixtes, syndicats, vehicles, associations, garesRoutieres, lignes);
           return <MemberCard member={cardElement} category="element" {...data} />;
         })()}
       </Modal>}
@@ -4797,7 +4829,7 @@ function Dashboard({ auth, onLogout }) {
         title="Planche de production, cartes éléments"
         items={elements.filter((e) => selectedElementIds.includes(e.id)).map((e) => ({
           key: e.id, name: `${e.prenoms} ${e.nom}`, member: e, category: "element",
-          ...cardDataFor(e, "element", commissionsMixtes, syndicats, vehicles, associations),
+          ...cardDataFor(e, "element", commissionsMixtes, syndicats, vehicles, associations, garesRoutieres, lignes),
         }))}
       />
 
@@ -5488,8 +5520,9 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
   const [error, setError] = useState(null);
 
   const vehiculesSansProprietaire = (vehicles || []).filter((v) => !v.proprietaireId);
-  const doublons = detecterDoublons("transporteur", { cni, numeroPermis, contact1, orzayahCompte, orzayahTelephone }, membres, initialMember?.id, tousMembres);
-  const canSave = nom && prenoms && cni && !doublons.length && !saving;
+  const doublons = detecterDoublons("transporteur", champsModifies({ cni, numeroPermis, contact1, orzayahCompte, orzayahTelephone }, initialMember), membres, initialMember?.id, tousMembres);
+  const cniOk = !!cni || (!!initialMember && !initialMember.cni); // fiche importée sans CNI : modifiable, CNI à compléter
+  const canSave = nom && prenoms && cniOk && !doublons.length && !saving;
 
   const handleSave = async () => {
     setSaving(true);
@@ -5607,8 +5640,9 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  const doublons = detecterDoublons("chauffeur", { cni, permisNumero, contact1, orzayahCompte, orzayahTelephone }, membres, initialDriver?.id, tousMembres);
-  const canSave = nom && prenoms && cni && permisNumero && permisDateFin && !doublons.length && !saving;
+  const doublons = detecterDoublons("chauffeur", champsModifies({ cni, permisNumero, contact1, orzayahCompte, orzayahTelephone }, initialDriver), membres, initialDriver?.id, tousMembres);
+  const cniOk = !!cni || (!!initialDriver && !initialDriver.cni);
+  const canSave = nom && prenoms && cniOk && permisNumero && permisDateFin && !doublons.length && !saving;
 
   const handleSave = async () => {
     setSaving(true);
@@ -5714,8 +5748,9 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
   const [error, setError] = useState(null);
 
   const lignesDeLaGare = lignes.filter((l) => l.gareRoutiereId === gareRoutiereId);
-  const doublons = detecterDoublons("element", { cni, contact1, orzayahCompte, orzayahTelephone }, elements, initialElement?.id, tousMembres);
-  const canSave = nom && prenoms && cni && syndicatId && !doublons.length && !saving;
+  const doublons = detecterDoublons("element", champsModifies({ cni, contact1, orzayahCompte, orzayahTelephone }, initialElement), elements, initialElement?.id, tousMembres);
+  const cniOk = !!cni || (!!initialElement && !initialElement.cni);
+  const canSave = nom && prenoms && cniOk && syndicatId && !doublons.length && !saving;
 
   const handleSave = async () => {
     setSaving(true);

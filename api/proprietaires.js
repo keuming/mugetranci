@@ -161,7 +161,8 @@ export default async function handler(req, res) {
     }
 
     try {
-      const doublon = await chercherDoublon("transporteur", patch, id);
+      const [ficheActuelle] = await db.select().from(proprietaires).where(eq(proprietaires.id, id));
+      const doublon = await chercherDoublon("transporteur", patch, id, ficheActuelle || null);
       if (doublon) return res.status(409).json({ error: doublon });
       const [avant] = ("orzayahCompte" in patch || "orzayahTelephone" in patch) ? await db.select().from(proprietaires).where(eq(proprietaires.id, id)) : [null];
       let [updated] = await db.update(proprietaires).set(patch).where(eq(proprietaires.id, id)).returning();
