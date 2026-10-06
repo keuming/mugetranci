@@ -285,6 +285,118 @@ function ChoixMembre({ liste, value, onChange, placeholder = "— Choisir —", 
   );
 }
 
+/* « Déjà enregistré ? » — pendant la saisie d'un NOUVEAU membre, recherche
+   dans toute la base (transporteurs, chauffeurs, éléments, y compris la
+   liste MUGETRANCI importée) les personnes au nom proche (ordre des mots et
+   accents indifférents), au même téléphone ou à la même CNI. Permet d'ouvrir
+   la fiche existante pour la METTRE À JOUR au lieu de créer un doublon. */
+const LIB_TYPE_MEMBRE = { transporteur: "Transporteur", chauffeur: "Chauffeur", element: "Élément" };
+function rechercherExistants(existants, { nom, prenoms, contact, cni }, limite = 6) {
+  const mots = normTexte(`${nom || ""} ${prenoms || ""}`).split(" ").filter((m) => m.length >= 2);
+  const tel = normTel(contact), piece = normPiece(cni);
+  if (mots.length < 2 && tel.length < 8 && piece.length < 5) return [];
+  const out = [];
+  for (const e of existants) {
+    const m = e.m;
+    const parNom = mots.length >= 2 && mots.every((x) => normTexte(`${m.prenoms} ${m.nom}`).split(" ").some((t) => t.startsWith(x)));
+    const parTel = tel.length >= 8 && [m.contact1, m.contact2, m.contact3].some((c) => normTel(c) === tel);
+    const parCni = piece.length >= 5 && normPiece(m.cni) === piece;
+    if (parNom || parTel || parCni) {
+      out.push({ ...e, raison: [parNom && "nom", parTel && "téléphone", parCni && "CNI"].filter(Boolean).join(", ") });
+      if (out.length >= limite) break;
+    }
+  }
+  return out;
+}
+function rechercherExistantsTexte(existants, texte, limite = 8) {
+  const t = String(texte || "").trim();
+  if (t.length < 3) return [];
+  const mots = normTexte(t).split(" ").filter((m) => m.length >= 2);
+  const tel = normTel(t), piece = normPiece(t);
+  const out = [];
+  for (const e of existants) {
+    const m = e.m;
+    const nomM = normTexte(`${m.prenoms} ${m.nom}`).split(" ");
+    const parNom = mots.length > 0 && mots.every((x) => nomM.some((n) => n.startsWith(x)));
+    const parTel = tel.length >= 6 && [m.contact1, m.contact2, m.contact3].some((c) => normTel(c).includes(tel));
+    const parCni = piece.length >= 5 && normPiece(m.cni).includes(piece);
+    const parCarte = piece.length >= 4 && normPiece(m.carteTransporteurNumero || m.numeroCarte).includes(piece);
+    if (parNom || parTel || parCni || parCarte) {
+      out.push({ ...e, raison: [parNom && "nom", parTel && "téléphone", parCni && "CNI", parCarte && "n° de carte"].filter(Boolean).join(", ") });
+      if (out.length >= limite) break;
+    }
+  }
+  return out;
+}
+/* Champ placé EN TÊTE des formulaires d'ajout : on vérifie d'abord si la
+   personne est déjà dans la base (liste MUGETRANCI importée comprise). */
+function VerifierAvantAjout({ existants = [], associations = [], actions }) {
+  const [texte, setTexte] = useState("");
+  const trouves = useMemo(() => rechercherExistantsTexte(existants, texte), [existants, texte]);
+  return (
+    <div className="font-body rounded-xl p-3" style={{ background: C.greenLight, border: `1px solid ${C.green}` }}>
+      <div className="text-sm font-semibold mb-2" style={{ color: C.greenDark }}>🔎 Vérifiez d'abord si la personne est déjà enregistrée</div>
+      <TextInput value={texte} onChange={(e) => setTexte(e.target.value)} placeholder="Nom et/ou prénoms, téléphone, CNI ou n° de carte…" />
+      {texte.trim().length >= 3 && (
+        trouves.length ? (
+          <ListeExistants trouves={trouves} associations={associations} actions={actions} />
+        ) : (
+          <div className="text-xs mt-2" style={{ color: C.greenDark, fontWeight: 600 }}>✓ Aucune personne correspondante : vous pouvez l'ajouter ci-dessous.</div>
+        )
+      )}
+    </div>
+  );
+}
+function ListeExistants({ trouves, associations = [], actions }) {
+  return (
+    <div className="mt-2">
+      {trouves.map(({ kind, m, raison }) => {
+        const as = associations.find((a) => a.id === m.associationId);
+        return (
+          <div key={`${kind}-${m.id}`} className="flex items-center gap-2 flex-wrap py-1.5" style={{ borderTop: `1px solid ${C.border}` }}>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "#fff", border: `1px solid ${C.border}` }}>{LIB_TYPE_MEMBRE[kind]}</span>
+            <span className="text-sm font-bold" style={{ color: C.ink }}>{m.prenoms} {m.nom}</span>
+            <span className="text-xs" style={{ color: C.slate }}>{[m.carteTransporteurNumero || m.numeroCarte, m.contact1, as?.sigle || as?.nom].filter(Boolean).join(" · ")} — même {raison}</span>
+            <span className="ml-auto flex gap-1.5">
+              {actions({ kind, m }).map((a) => (
+                <button key={a.label} type="button" onClick={a.onClick} className="text-xs font-semibold px-2.5 py-1 rounded-lg" style={{ background: C.greenDark, color: "#fff" }}>{a.label}</button>
+              ))}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DejaEnregistres({ existants = [], saisie, associations = [], actions }) {
+  const trouves = useMemo(() => rechercherExistants(existants, saisie), [existants, saisie.nom, saisie.prenoms, saisie.contact, saisie.cni]);
+  if (!trouves.length) return null;
+  return (
+    <div className="col-span-2 font-body rounded-xl p-3" style={{ background: "#FFF8E8", border: `1px solid ${C.amber}` }}>
+      <div className="text-sm font-semibold mb-2" style={{ color: C.ink }}>⚠ Déjà enregistré ? {trouves.length} personne(s) correspondante(s) dans la base</div>
+      {trouves.map(({ kind, m, raison }) => {
+        const as = associations.find((a) => a.id === m.associationId);
+        return (
+          <div key={`${kind}-${m.id}`} className="flex items-center gap-2 flex-wrap py-1.5" style={{ borderTop: `1px solid ${C.border}` }}>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "#fff", border: `1px solid ${C.border}` }}>{LIB_TYPE_MEMBRE[kind]}</span>
+            <span className="text-sm font-bold" style={{ color: C.ink }}>{m.prenoms} {m.nom}</span>
+            <span className="text-xs" style={{ color: C.slate }}>
+              {[m.carteTransporteurNumero || m.numeroCarte, m.contact1, as?.sigle || as?.nom].filter(Boolean).join(" · ")} — même {raison}
+            </span>
+            <span className="ml-auto flex gap-1.5">
+              {actions({ kind, m }).map((a) => (
+                <button key={a.label} type="button" onClick={a.onClick} className="text-xs font-semibold px-2.5 py-1 rounded-lg" style={{ background: C.greenDark, color: "#fff" }}>{a.label}</button>
+              ))}
+            </span>
+          </div>
+        );
+      })}
+      <div className="text-xs mt-1.5" style={{ color: C.slate }}>S'il s'agit de la même personne, mettez à jour sa fiche au lieu d'en créer une nouvelle.</div>
+    </div>
+  );
+}
+
 function DoublonsAlerte({ messages, titre = "Enregistrement bloqué : doublon détecté" }) {
   if (!messages || !messages.length) return null;
   return (
@@ -823,7 +935,7 @@ function StepIndicator({ step }) {
   );
 }
 
-function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRoutieres, commissionsMixtes, lignes, onCancel, onSave, addOwner, addDriver, affecterVehicule }) {
+function VehicleForm({ auth, owners, drivers, vehicles = [], existants = [], onOuvrirVehicule, syndicats, associations, garesRoutieres, commissionsMixtes, lignes, onCancel, onSave, addOwner, addDriver, affecterVehicule }) {
   const [step, setStep] = useState(0);
   const isAdmin = auth?.role === "admin";
   const [syndicatIdSel, setSyndicatIdSel] = useState(isAdmin ? "" : (auth?.syndicatId || ""));
@@ -989,6 +1101,17 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
               <Field label="Numéro carte grise *"><TextInput value={carteGrise} onChange={(e) => setCarteGrise(e.target.value)} placeholder="CG-2024-000000" /></Field>
               <Field label="Nom sur la carte grise" hint="Peut différer du propriétaire actuel"><TextInput value={nomCarteGrise} onChange={(e) => setNomCarteGrise(e.target.value)} placeholder="Nom du titulaire inscrit sur le document" /></Field>
               <Field label="Numéro d'immatriculation *" hint="Majuscules, sans espace ni tiret (saisie corrigée automatiquement)"><TextInput value={immatriculation} onChange={(e) => setImmatriculation(normImmat(e.target.value))} placeholder="1234AB01" autoCapitalize="characters" style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5 }} /></Field>
+              {(() => {
+                const existant = immatriculation.length >= 5 && vehicles.find((v) => normImmat(v.immatriculation) === normImmat(immatriculation));
+                if (!existant) return null;
+                const prop = owners.find((o) => o.id === existant.proprietaireId);
+                return (
+                  <div className="col-span-2 font-body rounded-xl p-3 flex items-center gap-3 flex-wrap" style={{ background: "#FFF8E8", border: `1px solid ${C.amber}` }}>
+                    <span className="text-sm"><b>⚠ {existant.immatriculation} est déjà enregistré</b>{prop ? ` — transporteur ${prop.prenoms} ${prop.nom}` : ""}{existant.numeroMacaron ? ` · macaron ${existant.numeroMacaron}` : ""}.</span>
+                    {onOuvrirVehicule && <button type="button" onClick={() => onOuvrirVehicule(existant)} className="ml-auto text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: C.greenDark, color: "#fff" }}>Mettre à jour ce véhicule</button>}
+                  </div>
+                );
+              })()}
               <Field label="1ère mise en circulation"><DateInput value={dateMiseCirculation} onChange={(e) => setDateMiseCirculation(e.target.value)} /></Field>
             </div>
             <ProprieteVehiculeFields nomReel={proprietaireReelNom} onNomReel={setProprietaireReelNom} contactReel={proprietaireReelContact} onContactReel={setProprietaireReelContact} anciens={anciensDetenteurs} onAnciens={setAnciensDetenteurs} />
@@ -1052,6 +1175,8 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
                   <Field label="Nom"><TextInput value={newOwner.nom} onChange={(e) => setNewOwner({ ...newOwner, nom: e.target.value })} /></Field>
                   <Field label="Prénoms"><TextInput value={newOwner.prenoms} onChange={(e) => setNewOwner({ ...newOwner, prenoms: e.target.value })} /></Field>
                   <Field label="Numéro CNI"><TextInput value={newOwner.cni} onChange={(e) => setNewOwner({ ...newOwner, cni: e.target.value })} /></Field>
+                  <DejaEnregistres existants={existants} associations={associations} saisie={{ nom: newOwner.nom, prenoms: newOwner.prenoms, contact: newOwner.contact1, cni: newOwner.cni }}
+                    actions={({ kind, m }) => kind === "transporteur" ? [{ label: "Choisir ce transporteur", onClick: () => { setOwnerMode("existing"); setOwnerId(m.id); } }] : []} />
                   <FonctionField label="Fonction dans le collectif" value={newOwner.fonction} onChange={(v) => setNewOwner({ ...newOwner, fonction: v })} dejaUtilisees={[...owners, ...drivers].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
                   <FonctionField label="Fonction dans l'association" value={newOwner.fonctionAssociation} onChange={(v) => setNewOwner({ ...newOwner, fonctionAssociation: v })} dejaUtilisees={[...owners, ...drivers].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
                   <Field label="Numéro permis de conduire"><TextInput value={newOwner.numeroPermis} onChange={(e) => setNewOwner({ ...newOwner, numeroPermis: e.target.value })} /></Field>
@@ -1126,6 +1251,8 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
                         <Field label="Nom"><TextInput value={row.draft.nom} onChange={(e) => updateDriverDraft(i, { nom: e.target.value })} /></Field>
                         <Field label="Prénoms"><TextInput value={row.draft.prenoms} onChange={(e) => updateDriverDraft(i, { prenoms: e.target.value })} /></Field>
                         <Field label="Numéro CNI"><TextInput value={row.draft.cni} onChange={(e) => updateDriverDraft(i, { cni: e.target.value })} /></Field>
+                        <DejaEnregistres existants={existants} associations={associations} saisie={{ nom: row.draft.nom, prenoms: row.draft.prenoms, contact: row.draft.contact1, cni: row.draft.cni }}
+                          actions={({ kind, m }) => kind === "chauffeur" ? [{ label: "Choisir ce chauffeur", onClick: () => updateDriverRow(i, { mode: "existing", id: m.id }) }] : []} />
                         <FonctionField label="Fonction dans le collectif" value={row.draft.fonction} onChange={(v) => updateDriverDraft(i, { fonction: v })} dejaUtilisees={[...owners, ...drivers].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
                         <FonctionField label="Fonction dans l'association" value={row.draft.fonctionAssociation} onChange={(v) => updateDriverDraft(i, { fonctionAssociation: v })} dejaUtilisees={[...owners, ...drivers].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
                         <Field label="Numéro permis de conduire"><TextInput value={row.draft.permisNumero} onChange={(e) => updateDriverDraft(i, { permisNumero: e.target.value })} /></Field>
@@ -3789,6 +3916,14 @@ function Dashboard({ auth, onLogout }) {
   const [editVehicle, setEditVehicle] = useState(null);
   const [search, setSearch] = useState("");
   const [critereRecherche, setCritereRecherche] = useState("tout");
+  // Base complète pour le contrôle « Déjà enregistré ? » des formulaires d'ajout
+  const membresExistants = useMemo(() => [
+    ...owners.map((m) => ({ kind: "transporteur", m })), ...drivers.map((m) => ({ kind: "chauffeur", m })), ...elements.map((m) => ({ kind: "element", m })),
+  ], [owners, drivers, elements]);
+  const ouvrirExistant = (kind, m) => {
+    setShowMemberFormFor(false); setShowDriverFormFor(false); setShowElementFormFor(false);
+    if (kind === "transporteur") setEditMember(m); else if (kind === "chauffeur") setEditDriver(m); else setEditElement(m);
+  };
   // Filtre des pages : seulement les cartes envoyées à l'imprimeur
   const [filtreImprimeur, setFiltreImprimeur] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -5441,7 +5576,7 @@ function Dashboard({ auth, onLogout }) {
 
       {/* MODALS */}
       {showForm && <Modal onClose={() => setShowForm(false)} title="Ajouter un véhicule" wide>
-        <VehicleForm auth={auth} owners={owners} drivers={drivers} syndicats={syndicats} associations={associations} garesRoutieres={garesRoutieres} commissionsMixtes={commissionsMixtes} lignes={lignes} onCancel={() => setShowForm(false)} onSave={addVehicle} addOwner={addOwner} addDriver={addDriver} affecterVehicule={affecterVehicule} />
+        <VehicleForm auth={auth} owners={owners} drivers={drivers} vehicles={vehicles} existants={membresExistants} onOuvrirVehicule={(v) => { setShowForm(false); setEditVehicle(v); }} syndicats={syndicats} associations={associations} garesRoutieres={garesRoutieres} commissionsMixtes={commissionsMixtes} lignes={lignes} onCancel={() => setShowForm(false)} onSave={addVehicle} addOwner={addOwner} addDriver={addDriver} affecterVehicule={affecterVehicule} />
       </Modal>}
 
       {ficheVehicle && <Modal onClose={closeFiche} title="Fiche d'Identification du Transporteur" wide>
@@ -5540,7 +5675,7 @@ function Dashboard({ auth, onLogout }) {
       </Modal>}
 
       {showMemberFormFor && <Modal onClose={() => setShowMemberFormFor(false)} title="Ajouter un transporteur" wide>
-        <MemberForm membres={owners} tousMembres={[...owners, ...drivers, ...elements]} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} vehicles={vehicles} onCancel={() => setShowMemberFormFor(false)} onSave={async (payload, vehId) => { const created = await addOwner(payload); if (vehId) await updateVehicle(vehId, { proprietaireId: created.id }); setShowMemberFormFor(false); }} />
+        <MemberForm existants={membresExistants} onOuvrirExistant={ouvrirExistant} membres={owners} tousMembres={[...owners, ...drivers, ...elements]} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} vehicles={vehicles} onCancel={() => setShowMemberFormFor(false)} onSave={async (payload, vehId) => { const created = await addOwner(payload); if (vehId) await updateVehicle(vehId, { proprietaireId: created.id }); setShowMemberFormFor(false); }} />
       </Modal>}
 
       {showProfileForm && (
@@ -5585,11 +5720,11 @@ function Dashboard({ auth, onLogout }) {
       )}
 
       {editMember && <Modal onClose={() => setEditMember(null)} title={`Modifier — ${editMember.prenoms} ${editMember.nom}`} wide>
-        <MemberForm membres={owners} tousMembres={[...owners, ...drivers, ...elements]} initialMember={editMember} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} onCancel={() => setEditMember(null)} onSave={async (payload) => { await updateOwner(editMember.id, payload); setEditMember(null); }} />
+        <MemberForm existants={membresExistants} onOuvrirExistant={ouvrirExistant} membres={owners} tousMembres={[...owners, ...drivers, ...elements]} initialMember={editMember} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} onCancel={() => setEditMember(null)} onSave={async (payload) => { await updateOwner(editMember.id, payload); setEditMember(null); }} />
       </Modal>}
 
       {showDriverFormFor && <Modal onClose={() => setShowDriverFormFor(false)} title="Ajouter un chauffeur" wide>
-        <DriverForm membres={drivers} tousMembres={[...owners, ...drivers, ...elements]} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} vehicles={vehicles} onCancel={() => setShowDriverFormFor(false)} onSave={async (payload, vehId) => {
+        <DriverForm existants={membresExistants} onOuvrirExistant={ouvrirExistant} membres={drivers} tousMembres={[...owners, ...drivers, ...elements]} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} vehicles={vehicles} onCancel={() => setShowDriverFormFor(false)} onSave={async (payload, vehId) => {
           const created = await addDriver(payload);
           if (vehId) {
             await updateVehicle(vehId, { addChauffeurId: created.id });
@@ -5600,7 +5735,7 @@ function Dashboard({ auth, onLogout }) {
       </Modal>}
 
       {editDriver && <Modal onClose={() => setEditDriver(null)} title={`Modifier — ${editDriver.prenoms} ${editDriver.nom}`} wide>
-        <DriverForm membres={drivers} tousMembres={[...owners, ...drivers, ...elements]} initialDriver={editDriver} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} onCancel={() => setEditDriver(null)} onSave={async (payload) => { await updateDriver(editDriver.id, payload); setEditDriver(null); }} />
+        <DriverForm existants={membresExistants} onOuvrirExistant={ouvrirExistant} membres={drivers} tousMembres={[...owners, ...drivers, ...elements]} initialDriver={editDriver} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} onCancel={() => setEditDriver(null)} onSave={async (payload) => { await updateDriver(editDriver.id, payload); setEditDriver(null); }} />
       </Modal>}
 
       {assoFormForCollectif && <Modal onClose={() => setAssoFormForCollectif(null)} title="Ajouter une association" wide>
@@ -5620,7 +5755,7 @@ function Dashboard({ auth, onLogout }) {
       </Modal>}
 
       {showElementFormFor && <Modal onClose={() => setShowElementFormFor(false)} title="Ajouter un élément" wide>
-        <ElementForm tousMembres={[...owners, ...drivers, ...elements]} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} elements={elements} garesRoutieres={garesRoutieres} lignes={lignes} onCancel={() => setShowElementFormFor(false)} onSave={async (payload) => { await addElement(payload); setShowElementFormFor(false); }} />
+        <ElementForm existants={membresExistants} onOuvrirExistant={ouvrirExistant} tousMembres={[...owners, ...drivers, ...elements]} commissionsMixtes={commissionsMixtes} syndicats={syndicats} associations={associations} elements={elements} garesRoutieres={garesRoutieres} lignes={lignes} onCancel={() => setShowElementFormFor(false)} onSave={async (payload) => { await addElement(payload); setShowElementFormFor(false); }} />
       </Modal>}
 
       {editElement && <Modal onClose={() => setEditElement(null)} title={`Modifier — ${editElement.prenoms} ${editElement.nom}`} wide>
@@ -6146,7 +6281,7 @@ function AppartenanceBlock({ commune, commissionMixteId, onCommune, logo2Id, onC
   );
 }
 
-function MemberForm({ initialMember, commissionsMixtes, syndicats, associations, vehicles, membres = [], tousMembres = [], onCancel, onSave }) {
+function MemberForm({ initialMember, existants = [], onOuvrirExistant, commissionsMixtes, syndicats, associations, vehicles, membres = [], tousMembres = [], onCancel, onSave }) {
   const isEdit = !!initialMember;
   const [nom, setNom] = useState(initialMember?.nom || "");
   const [prenoms, setPrenoms] = useState(initialMember?.prenoms || "");
@@ -6201,6 +6336,10 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
 
   return (
     <div className="flex flex-col gap-4">
+      {!initialMember && (
+        <VerifierAvantAjout existants={existants} associations={associations}
+          actions={({ kind, m }) => onOuvrirExistant ? [{ label: kind === "transporteur" ? "Mettre à jour cette fiche" : "Ouvrir sa fiche", onClick: () => onOuvrirExistant(kind, m) }] : []} />
+      )}
       <div className="grid grid-cols-2 gap-4">
         <PhotoUpload value={photo} onChange={setPhoto} label="Photo du transporteur" />
         <OrzayahCompteField value={orzayahCompte} onChange={setOrzayahCompte} telephone={orzayahTelephone} onTelephone={setOrzayahTelephone} membre={initialMember} />
@@ -6241,6 +6380,10 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
         <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
         <Field label="Numéro CNI"><TextInput value={cni} onChange={(e) => setCni(e.target.value)} /></Field>
+        {!initialMember && (
+          <DejaEnregistres existants={existants} associations={associations} saisie={{ nom, prenoms, contact: contact1, cni }}
+            actions={({ kind, m }) => onOuvrirExistant ? [{ label: kind === "transporteur" ? "Mettre à jour cette fiche" : "Ouvrir sa fiche", onClick: () => onOuvrirExistant(kind, m) }] : []} />
+        )}
         <FonctionField label="Fonction dans le collectif" value={fonction} onChange={setFonction} dejaUtilisees={tousMembres.flatMap((m) => [m.fonction, m.fonctionAssociation])} />
         <FonctionField label="Fonction dans l'association" value={fonctionAssociation} onChange={setFonctionAssociation} dejaUtilisees={tousMembres.flatMap((m) => [m.fonction, m.fonctionAssociation])} />
         <Field label="Numéro permis de conduire"><TextInput value={numeroPermis} onChange={(e) => setNumeroPermis(e.target.value)} /></Field>
@@ -6274,7 +6417,7 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
    CHAUFFEUR — formulaire d'ajout/modification autonome, sans passer
    par la création d'un véhicule.
    ============================================================ */
-function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations, vehicles, membres = [], tousMembres = [], onCancel, onSave }) {
+function DriverForm({ initialDriver, existants = [], onOuvrirExistant, commissionsMixtes, syndicats, associations, vehicles, membres = [], tousMembres = [], onCancel, onSave }) {
   const isEdit = !!initialDriver;
   const [nom, setNom] = useState(initialDriver?.nom || "");
   const [prenoms, setPrenoms] = useState(initialDriver?.prenoms || "");
@@ -6326,6 +6469,10 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
 
   return (
     <div className="flex flex-col gap-4">
+      {!initialDriver && (
+        <VerifierAvantAjout existants={existants} associations={associations}
+          actions={({ kind, m }) => onOuvrirExistant ? [{ label: kind === "chauffeur" ? "Mettre à jour cette fiche" : "Ouvrir sa fiche", onClick: () => onOuvrirExistant(kind, m) }] : []} />
+      )}
       <div className="grid grid-cols-2 gap-4">
         <PhotoUpload value={photo} onChange={setPhoto} label="Photo du chauffeur" />
         <OrzayahCompteField value={orzayahCompte} onChange={setOrzayahCompte} telephone={orzayahTelephone} onTelephone={setOrzayahTelephone} membre={initialDriver} />
@@ -6364,6 +6511,10 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
         <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
         <Field label="Numéro CNI"><TextInput value={cni} onChange={(e) => setCni(e.target.value)} /></Field>
+        {!initialDriver && (
+          <DejaEnregistres existants={existants} associations={associations} saisie={{ nom, prenoms, contact: contact1, cni }}
+            actions={({ kind, m }) => onOuvrirExistant ? [{ label: kind === "chauffeur" ? "Mettre à jour cette fiche" : "Ouvrir sa fiche", onClick: () => onOuvrirExistant(kind, m) }] : []} />
+        )}
         <FonctionField label="Fonction dans le collectif" value={fonction} onChange={setFonction} dejaUtilisees={tousMembres.flatMap((m) => [m.fonction, m.fonctionAssociation])} />
         <FonctionField label="Fonction dans l'association" value={fonctionAssociation} onChange={setFonctionAssociation} dejaUtilisees={tousMembres.flatMap((m) => [m.fonction, m.fonctionAssociation])} />
         <Field label="Numéro permis de conduire"><TextInput value={permisNumero} onChange={(e) => setPermisNumero(e.target.value)} /></Field>
@@ -6387,7 +6538,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
   );
 }
 
-function ElementForm({ initialElement, commissionsMixtes, syndicats, associations, garesRoutieres, lignes, elements = [], tousMembres = [], onCancel, onSave }) {
+function ElementForm({ initialElement, existants = [], onOuvrirExistant, commissionsMixtes, syndicats, associations, garesRoutieres, lignes, elements = [], tousMembres = [], onCancel, onSave }) {
   const isEdit = !!initialElement;
   const [nom, setNom] = useState(initialElement?.nom || "");
   const [prenoms, setPrenoms] = useState(initialElement?.prenoms || "");
@@ -6438,6 +6589,10 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
 
   return (
     <div className="flex flex-col gap-4">
+      {!initialElement && (
+        <VerifierAvantAjout existants={existants} associations={associations}
+          actions={({ kind, m }) => onOuvrirExistant ? [{ label: kind === "element" ? "Mettre à jour cette fiche" : "Ouvrir sa fiche", onClick: () => onOuvrirExistant(kind, m) }] : []} />
+      )}
       <div className="grid grid-cols-2 gap-4">
         <PhotoUpload value={photo} onChange={setPhoto} label="Photo de l'élément" />
         <OrzayahCompteField value={orzayahCompte} onChange={setOrzayahCompte} telephone={orzayahTelephone} onTelephone={setOrzayahTelephone} membre={initialElement} />
@@ -6463,6 +6618,10 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
         <Field label="Nom"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} /></Field>
         <Field label="Prénoms"><TextInput value={prenoms} onChange={(e) => setPrenoms(e.target.value)} /></Field>
         <Field label="Numéro CNI"><TextInput value={cni} onChange={(e) => setCni(e.target.value)} /></Field>
+        {!initialElement && (
+          <DejaEnregistres existants={existants} associations={associations} saisie={{ nom, prenoms, contact: contact1, cni }}
+            actions={({ kind, m }) => onOuvrirExistant ? [{ label: kind === "element" ? "Mettre à jour cette fiche" : "Ouvrir sa fiche", onClick: () => onOuvrirExistant(kind, m) }] : []} />
+        )}
         <FonctionField label="Fonction dans le collectif" value={fonction} onChange={setFonction} dejaUtilisees={[...elements, ...tousMembres].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
         <FonctionField label="Fonction dans l'association" value={fonctionAssociation} onChange={setFonctionAssociation} dejaUtilisees={[...elements, ...tousMembres].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
         <Field label="Adresse email"><TextInput value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
