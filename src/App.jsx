@@ -259,6 +259,32 @@ function ChampsManquants({ champs }) {
   );
 }
 
+/* Choix d'un membre existant parmi plusieurs milliers : saisie de quelques
+   lettres (nom, téléphone, n° de carte, CNI), puis choix dans la liste
+   filtrée. Aucune valeur n'est présélectionnée. */
+function ChoixMembre({ liste, value, onChange, placeholder = "— Choisir —", detail }) {
+  const [filtre, setFiltre] = useState("");
+  const choisi = liste.find((m) => m.id === value);
+  const q = normTexte(filtre), qTel = normTel(filtre);
+  const candidats = !filtre.trim() ? liste.slice(0, 40) : liste.filter((m) => {
+    const t = normTexte(`${m.prenoms} ${m.nom} ${m.carteTransporteurNumero || m.numeroCarte || ""} ${m.cni || ""}`);
+    return q.split(" ").every((mot) => t.includes(mot)) || (qTel.length >= 4 && [m.contact1, m.contact2].some((c) => normTel(c).includes(qTel)));
+  }).slice(0, 60);
+  return (
+    <div className="flex flex-col gap-2">
+      <TextInput value={filtre} onChange={(e) => setFiltre(e.target.value)} placeholder="Rechercher : nom, téléphone, n° de carte, CNI…" />
+      <select style={inputStyle} className="font-body" value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">{placeholder}</option>
+        {choisi && !candidats.includes(choisi) && <option value={choisi.id}>{choisi.prenoms} {choisi.nom} — {detail(choisi)}</option>}
+        {candidats.map((m) => <option key={m.id} value={m.id}>{m.prenoms} {m.nom} — {detail(m)}</option>)}
+      </select>
+      <span className="font-body text-xs" style={{ color: C.slate }}>
+        {filtre.trim() ? `${candidats.length}${candidats.length === 60 ? "+" : ""} résultat(s)` : `${liste.length} au total — tapez quelques lettres pour retrouver la bonne personne`}
+      </span>
+    </div>
+  );
+}
+
 function DoublonsAlerte({ messages, titre = "Enregistrement bloqué : doublon détecté" }) {
   if (!messages || !messages.length) return null;
   return (
@@ -829,12 +855,12 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
   const [docs, setDocs] = useState({ visiteTechnique: "", assuranceAuto: "", vignette: "", carteStationnement: "" });
 
   const [ownerMode, setOwnerMode] = useState(owners.length ? "existing" : "new"); // existing | new
-  const [ownerId, setOwnerId] = useState(owners[0]?.id || "");
+  const [ownerId, setOwnerId] = useState(""); // jamais de présélection : choix explicite obligatoire
   const [newOwner, setNewOwner] = useState({ nom: "", prenoms: "", cni: "", numeroPermis: "", contact1: "", contact2: "", contact3: "", email: "", ville: "", quartier: "", photo: null, qrPaiement: null, orzayahCompte: "", orzayahTelephone: "", fonction: "", fonctionAssociation: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" });
 
-  const [driverRows, setDriverRows] = useState([{ mode: drivers.length ? "existing" : "new", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, orzayahCompte: "", orzayahTelephone: "", fonction: "", fonctionAssociation: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
+  const [driverRows, setDriverRows] = useState([{ mode: drivers.length ? "existing" : "new", id: "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, orzayahCompte: "", orzayahTelephone: "", fonction: "", fonctionAssociation: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
 
-  const addDriverRow = () => setDriverRows((r) => r.length >= 3 ? r : [...r, { mode: "existing", id: drivers[0]?.id || "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, orzayahCompte: "", orzayahTelephone: "", fonction: "", fonctionAssociation: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
+  const addDriverRow = () => setDriverRows((r) => r.length >= 3 ? r : [...r, { mode: "existing", id: "", draft: { nom: "", prenoms: "", cni: "", permisNumero: "", permisDateFin: "", contact1: "", contact2: "", contact3: "", email: "", photo: null, qrPaiement: null, orzayahCompte: "", orzayahTelephone: "", fonction: "", fonctionAssociation: "", logo1Type: "", logo1Id: "", logo2Type: "", logo2Id: "" } }]);
   const removeDriverRow = (i) => setDriverRows((r) => r.filter((_, idx) => idx !== i));
   const updateDriverRow = (i, patch) => setDriverRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
   const updateDriverDraft = (i, patch) => setDriverRows((r) => r.map((row, idx) => (idx === i ? { ...row, draft: { ...row.draft, ...patch } } : row)));
@@ -1004,10 +1030,10 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
 
             {ownerMode === "none" ? null : ownerMode === "existing" ? (
               owners.length ? (
-                <Field label="Sélectionner un propriétaire">
-                  <select style={inputStyle} className="font-body" value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
-                    {owners.map((o) => <option key={o.id} value={o.id}>{o.prenoms} {o.nom} — {o.quartier}</option>)}
-                  </select>
+                <Field label="Sélectionner le transporteur (propriétaire)">
+                  <ChoixMembre liste={owners} value={ownerId} onChange={setOwnerId} placeholder="— Choisir le transporteur —"
+                    detail={(o) => [o.carteTransporteurNumero, o.contact1].filter(Boolean).join(" · ") || "—"} />
+                  {!ownerId && <p className="font-body text-xs mt-2" style={{ color: C.amber, fontWeight: 600 }}>Choisissez le transporteur de ce véhicule, ou cliquez sur « Sans transporteur pour l'instant ».</p>}
                 </Field>
               ) : (
                 <p className="font-body text-sm" style={{ color: C.slate }}>Aucun propriétaire enregistré pour le moment — utilisez "+ Nouveau propriétaire".</p>
@@ -1079,10 +1105,9 @@ function VehicleForm({ auth, owners, drivers, syndicats, associations, garesRout
 
                   {row.mode === "existing" ? (
                     drivers.length ? (
-                      <Field label="Sélectionner un chauffeur">
-                        <select style={inputStyle} className="font-body" value={row.id} onChange={(e) => updateDriverRow(i, { id: e.target.value })}>
-                          {drivers.map((d) => <option key={d.id} value={d.id}>{d.prenoms} {d.nom} — permis {d.permisNumero}</option>)}
-                        </select>
+                      <Field label="Sélectionner un chauffeur existant (facultatif)">
+                        <ChoixMembre liste={drivers} value={row.id} onChange={(v) => updateDriverRow(i, { id: v })} placeholder="— Aucun chauffeur pour l'instant —"
+                          detail={(d) => [d.numeroCarte, d.contact1, d.permisNumero && `permis ${d.permisNumero}`].filter(Boolean).join(" · ") || "—"} />
                       </Field>
                     ) : (
                       <p className="font-body text-sm" style={{ color: C.slate }}>Aucun chauffeur enregistré — utilisez "+ Nouveau chauffeur".</p>
