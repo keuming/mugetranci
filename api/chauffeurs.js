@@ -6,12 +6,14 @@ import { genererNumeroCarte } from "../lib/cards.js";
 import { chercherDoublon } from "../lib/doublons.js";
 import { lierCompteOrzayah, traiterPatchOrzayah, retirerChampsOrzayahServeur, normaliserCodeOrzayah, normaliserTelephone } from "../lib/orzayah.js";
 import { champsImpression, gererImprimeur, gererMarquageImpression } from "../lib/impression.js";
+import { nettoyerFiche } from "../lib/nettoyage.js";
 
 function toApi(row) {
   const { photoUrl, qrPaiementUrl, ...rest } = row;
   return { ...rest, photo: photoUrl, qrPaiement: qrPaiementUrl };
 }
 function toDb(body) {
+  body = nettoyerFiche(body);
   const { photo, qrPaiement, numeroCarte, ...rest } = body; // le numéro de carte est généré côté serveur
   return retirerChampsOrzayahServeur({ ...rest, photoUrl: photo ?? null, qrPaiementUrl: qrPaiement ?? null, commissionMixteId: rest.commissionMixteId || null, commune: rest.commune || null, associationId: rest.associationId || null, syndicatId: rest.syndicatId || null });
 }
@@ -137,7 +139,9 @@ export default async function handler(req, res) {
   if (req.method === "PATCH") {
     if (!(await assertOwnership())) return;
 
-    const body = req.body || {};
+    const body = nettoyerFiche(req.body || {});
+    // Une association ne peut pas faire sortir un membre de son association.
+    if (auth.role === "association") { if ("associationId" in body) body.associationId = auth.associationId; }
     const patch = {};
     if ("orzayahCompte" in body) patch.orzayahCompte = normaliserCodeOrzayah(body.orzayahCompte);
     if ("orzayahTelephone" in body) patch.orzayahTelephone = normaliserTelephone(body.orzayahTelephone) || null;
@@ -174,6 +178,8 @@ export default async function handler(req, res) {
     try {
       const [ficheActuelle] = await db.select().from(chauffeurs).where(eq(chauffeurs.id, id));
       const doublon = await chercherDoublon("chauffeur", patch, id, ficheActuelle || null);
+      // Nouvelle photo : l'ancienne sauvegarde haute résolution est retirée
+      if ("photoUrl" in patch && ficheActuelle && patch.photoUrl !== ficheActuelle.photoUrl) patch.photoOriginale = null;
       if (doublon) return res.status(409).json({ error: doublon });
       const [avant] = ("orzayahCompte" in patch || "orzayahTelephone" in patch) ? await db.select().from(chauffeurs).where(eq(chauffeurs.id, id)) : [null];
       let [updated] = await db.update(chauffeurs).set(patch).where(eq(chauffeurs.id, id)).returning();

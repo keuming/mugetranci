@@ -248,6 +248,17 @@ function detecterDoublons(categorie, fiche, liste = [], idCourant = null, tous =
   }
   return msgs;
 }
+// Rappel des champs obligatoires manquants, sous le bouton Enregistrer
+// (sinon le bouton reste grisé sans explication).
+function ChampsManquants({ champs }) {
+  if (!champs || !champs.length) return null;
+  return (
+    <p className="font-body text-xs text-right" style={{ color: C.amber, fontWeight: 600, marginTop: -4 }}>
+      Pour enregistrer, complétez : {champs.join(", ")}.
+    </p>
+  );
+}
+
 function DoublonsAlerte({ messages, titre = "Enregistrement bloqué : doublon détecté" }) {
   if (!messages || !messages.length) return null;
   return (
@@ -6147,7 +6158,10 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
   const vehiculesSansProprietaire = (vehicles || []).filter((v) => !v.proprietaireId);
   const doublons = detecterDoublons("transporteur", champsModifies({ cni, numeroPermis, contact1, orzayahCompte, orzayahTelephone }, initialMember), membres, initialMember?.id, tousMembres);
   const cniOk = !!cni || (!!initialMember && !initialMember.cni); // fiche importée sans CNI : modifiable, CNI à compléter
-  const canSave = nom && prenoms && cniOk && !doublons.length && !saving;
+  // La commune est exigée à la création (mention « Point Focal » de la carte)
+  const communeOk = !!commune || !!initialMember;
+  const champsManquants = [!nom && "Nom", !prenoms && "Prénoms", !cniOk && "Numéro CNI", !communeOk && "Commune (Appartenance du membre)"].filter(Boolean);
+  const canSave = nom && prenoms && cniOk && communeOk && !doublons.length && !saving;
 
   const handleSave = async () => {
     setSaving(true);
@@ -6214,6 +6228,7 @@ function MemberForm({ initialMember, commissionsMixtes, syndicats, associations,
       </div>
 
       <DoublonsAlerte messages={doublons} />
+      {!saving && <ChampsManquants champs={champsManquants} />}
       <div className="flex items-center justify-end gap-3 pt-2">
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
         <button onClick={onCancel} className="font-body" style={{ color: C.ink, fontSize: 14, fontWeight: 700, padding: "12px 16px", borderRadius: 11 }}>Annuler</button>
@@ -6269,7 +6284,9 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
 
   const doublons = detecterDoublons("chauffeur", champsModifies({ cni, permisNumero, contact1, orzayahCompte, orzayahTelephone }, initialDriver), membres, initialDriver?.id, tousMembres);
   const cniOk = !!cni || (!!initialDriver && !initialDriver.cni);
-  const canSave = nom && prenoms && cniOk && permisNumero && permisDateFin && !doublons.length && !saving;
+  const communeOk = !!commune || !!initialDriver;
+  const champsManquants = [!nom && "Nom", !prenoms && "Prénoms", !cniOk && "Numéro CNI", !permisNumero && "Numéro permis de conduire", !permisDateFin && "Fin de validité du permis", !communeOk && "Commune (Appartenance du membre)"].filter(Boolean);
+  const canSave = nom && prenoms && cniOk && permisNumero && permisDateFin && communeOk && !doublons.length && !saving;
 
   const handleSave = async () => {
     setSaving(true);
@@ -6333,6 +6350,7 @@ function DriverForm({ initialDriver, commissionsMixtes, syndicats, associations,
       </div>
 
       <DoublonsAlerte messages={doublons} />
+      {!saving && <ChampsManquants champs={champsManquants} />}
       <div className="flex items-center justify-end gap-3 pt-2">
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
         <button onClick={onCancel} className="font-body" style={{ color: C.ink, fontSize: 14, fontWeight: 700, padding: "12px 16px", borderRadius: 11 }}>Annuler</button>
@@ -6379,6 +6397,7 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
   const lignesDeLaGare = lignes.filter((l) => l.gareRoutiereId === gareRoutiereId);
   const doublons = detecterDoublons("element", champsModifies({ cni, contact1, orzayahCompte, orzayahTelephone }, initialElement), elements, initialElement?.id, tousMembres);
   const cniOk = !!cni || (!!initialElement && !initialElement.cni);
+  const champsManquants = [!nom && "Nom", !prenoms && "Prénoms", !cniOk && "Numéro CNI", !syndicatId && "Collectif (Appartenance de l'élément)"].filter(Boolean);
   const canSave = nom && prenoms && cniOk && syndicatId && !doublons.length && !saving;
 
   const handleSave = async () => {
@@ -6445,6 +6464,7 @@ function ElementForm({ initialElement, commissionsMixtes, syndicats, association
       </div>
 
       <DoublonsAlerte messages={doublons} />
+      {!saving && <ChampsManquants champs={champsManquants} />}
       <div className="flex items-center justify-end gap-3 pt-2">
         {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
         <button onClick={onCancel} className="font-body" style={{ color: C.ink, fontSize: 14, fontWeight: 700, padding: "12px 16px", borderRadius: 11 }}>Annuler</button>
