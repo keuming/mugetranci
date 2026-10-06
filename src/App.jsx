@@ -444,6 +444,24 @@ function DateInput(props) {
    en data URL : une photo prise au telephone pese souvent plusieurs Mo, ce
    qui saturerait la base et le reseau. Cote 1200 px max, JPEG qualite 0.82.
    Les QR codes gardent une compression plus douce pour rester lisibles. */
+function reduireDataUrl(dataUrl, { maxSide = 480, quality = 0.8 } = {}) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onerror = () => reject(new Error("Image illisible."));
+    img.onload = () => {
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.src = dataUrl;
+  });
+}
+
 function readImageFile(file, { maxSide = 1200, quality = 0.82 } = {}) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -597,6 +615,9 @@ function detenteursRemplis(liste) {
   return (liste || []).map((r) => ({ nom: String(r.nom || "").trim(), contact: String(r.contact || "").trim() })).filter((r) => r.nom || r.contact);
 }
 
+// Photo d'une personne : 480 px suffisent pour la carte imprimée et l'écran
+// (~30-50 Ko au lieu de 150-300 Ko) ; les documents gardent 1200 px pour rester lisibles.
+const PHOTO_PERSONNE = { maxSide: 480, quality: 0.8 };
 function PhotoUpload({ value, onChange, label, shape = "circle" }) {
   const ref = useRef(null);       // galerie / fichiers
   const camRef = useRef(null);    // appareil photo
@@ -604,7 +625,7 @@ function PhotoUpload({ value, onChange, label, shape = "circle" }) {
     const f = e.target.files?.[0];
     e.target.value = ""; // permet de reprendre la meme photo deux fois de suite
     if (!f) return;
-    onChange(await readImageFile(f));
+    onChange(await readImageFile(f, shape === "circle" ? PHOTO_PERSONNE : undefined));
   };
   const radius = shape === "circle" ? "9999px" : "10px";
   return (
@@ -669,7 +690,7 @@ function AvatarUpload({ photo, nom, prenoms, size = 48, onUpload, shape = "circl
     if (!f) return;
     e.target.value = "";
     setUploading(true);
-    readImageFile(f)
+    readImageFile(f, shape === "circle" ? PHOTO_PERSONNE : undefined)
       .then((dataUrl) => onUpload(dataUrl))
       .catch((err) => alert(err.message || "Échec de l'envoi de la photo. Vérifiez la connexion à la base."))
       .finally(() => setUploading(false));
@@ -4104,6 +4125,7 @@ function Dashboard({ auth, onLogout }) {
         ...(estAdminGeneral || auth.role === "syndicat" ? [{ key: "garesroutieres", label: "Gares Routières", icon: <MapPin size={17} /> }] : []),
         ...(estAdminGeneral || auth.role === "commission_mixte" || auth.role === "syndicat" ? [{ key: "agents", label: "Agents enrôleurs", icon: <Route size={17} /> }] : []),
         ...(estAdminGeneral ? [{ key: "imprimeur", label: "Accès imprimeur", icon: <Printer size={17} /> }] : []),
+        ...(estAdminGeneral ? [{ key: "maintenance", label: "Maintenance", icon: <Settings size={17} /> }] : []),
         { key: "carburant", label: "Carburant", icon: <Fuel size={17} /> },
         { key: "alerts", label: "Alertes documents", icon: <Bell size={17} />, count: critical.length },
       ];
@@ -4893,6 +4915,7 @@ function Dashboard({ auth, onLogout }) {
           })()}
 
           {page === "imprimeur" && estAdminGeneral && <AccesImprimeurPage />}
+          {page === "maintenance" && estAdminGeneral && <MaintenancePage />}
           {page === "agents" && (
             <div className="flex flex-col gap-4">
               <div className="flex justify-end">
@@ -7088,6 +7111,57 @@ function BandeauRecherche({ saisie, critere, total, onEffacer }) {
 }
 
 /* Administration : un accès imprimeur par mois (identifiant MMAAAA + code). */
+/* Maintenance (administrateur) : optimisation des photos des membres.
+   Les photos de plus de 60 Ko sont réduites à 480 px DANS CE NAVIGATEUR puis
+   renvoyées ; l'original reste conservé en base (photo_originale). Gain : le
+   tableau de bord se charge beaucoup plus vite. À relancer si besoin. */
+function MaintenancePage() {
+  const [etat, setEtat] = useState({ enCours: false, faites: 0, erreurs: 0, message: null });
+  const optimiser = async () => {
+    setEtat({ enCours: true, faites: 0, erreurs: 0, message: "Démarrage…" });
+    let faites = 0, erreurs = 0;
+    for (const [table, lib] of [["proprietaires", "transporteurs"], ["chauffeurs", "chauffeurs"], ["elements", "éléments"]]) {
+      let apres = "";
+      for (;;) {
+        let lot;
+        try { lot = await apiGet(`/api/agents?resource=photos&table=${table}${apres ? `&apres=${apres}` : ""}`); }
+        catch (e) { setEtat((x) => ({ ...x, message: `Erreur : ${e.message}` })); erreurs++; break; }
+        if (!lot?.lignes?.length) break;
+        for (const l of lot.lignes) {
+          apres = l.id;
+          try {
+            let reduite = await reduireDataUrl(l.photo, PHOTO_PERSONNE);
+            if (reduite.length > 115000) reduite = await reduireDataUrl(l.photo, { maxSide: 420, quality: 0.6 });
+            if (reduite.length < l.photo.length) {
+              await apiPost(`/api/agents?resource=photos&table=${table}`, { id: l.id, photo: reduite });
+              faites++;
+            }
+          } catch { erreurs++; }
+          setEtat({ enCours: true, faites, erreurs, message: `Photos des ${lib} : ${faites} optimisée(s)…` });
+        }
+      }
+    }
+    setEtat({ enCours: false, faites, erreurs, message: `Terminé : ${faites} photo(s) optimisée(s)${erreurs ? `, ${erreurs} erreur(s)` : ""}. Rechargez la page (Ctrl+Maj+R).` });
+  };
+  return (
+    <div className="font-body" style={{ maxWidth: 760 }}>
+      <h1 className="font-display mb-1" style={{ fontSize: 26, fontWeight: 800, color: C.ink }}>Maintenance</h1>
+      <div className="p-5 rounded-xl" style={{ background: "#fff", border: `1px solid ${C.border}` }}>
+        <h2 className="font-display mb-2" style={{ fontSize: 17, fontWeight: 800 }}>Optimiser les photos des membres</h2>
+        <p className="text-sm mb-4" style={{ color: C.slate }}>
+          Les photos prises au téléphone pèsent souvent 150 à 300 Ko : elles ralentissent l'ouverture du tableau de bord.
+          Cet outil les réduit à 480 px (largement suffisant pour l'écran et la carte imprimée).
+          <b> L'original est conservé</b> en base. Laissez cette page ouverte jusqu'à la fin.
+        </p>
+        <button onClick={optimiser} disabled={etat.enCours} className="px-4 py-2.5 rounded-lg text-sm font-semibold" style={{ background: etat.enCours ? "#ddd" : C.orange, color: "#fff" }}>
+          {etat.enCours ? "Optimisation en cours…" : "Optimiser les photos"}
+        </button>
+        {etat.message && <p className="text-sm mt-3" style={{ color: etat.erreurs ? C.red : C.greenDark }}>{etat.message}</p>}
+      </div>
+    </div>
+  );
+}
+
 function AccesImprimeurPage() {
   const [acces, setAcces] = useState(null);
   const maintenant = new Date();

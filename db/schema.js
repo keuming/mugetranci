@@ -65,6 +65,7 @@ export const proprietaires = pgTable("proprietaires", {
   ville: varchar("ville", { length: 80 }),
   quartier: varchar("quartier", { length: 120 }),
   photoUrl: text("photo_url"),
+  photoOriginale: text("photo_originale"), // photo d'origine (haute résolution) conservée lors de l'optimisation — jamais chargée au démarrage
   // QR code du compte marchand Mobile Money : image fournie par le
   // transporteur (capture depuis son opérateur), affichée en grand au
   // verso de la carte de membre pour permettre l'encaissement des clients.
@@ -112,6 +113,7 @@ export const chauffeurs = pgTable("chauffeurs", {
   contact3: varchar("contact3", { length: 30 }),
   email: varchar("email", { length: 160 }),
   photoUrl: text("photo_url"),
+  photoOriginale: text("photo_originale"), // photo d'origine (haute résolution) conservée lors de l'optimisation — jamais chargée au démarrage
   qrPaiementUrl: text("qr_paiement_url"),
   numeroCarte: varchar("numero_carte", { length: 20 }), // généré automatiquement, préfixe C
   carteImprimee: boolean("carte_imprimee").default(false).notNull(),
@@ -161,6 +163,7 @@ export const elements = pgTable("elements", {
   contact3: varchar("contact3", { length: 30 }),
   email: varchar("email", { length: 160 }),
   photoUrl: text("photo_url"),
+  photoOriginale: text("photo_originale"), // photo d'origine (haute résolution) conservée lors de l'optimisation — jamais chargée au démarrage
   qrPaiementUrl: text("qr_paiement_url"),
   numeroCarte: varchar("numero_carte", { length: 20 }), // généré automatiquement, préfixe E
   carteImprimee: boolean("carte_imprimee").default(false).notNull(),

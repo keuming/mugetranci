@@ -13,7 +13,7 @@ import { envoyerJson } from "../lib/reponse.js";
    QR ORZAYAH (redessiné en vectoriel à partir de son lien). */
 const COLONNES_LOURDES = new Set([
   "photoCarteGrise", "photoVisiteTechnique", "photoAssuranceAuto", "photoVignette", "photoCarteStationnement",
-  "qrPaiementUrl", "orzayahQrImage",
+  "qrPaiementUrl", "orzayahQrImage", "photoOriginale",
 ]);
 function colonnesLegeres(table) {
   const cols = getTableColumns(table);

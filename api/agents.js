@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, sql, and, gt, asc } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { agents, accesImpression } from "../db/schema.js";
+import { agents, accesImpression, proprietaires, chauffeurs, elements } from "../db/schema.js";
 import { requireAuth , estAdministrateur } from "../lib/auth.js";
 
 function toApi(row) {
@@ -23,6 +23,35 @@ export default async function handler(req, res) {
   const id = Array.isArray(idParam) ? idParam[0] : idParam;
   const auth = requireAuth(req, res);
   if (!auth) return;
+
+  // Optimisation des photos des membres (administrateur) : les photos de plus
+  // de 60 Ko sont réduites dans le navigateur de l'administrateur puis
+  // renvoyées ; l'original est conservé dans photo_originale.
+  if (req.query.resource === "photos") {
+    if (!estAdministrateur(auth)) return res.status(403).json({ error: "Réservé à l'administrateur général." });
+    const TABLES = { proprietaires, chauffeurs, elements };
+    const table = TABLES[req.query.table];
+    if (!table) return res.status(400).json({ error: "Table inconnue." });
+    if (req.method === "GET") {
+      const apres = String(req.query.apres || "00000000-0000-0000-0000-000000000000");
+      const rows = await db.select({ id: table.id, photo: table.photoUrl }).from(table)
+        .where(and(sql`octet_length(${table.photoUrl}) > 60000`, gt(table.id, apres)))
+        .orderBy(asc(table.id)).limit(8);
+      const [{ reste }] = await db.select({ reste: sql`count(*)::int` }).from(table).where(sql`octet_length(${table.photoUrl}) > 60000`);
+      return res.status(200).json({ lignes: rows, reste });
+    }
+    if (req.method === "POST") {
+      const { id: idPhoto, photo } = req.body || {};
+      if (!idPhoto || typeof photo !== "string" || !photo.startsWith("data:image/") || photo.length > 120000) {
+        return res.status(400).json({ error: "Photo optimisée invalide." });
+      }
+      const [avant] = await db.select({ photoUrl: table.photoUrl, photoOriginale: table.photoOriginale }).from(table).where(eq(table.id, idPhoto));
+      if (!avant) return res.status(404).json({ error: "Membre introuvable." });
+      await db.update(table).set({ photoUrl: photo, photoOriginale: avant.photoOriginale || avant.photoUrl }).where(eq(table.id, idPhoto));
+      return res.status(200).json({ ok: true });
+    }
+    return res.status(405).json({ error: "Méthode non autorisée" });
+  }
 
   // Accès imprimeur mensuels (identifiant MMAAAA + code) : administrateur uniquement.
   if (req.query.resource === "acces-impression") {
