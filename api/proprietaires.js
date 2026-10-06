@@ -66,6 +66,11 @@ export default async function handler(req, res) {
         values.creatorId = auth.gareRoutiereId;
         const [gare] = await db.select().from(garesRoutieres).where(eq(garesRoutieres.id, auth.gareRoutiereId));
         if (gare) values.syndicatId = gare.syndicatId; // compte aussi dans les effectifs du syndicat parent
+      } else if (auth.role === "association") {
+        values.creatorType = "association";
+        values.creatorId = auth.associationId;
+        values.associationId = auth.associationId;
+        if (!values.syndicatId && auth.syndicatId) values.syndicatId = auth.syndicatId;
       } else if (auth.role === "agent") {
         // Un agent enrôleur agit au nom de son entité de rattachement, mais
         // il enrôle des membres de n'importe quelle association : si le
@@ -102,6 +107,12 @@ export default async function handler(req, res) {
     if (auth.role === "admin") return true;
     const [p] = await db.select().from(proprietaires).where(eq(proprietaires.id, id));
     if (!p) { res.status(404).json({ error: "Membre introuvable" }); return false; }
+    // Association : modification des fiches de SES membres (fonctions, CNI, contacts…)
+    if (auth.role === "association") {
+      if (p.associationId && p.associationId === auth.associationId) return true;
+      res.status(403).json({ error: "Ce membre n'appartient pas à votre association." });
+      return false;
+    }
     if (auth.role === "commission_mixte") {
       if (p.creatorType === "commission_mixte" && p.creatorId === auth.commissionMixteId) return true;
       res.status(403).json({ error: "Vous ne pouvez modifier que les transporteurs créés par votre commission." });
@@ -187,6 +198,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "DELETE") {
+    if (auth.role === "association") return res.status(403).json({ error: "La suppression est réservée au collectif et à l'administration." });
     if (!(await assertOwnership())) return;
     const [vehiculesLies, historique] = await Promise.all([
       db.select().from(vehicules).where(eq(vehicules.proprietaireId, id)),

@@ -392,6 +392,11 @@ export default async function handler(req, res) {
     }
     const [v] = await db.select().from(vehicules).where(eq(vehicules.id, id));
     if (!v) { res.status(404).json({ error: "Véhicule introuvable" }); return false; }
+    if (auth.role === "association") {
+      if (v.associationId && v.associationId === auth.associationId) return true;
+      res.status(403).json({ error: "Ce véhicule n'appartient pas à votre association." });
+      return false;
+    }
     if (auth.role === "agent") {
       const ok = await agentPeutGerer(auth, v, async (cmId) => {
         const rows = await db.select().from(syndicats).where(eq(syndicats.commissionMixteId, cmId));
@@ -494,6 +499,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "DELETE") {
+    if (auth.role === "association") return res.status(403).json({ error: "La suppression est réservée au collectif et à l'administration." });
     if (!(await assertOwnership())) return;
 
     const achats = await db.select().from(achatsCarburant).where(eq(achatsCarburant.vehiculeId, id));

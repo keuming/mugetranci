@@ -63,6 +63,11 @@ export default async function handler(req, res) {
         values.creatorId = auth.gareRoutiereId;
         const [gare] = await db.select().from(garesRoutieres).where(eq(garesRoutieres.id, auth.gareRoutiereId));
         if (gare) values.syndicatId = gare.syndicatId;
+      } else if (auth.role === "association") {
+        values.creatorType = "association";
+        values.creatorId = auth.associationId;
+        values.associationId = auth.associationId;
+        if (!values.syndicatId && auth.syndicatId) values.syndicatId = auth.syndicatId;
       } else if (auth.role === "agent") {
         // Un agent enrôleur agit au nom de son entité de rattachement, mais
         // il enrôle des membres de n'importe quelle association : si le
@@ -99,6 +104,12 @@ export default async function handler(req, res) {
     if (auth.role === "admin") return true;
     const [c] = await db.select().from(chauffeurs).where(eq(chauffeurs.id, id));
     if (!c) { res.status(404).json({ error: "Chauffeur introuvable" }); return false; }
+    // Association : modification des fiches de SES membres (fonctions, CNI, contacts…)
+    if (auth.role === "association") {
+      if (c.associationId && c.associationId === auth.associationId) return true;
+      res.status(403).json({ error: "Ce chauffeur n'appartient pas à votre association." });
+      return false;
+    }
     if (auth.role === "commission_mixte") {
       if (c.creatorType === "commission_mixte" && c.creatorId === auth.commissionMixteId) return true;
       res.status(403).json({ error: "Vous ne pouvez modifier que les chauffeurs créés par votre commission." });
@@ -176,6 +187,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "DELETE") {
+    if (auth.role === "association") return res.status(403).json({ error: "La suppression est réservée au collectif et à l'administration." });
     if (!(await assertOwnership())) return;
     // Le chauffeur est reference par les affectations de vehicule et les
     // achats de carburant : sans ce controle la suppression echouait avec
