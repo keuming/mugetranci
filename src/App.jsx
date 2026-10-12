@@ -362,6 +362,71 @@ function VerifierAvantAjout({ existants = [], associations = [], actions }) {
     </div>
   );
 }
+/* Même logique, pour les VÉHICULES (liste importée de ~3 500 véhicules) :
+   immatriculation (même partielle, espaces/tirets ignorés), châssis, carte
+   grise, macaron, n° de carte de ligne, nom sur la carte grise, nom ou
+   téléphone du transporteur. */
+function rechercherVehiculesTexte(vehicles, owners, texte, limite = 8) {
+  const t = String(texte || "").trim();
+  if (t.length < 3) return [];
+  const piece = normPiece(t), tel = normTel(t);
+  const mots = normTexte(t).split(" ").filter((m) => m.length >= 2);
+  const proprios = new Map(owners.map((o) => [o.id, o]));
+  const out = [];
+  for (const v of vehicles) {
+    const o = proprios.get(v.proprietaireId);
+    const raisons = [];
+    if (piece.length >= 3 && normPiece(v.immatriculation).includes(piece)) raisons.push("immatriculation");
+    if (piece.length >= 5 && normPiece(v.chassis).includes(piece)) raisons.push("châssis");
+    if (piece.length >= 4 && normPiece(v.carteGrise).includes(piece)) raisons.push("carte grise");
+    if (piece.length >= 3 && [v.numeroMacaron, v.numeroCarteLigne].some((x) => x && normPiece(x) === piece)) raisons.push("macaron / carte");
+    const nomsCg = normTexte(v.nomCarteGrise).split(" ");
+    if (mots.length && /[A-Z]{2}/.test(normTexte(t)) && mots.every((x) => nomsCg.some((n) => n.startsWith(x)))) raisons.push("nom carte grise");
+    if (o) {
+      const nomO = normTexte(`${o.prenoms} ${o.nom}`).split(" ");
+      if (mots.length && /[A-Z]{2}/.test(normTexte(t)) && mots.every((x) => nomO.some((n) => n.startsWith(x)))) raisons.push("transporteur");
+      if (tel.length >= 6 && [o.contact1, o.contact2, o.contact3].some((c) => normTel(c).includes(tel))) raisons.push("téléphone");
+    }
+    if (raisons.length) {
+      out.push({ v, o, raison: raisons.join(", ") });
+      if (out.length >= limite) break;
+    }
+  }
+  return out;
+}
+function VerifierVehiculeAvantAjout({ vehicles = [], owners = [], syndicats = [], onOuvrir }) {
+  const [texte, setTexte] = useState("");
+  const trouves = useMemo(() => rechercherVehiculesTexte(vehicles, owners, texte), [vehicles, owners, texte]);
+  return (
+    <div className="font-body rounded-xl p-3 mb-4" style={{ background: C.greenLight, border: `1px solid ${C.green}` }}>
+      <div className="text-sm font-semibold mb-2" style={{ color: C.greenDark }}>🔎 Vérifiez d'abord si le véhicule est déjà enregistré</div>
+      <TextInput value={texte} onChange={(e) => setTexte(e.target.value)} placeholder="Immatriculation, châssis, carte grise, macaron, nom ou téléphone du transporteur…" />
+      {texte.trim().length >= 3 && (
+        trouves.length ? (
+          <div className="mt-2">
+            {trouves.map(({ v, o, raison }) => {
+              const sy = syndicats.find((x) => x.id === v.syndicatId);
+              return (
+                <div key={v.id} className="flex items-center gap-2 flex-wrap py-1.5" style={{ borderTop: `1px solid ${C.border}` }}>
+                  <span className="font-mono text-sm font-bold px-2 py-0.5 rounded" style={{ background: "#fff", border: `1px solid ${C.border}`, color: C.ink }}>{v.immatriculation}</span>
+                  <span className="text-sm font-semibold" style={{ color: C.ink }}>{o ? `${o.prenoms} ${o.nom}` : (v.nomCarteGrise || "Transporteur non renseigné")}</span>
+                  <span className="text-xs" style={{ color: C.slate }}>{[[v.marque, v.modele].filter(Boolean).join(" "), v.numeroMacaron && `macaron ${v.numeroMacaron}`, o?.contact1, sy?.sigle || sy?.nom].filter(Boolean).join(" · ")} — même {raison}</span>
+                  {onOuvrir && (
+                    <span className="ml-auto">
+                      <button type="button" onClick={() => onOuvrir(v)} className="text-xs font-semibold px-2.5 py-1 rounded-lg" style={{ background: C.greenDark, color: "#fff" }}>Mettre à jour ce véhicule</button>
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-xs mt-2" style={{ color: C.greenDark, fontWeight: 600 }}>✓ Aucun véhicule correspondant : vous pouvez l'ajouter ci-dessous.</div>
+        )
+      )}
+    </div>
+  );
+}
 function ListeExistants({ trouves, associations = [], actions }) {
   return (
     <div className="mt-2">
@@ -1092,6 +1157,7 @@ function VehicleForm({ auth, owners, drivers, vehicles = [], existants = [], onO
       <div className="flex-1 overflow-y-auto pr-1">
         {step === 0 && (
           <SectionCard accent={C.green} icon={<Car size={18} />} title="Véhicule">
+            <VerifierVehiculeAvantAjout vehicles={vehicles} owners={owners} syndicats={syndicats} onOuvrir={onOuvrirVehicule} />
             {isAdmin && (
               <div className="mb-5 px-3 py-3 rounded-lg" style={{ background: C.orangeLight }}>
                 <Field label="Collectif (Syndicat) gestionnaire" hint="Obligatoire : détermine à quel collectif (syndicat) ce véhicule, son transporteur et ses chauffeurs seront rattachés">
