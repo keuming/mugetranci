@@ -130,11 +130,15 @@ export default async function handler(req, res) {
       // a creer sous l'un de ces deux collectifs. Sans ce garde-fou, des
       // associations finissaient enregistrees comme collectifs et polluaient
       // le menu deroulant du logo de gauche.
-      if (body.commune && body.type) {
+      // La règle « deux collectifs par commune » ne vaut que pour les
+      // collectifs : une compagnie de transport ou un autre groupement peut
+      // coexister avec eux dans la même commune.
+      const natureGroupement = String(body.nature || "Collectif").trim().slice(0, 60) || "Collectif";
+      if (body.commune && body.type && natureGroupement.toLowerCase() === "collectif") {
         const existants = await db.select().from(syndicats);
         const doublon = existants.find(
           (s) => (s.commune || "").trim().toUpperCase() === body.commune.trim().toUpperCase()
-            && s.type === body.type
+            && s.type === body.type && String(s.nature || "Collectif").toLowerCase() === "collectif"
         );
         if (doublon) {
           const libelle = body.type === "transporteurs" ? "des transporteurs" : "des conducteurs";
@@ -152,6 +156,7 @@ export default async function handler(req, res) {
           logoUrl: body.logoUrl || null,
           commune: body.commune || null,
           type: body.type || null,
+          nature: natureGroupement,
           presidentNom: body.presidentNom || null,
           presidentContact: body.presidentContact || null,
           login: body.login || null,
@@ -199,6 +204,7 @@ export default async function handler(req, res) {
       if (k in body) patch[k] = body[k] || null;
     });
     if (body.pinCode) patch.pinCode = body.pinCode;
+    if ("nature" in body) patch.nature = String(body.nature || "Collectif").trim().slice(0, 60) || "Collectif";
 
     if (Object.keys(patch).length === 0) {
       return res.status(400).json({ error: "Aucun champ à mettre à jour" });

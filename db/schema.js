@@ -36,6 +36,9 @@ export const syndicats = pgTable("syndicats", {
   logoUrl: text("logo_url"),
   commune: varchar("commune", { length: 60 }), // commune de rattachement du collectif
   type: varchar("type", { length: 20 }), // transporteurs | chauffeurs — determine quel collectif apparait sur quelle carte
+  // Nature du groupement : Collectif, Compagnie de transport, ou autre nature
+  // créée plus tard. Transmise à ORZAYAH comme catégorie des comptes marchands.
+  nature: varchar("nature", { length: 60 }).default("Collectif").notNull(),
   presidentNom: varchar("president_nom", { length: 160 }),
   presidentContact: varchar("president_contact", { length: 30 }),
   login: varchar("login", { length: 20 }).unique(),

@@ -165,6 +165,10 @@ function mentionPointFocal(commune) {
   const c = String(commune || "").trim();
   return c ? `Point Focal ${c.toUpperCase()}` : null;
 }
+// Nature d'un groupement (transmise à ORZAYAH comme catégorie des comptes
+// marchands de ses membres). D'autres natures peuvent être saisies.
+const NATURES_GROUPEMENT = ["Collectif", "Compagnie de transport"];
+
 const SYNDICAT_TYPES = [
   { value: "transporteurs", label: "Collectif des syndicats des transporteurs" },
   { value: "chauffeurs", label: "Collectif des syndicats des chauffeurs" },
@@ -5657,11 +5661,11 @@ function Dashboard({ auth, onLogout }) {
       </Modal>}
 
       {showSyndicatFormFor && <Modal onClose={() => setShowSyndicatFormFor(null)} title="Ajouter un collectif (syndicat)" wide>
-        <SyndicatForm commission={commissionsMixtes.find((c) => c.id === showSyndicatFormFor)} onCancel={() => setShowSyndicatFormFor(null)} onSave={async (payload) => { await addSyndicat(payload); setShowSyndicatFormFor(null); }} />
+        <SyndicatForm syndicats={syndicats} commission={commissionsMixtes.find((c) => c.id === showSyndicatFormFor)} onCancel={() => setShowSyndicatFormFor(null)} onSave={async (payload) => { await addSyndicat(payload); setShowSyndicatFormFor(null); }} />
       </Modal>}
 
       {editSyndicat && <Modal onClose={() => setEditSyndicat(null)} title={`Modifier — ${editSyndicat.nom}`} wide>
-        <SyndicatForm commission={commissionsMixtes.find((c) => c.id === editSyndicat.commissionMixteId)} initialSyndicat={editSyndicat} onCancel={() => setEditSyndicat(null)} onSave={async (payload) => { await updateSyndicat(editSyndicat.id, payload); setEditSyndicat(null); }} />
+        <SyndicatForm syndicats={syndicats} commission={commissionsMixtes.find((c) => c.id === editSyndicat.commissionMixteId)} initialSyndicat={editSyndicat} onCancel={() => setEditSyndicat(null)} onSave={async (payload) => { await updateSyndicat(editSyndicat.id, payload); setEditSyndicat(null); }} />
       </Modal>}
 
       {showGareRoutiereFormFor && <Modal onClose={() => setShowGareRoutiereFormFor(null)} title="Ajouter une gare routière" wide>
@@ -5982,13 +5986,16 @@ function CommissionMixteForm({ initialCommission, onCancel, onSave }) {
 /* ============================================================
    SYNDICAT — formulaire d'ajout, rattaché à une commission mixte
    ============================================================ */
-function SyndicatForm({ commission, initialSyndicat, onCancel, onSave }) {
+function SyndicatForm({ commission, initialSyndicat, syndicats = [], onCancel, onSave }) {
   const isEdit = !!initialSyndicat;
   const [nom, setNom] = useState(initialSyndicat?.nom || "");
   const [sigle, setSigle] = useState(initialSyndicat?.sigle || "");
   const [logoUrl, setLogoUrl] = useState(initialSyndicat?.logoUrl || null);
   const [commune, setCommune] = useState(initialSyndicat?.commune || "");
   const [type, setType] = useState(initialSyndicat?.type || "");
+  const [nature, setNature] = useState(initialSyndicat?.nature || "Collectif");
+  const naturesConnues = Array.from(new Set([...NATURES_GROUPEMENT, ...syndicats.map((g) => g.nature).filter(Boolean)]));
+  const [natureLibre, setNatureLibre] = useState(!!initialSyndicat?.nature && !naturesConnues.includes(initialSyndicat.nature));
   const [presidentNom, setPresidentNom] = useState(initialSyndicat?.presidentNom || "");
   const [presidentContact, setPresidentContact] = useState(initialSyndicat?.presidentContact || "");
   const [login, setLogin] = useState(initialSyndicat?.login || "");
@@ -5997,13 +6004,13 @@ function SyndicatForm({ commission, initialSyndicat, onCancel, onSave }) {
   const [error, setError] = useState(null);
 
   const pinValid = !pinCode || /^\d{4}$/.test(pinCode);
-  const canSave = nom && pinValid && !saving;
+  const canSave = nom && pinValid && nature.trim() && !saving;
 
   const handleSave = async () => {
     setSaving(true);
     setError(null);
     try {
-      await onSave({ commissionMixteId: commission.id, nom, sigle, logoUrl, commune, type, presidentNom, presidentContact, login, pinCode });
+      await onSave({ commissionMixteId: commission.id, nom, sigle, logoUrl, commune, type, nature: nature.trim(), presidentNom, presidentContact, login, pinCode });
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -6034,6 +6041,21 @@ function SyndicatForm({ commission, initialSyndicat, onCancel, onSave }) {
           </select>
         </Field>
       </div>
+      <Field label="Nature du groupement" hint="Collectif, compagnie de transport ou autre — transmise à ORZAYAH comme catégorie des comptes marchands de ses membres">
+        {natureLibre ? (
+          <div className="flex items-center gap-2">
+            <TextInput value={nature} onChange={(e) => setNature(e.target.value)} placeholder="Ex. Coopérative" autoFocus />
+            <button type="button" onClick={() => { setNatureLibre(false); setNature("Collectif"); }} className="font-body" style={{ color: C.slate, fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>Annuler</button>
+          </div>
+        ) : (
+          <select style={inputStyle} className="font-body" value={nature} onChange={(e) => {
+            if (e.target.value === "__autre__") { setNatureLibre(true); setNature(""); } else setNature(e.target.value);
+          }}>
+            {naturesConnues.map((n) => <option key={n} value={n}>{n}</option>)}
+            <option value="__autre__">+ Autre nature de groupement…</option>
+          </select>
+        )}
+      </Field>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom du président"><TextInput value={presidentNom} onChange={(e) => setPresidentNom(e.target.value)} /></Field>
         <Field label="Contact du président"><TextInput value={presidentContact} onChange={(e) => setPresidentContact(e.target.value)} /></Field>
@@ -7230,7 +7252,7 @@ function SyndicatMembersTable({ commissionSyndicats, owners, associations = [], 
               {s.sigle && <div className="font-body text-xs" style={{ color: C.slate }}>{s.nom}</div>}
               {(s.commune || s.type) && (
                 <div className="font-body text-xs mt-0.5" style={{ color: C.orangeDark }}>
-                  {s.commune}{s.commune && s.type ? " · " : ""}{s.type === "transporteurs" ? "Transporteurs" : s.type === "chauffeurs" ? "Chauffeurs" : ""}
+                  {[s.nature && s.nature !== "Collectif" ? s.nature : null, s.commune, s.type === "transporteurs" ? "Transporteurs" : s.type === "chauffeurs" ? "Chauffeurs" : null].filter(Boolean).join(" · ")}
                 </div>
               )}
               <div className="font-display" style={{ fontSize: 22, fontWeight: 700, color: C.green }}>{count}</div>
