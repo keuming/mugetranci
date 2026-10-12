@@ -1837,7 +1837,7 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
   const card = (
     <div
       style={{
-        width: 340, height: 214, borderRadius: 16, position: "relative", flexShrink: 0, overflow: "hidden",
+        width: 340, height: 214, borderRadius: 0, position: "relative", flexShrink: 0, overflow: "hidden",
         background: isRecto && theme.cardBackground ? theme.cardBackground : "#fff",
         border: `1px solid ${isRecto && theme.cardBackground ? "transparent" : C.border}`,
         boxShadow: scale === 1 ? "0 12px 28px rgba(11,110,79,0.2)" : "none",
@@ -2009,7 +2009,7 @@ function CarteDroitDeLigneFace({ vehicule, owner, collectifTransporteurs, collec
     <div style={{ width: 340 * scale, height: 214 * scale, overflow: "hidden", flexShrink: 0 }}>
       <div
         style={{
-          width: 340, height: 214, borderRadius: 16, position: "relative", overflow: "hidden",
+          width: 340, height: 214, borderRadius: 0, position: "relative", overflow: "hidden",
           background: "#fff", border: `1px solid ${C.border}`,
           boxShadow: scale === 1 ? "0 12px 28px rgba(11,110,79,0.2)" : "none",
           transform: `scale(${scale})`, transformOrigin: "top left",
@@ -2112,7 +2112,7 @@ function CarteDroitDeLigneVerso({ vehicule, owner, scale = 1 }) {
     <div style={{ width: 340 * scale, height: 214 * scale, overflow: "hidden", flexShrink: 0 }}>
       <div
         style={{
-          width: 340, height: 214, borderRadius: 16, position: "relative", overflow: "hidden",
+          width: 340, height: 214, borderRadius: 0, position: "relative", overflow: "hidden",
           background: "#fff", border: `1px solid ${C.border}`,
           boxShadow: scale === 1 ? "0 12px 28px rgba(11,110,79,0.2)" : "none",
           transform: `scale(${scale})`, transformOrigin: "top left",
@@ -2132,6 +2132,7 @@ function CarteDroitDeLigneVerso({ vehicule, owner, scale = 1 }) {
 
 function CarteDroitDeLigne({ vehicule, owner, collectifTransporteurs, collectifChauffeurs, onClose }) {
   const [flipped, setFlipped] = useState(false);
+  const format = useFormatImpression();
   const wrapRef = useRef(null);
   const [scale, setScale] = useState(1);
   React.useEffect(() => {
@@ -2143,11 +2144,18 @@ function CarteDroitDeLigne({ vehicule, owner, collectifTransporteurs, collectifC
 
   return (
     <div className="flex flex-col items-center gap-3" ref={wrapRef} style={{ width: "100%" }}>
+      {format === "cartes" ? (
+        <div className="no-print flex flex-col items-center gap-3">
+          <CarteDroitDeLigneFace vehicule={vehicule} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} scale={scale} />
+          <CarteDroitDeLigneVerso vehicule={vehicule} owner={owner} scale={scale} />
+        </div>
+      ) : (
       <div className="no-print">
         {flipped
           ? <CarteDroitDeLigneVerso vehicule={vehicule} owner={owner} scale={scale} />
           : <CarteDroitDeLigneFace vehicule={vehicule} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} scale={scale} />}
       </div>
+      )}
       <PagesImprimanteCartes groupe="carte" faces={[
         <CarteDroitDeLigneFace key="r" vehicule={vehicule} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} />,
         <CarteDroitDeLigneVerso key="v" vehicule={vehicule} owner={owner} />,
@@ -2157,9 +2165,9 @@ function CarteDroitDeLigne({ vehicule, owner, collectifTransporteurs, collectifC
         <CarteDroitDeLigneVerso vehicule={vehicule} owner={owner} />
       </div>
       <div className="no-print flex items-center gap-2">
-        <button onClick={() => setFlipped((f) => !f)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-2 rounded-full" style={{ border: `1px solid ${C.border}`, color: C.ink, background: "#fff" }}>
+        {format !== "cartes" && <button onClick={() => setFlipped((f) => !f)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-2 rounded-full" style={{ border: `1px solid ${C.border}`, color: C.ink, background: "#fff" }}>
           <RotateCw size={13} /> {flipped ? "Voir le recto" : "Voir le verso"}
-        </button>
+        </button>}
         <FormatImpression compact />
         <button
           onClick={() => imprimerCartes("carte")}
@@ -2175,6 +2183,7 @@ function CarteDroitDeLigne({ vehicule, owner, collectifTransporteurs, collectifC
 
 function MemberCard({ member, category, logo1, logo2, numero, ficheValue, infoFields, initialFace = "recto" }) {
   const [flipped, setFlipped] = useState(initialFace === "verso");
+  const format = useFormatImpression();
   const wrapRef = useRef(null);
   const [scale, setScale] = useState(1);
 
@@ -2195,11 +2204,13 @@ function MemberCard({ member, category, logo1, logo2, numero, ficheValue, infoFi
   const props = { member, category, logo1, logo2, numero, ficheValue, infoFields };
   return (
     <div className="flex flex-col items-center gap-3" ref={wrapRef} style={{ width: "100%" }}>
-      <div className="no-print" style={{ width: 340 * scale, height: 214 * scale, overflow: "hidden" }}>
+      {(format === "cartes" ? ["recto", "verso"] : [flipped ? "verso" : "recto"]).map((side) => (
+      <div key={side} className="no-print" style={{ width: 340 * scale, height: 214 * scale, overflow: "hidden" }}>
         <div style={{ width: 340, height: 214, transform: `scale(${scale})`, transformOrigin: "top left" }}>
-          <MemberCardFace {...props} side={flipped ? "verso" : "recto"} />
+          <MemberCardFace {...props} side={side} />
         </div>
       </div>
+      ))}
       <PagesImprimanteCartes groupe="carte" faces={["recto", "verso"].map((side) => <MemberCardFace key={side} {...props} side={side} />)} />
       <div className="print-area print-card-duo flex items-center justify-center flex-wrap gap-4">
         <MemberCardFace {...props} side="recto" />
@@ -2213,9 +2224,9 @@ function MemberCard({ member, category, logo1, logo2, numero, ficheValue, infoFi
         </div>
       )}
       <div className="no-print flex items-center gap-2">
-        <button onClick={() => setFlipped((f) => !f)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ border: `1px solid ${C.border}`, color: C.ink }}>
+        {format !== "cartes" && <button onClick={() => setFlipped((f) => !f)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ border: `1px solid ${C.border}`, color: C.ink }}>
           <RotateCw size={13} /> {flipped ? "Voir le recto" : "Voir le verso"}
-        </button>
+        </button>}
         <FormatImpression compact />
         <button onClick={() => imprimerCartes("carte")} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ border: `1px solid ${C.border}`, color: C.ink }}>
           <Printer size={13} /> Imprimer (recto + verso)
@@ -2255,6 +2266,35 @@ function FormatImpression({ compact = false }) {
     </select>
   );
 }
+function useFormatImpression() {
+  const [format, setFormat] = useState(lireFormatImpression);
+  React.useEffect(() => {
+    const maj = () => setFormat(lireFormatImpression());
+    window.addEventListener("comix-format-impression", maj);
+    return () => window.removeEventListener("comix-format-impression", maj);
+  }, []);
+  return format;
+}
+// Aperçu à l'écran du format imprimante : chaque carte en colonne, recto AU-DESSUS du verso.
+function ApercuCartesVertical({ cartes, scale = 0.62 }) {
+  if (!cartes.length) return null;
+  return (
+    <div className="no-print" style={{ marginTop: 14 }}>
+      <div className="font-body text-xs font-semibold" style={{ color: C.slate, marginBottom: 8 }}>
+        Aperçu imprimante à cartes — {cartes.length} carte{cartes.length > 1 ? "s" : ""}, recto au-dessus du verso ({cartes.length * 2} pages)
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 18 }}>
+        {cartes.map((c) => (
+          <div key={c.key} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+            {c.recto(scale)}
+            {c.verso(scale)}
+            <div className="font-body" style={{ fontSize: 10, color: C.slate }}>{c.name}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 // Pages « une face par page », rendues hors de l'écran (portail sur <body>).
 function PagesImprimanteCartes({ groupe, faces }) {
   const [hote] = useState(() => { const d = document.createElement("div"); d.className = "print-cartes-root"; d.dataset.groupe = groupe; return d; });
@@ -2288,7 +2328,8 @@ const LIGNE_CARDS_PER_SHEET = 6; // 6 cartes par feuille, recto + verso cote a c
 const LIGNE_SHEET_SCALE = 254 / 340;
 
 // `items` : { key, name, vehicule, owner, collectifTransporteurs, collectifChauffeurs }
-function LigneCardSheet({ items, title }) {
+function LigneCardSheet({ items, title, apercu = false }) {
+  const format = useFormatImpression();
   if (!items.length) return null;
   const groups = [];
   for (let i = 0; i < items.length; i += LIGNE_CARDS_PER_SHEET) groups.push(items.slice(i, i + LIGNE_CARDS_PER_SHEET));
@@ -2299,6 +2340,9 @@ function LigneCardSheet({ items, title }) {
       <CarteDroitDeLigneFace key="r" vehicule={it.vehicule} owner={it.owner} collectifTransporteurs={it.collectifTransporteurs} collectifChauffeurs={it.collectifChauffeurs} />,
       <CarteDroitDeLigneVerso key="v" vehicule={it.vehicule} owner={it.owner} />,
     ])} />
+    {apercu && format === "cartes" && <ApercuCartesVertical cartes={items.map((it) => ({ key: it.key, name: it.name,
+      recto: (sc) => <CarteDroitDeLigneFace vehicule={it.vehicule} owner={it.owner} collectifTransporteurs={it.collectifTransporteurs} collectifChauffeurs={it.collectifChauffeurs} scale={sc} />,
+      verso: (sc) => <CarteDroitDeLigneVerso vehicule={it.vehicule} owner={it.owner} scale={sc} /> }))} />}
     <div className="print-area print-card-sheet">
       {groups.map((group, gi) => (
         <div key={gi} className="card-sheet-page" style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: gi === 0 ? 0 : 10 }}>
@@ -2326,7 +2370,8 @@ const MEMBER_SHEET_SCALE = 254 / 340;
 
 // `items` : tableau pré-calculé par l'appelant, un élément par carte à
 // imprimer : { key, name, member, category, logo1, logo2, numero, ficheValue, infoFields }
-function MemberCardSheet({ items, title }) {
+function MemberCardSheet({ items, title, apercu = false }) {
+  const format = useFormatImpression();
   if (!items.length) return null;
   const groups = [];
   for (let i = 0; i < items.length; i += MEMBER_CARDS_PER_SHEET) groups.push(items.slice(i, i + MEMBER_CARDS_PER_SHEET));
@@ -2336,6 +2381,10 @@ function MemberCardSheet({ items, title }) {
     <PagesImprimanteCartes groupe="planche" faces={items.flatMap((it) => ["recto", "verso"].map((side) => (
       <MemberCardFace key={side} member={it.member} category={it.category} logo1={it.logo1} logo2={it.logo2} numero={it.numero} ficheValue={it.ficheValue} infoFields={it.infoFields} side={side} />
     )))} />
+    {apercu && format === "cartes" && <ApercuCartesVertical cartes={items.map((it) => {
+      const pr = { member: it.member, category: it.category, logo1: it.logo1, logo2: it.logo2, numero: it.numero, ficheValue: it.ficheValue, infoFields: it.infoFields };
+      return { key: it.key, name: it.name, recto: (sc) => <MemberCardFace {...pr} side="recto" scale={sc} />, verso: (sc) => <MemberCardFace {...pr} side="verso" scale={sc} /> };
+    })} />}
     <div className="print-area print-card-sheet">
       {groups.map((group, gi) => (
         <div key={gi} className="card-sheet-page" style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: gi === 0 ? 0 : 10 }}>
@@ -3870,7 +3919,7 @@ function EspaceImprimeur({ auth, onLogout }) {
         </div>
       </div>
       {onglet === "vehicule" ? (
-        <LigneCardSheet title={`Planche — cartes de droit d'exploitation de ligne — lot ${auth.periode}`}
+        <LigneCardSheet apercu title={`Planche — cartes de droit d'exploitation de ligne — lot ${auth.periode}`}
           items={choisis.map((v) => {
             const owner = owners.find((o) => o.id === v.proprietaireId);
             const collectifTransporteurs = syndicats.find((sy) => sy.id === v.syndicatId) || null;
@@ -3878,7 +3927,7 @@ function EspaceImprimeur({ auth, onLogout }) {
             return { key: v.id, name: v.immatriculation, vehicule: v, owner, collectifTransporteurs, collectifChauffeurs };
           })} />
       ) : (
-        <MemberCardSheet title={`Planche — cartes ${onglet}s — lot ${auth.periode}`}
+        <MemberCardSheet apercu title={`Planche — cartes ${onglet}s — lot ${auth.periode}`}
           items={choisis.map((m) => ({ key: m.id, name: `${m.prenoms} ${m.nom}`, member: m, category: onglet,
             ...cardDataFor(m, onglet, commissionsMixtes, syndicats, vehicles, associations, garesRoutieres, lignes) }))} />
       )}
