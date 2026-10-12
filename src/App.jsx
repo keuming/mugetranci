@@ -3980,6 +3980,47 @@ export default function App() {
    carte est marquée « imprimée » : elle quitte la liste et passe aux
    archives (duplicata), avec sa date et son lot d'impression.
    ============================================================ */
+
+/* ============================================================
+   ÉDITION DES LISTINGS (espace imprimeur) : état imprimable A4 et
+   export Excel (CSV ; séparateur « ; », accents conservés).
+   ============================================================ */
+const echapperHtml = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function editerListing({ titre, sousTitre, colonnes, lignes }) {
+  const w = window.open("", "_blank");
+  if (!w) { alert("Le navigateur a bloqué la fenêtre du listing : autorisez les fenêtres pop-up pour ce site."); return; }
+  const date = new Date().toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" });
+  w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${echapperHtml(titre)}</title>
+<style>
+  @page { size: A4; margin: 12mm; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #14181A; font-size: 11px; }
+  h1 { font-size: 16px; margin: 0 0 2px; } .st { color: #555; margin: 0 0 10px; font-size: 11px; }
+  table { width: 100%; border-collapse: collapse; } thead { display: table-header-group; }
+  th { background: #0B6E4F; color: #fff; text-align: left; padding: 5px 6px; font-size: 10.5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  td { border-bottom: 1px solid #ddd; padding: 4px 6px; vertical-align: top; } tr:nth-child(even) td { background: #F6F4EF; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .pied { margin-top: 14px; display: flex; justify-content: space-between; font-size: 10.5px; } .sig { margin-top: 30px; }
+  .barre { margin: 0 0 10px; } .barre button { font-size: 13px; padding: 7px 14px; cursor: pointer; }
+  @media print { .barre { display: none; } }
+</style></head><body>
+<div class="barre"><button onclick="window.print()">Imprimer / Enregistrer en PDF</button></div>
+<h1>${echapperHtml(titre)}</h1><p class="st">${echapperHtml(sousTitre)} — ${lignes.length} carte${lignes.length > 1 ? "s" : ""} — édité le ${echapperHtml(date)}</p>
+<table><thead><tr><th>N°</th>${colonnes.map((c) => `<th>${echapperHtml(c.titre)}</th>`).join("")}</tr></thead>
+<tbody>${lignes.map((l, i) => `<tr><td>${i + 1}</td>${colonnes.map((c) => `<td>${echapperHtml(l[c.cle])}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${colonnes.length + 1}">Aucune carte.</td></tr>`}</tbody></table>
+<div class="pied"><div class="sig">Visa de l'imprimeur :</div><div class="sig">Visa COMIX-CI :</div></div>
+</body></html>`);
+  w.document.close();
+  w.focus();
+}
+function exporterCsv(nomFichier, colonnes, lignes) {
+  const cell = (v) => { const t = String(v ?? ""); return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+  const csv = [["N°", ...colonnes.map((c) => c.titre)].map(cell).join(";"),
+    ...lignes.map((l, i) => [i + 1, ...colonnes.map((c) => l[c.cle])].map(cell).join(";"))].join("\r\n");
+  const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a"); a.href = url; a.download = nomFichier; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+const TYPES_CARTE_IMPRIMEUR = { transporteur: "Transporteur", chauffeur: "Chauffeur", element: "Élément", vehicule: "Droit de ligne" };
+
 function EspaceImprimeur({ auth, onLogout }) {
   const [data, setData] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -3987,6 +4028,7 @@ function EspaceImprimeur({ auth, onLogout }) {
   const [groupement, setGroupement] = useState("");
   const [selection, setSelection] = useState([]);
   const [enCours, setEnCours] = useState(false);
+  const [vueImprimees, setVueImprimees] = useState(false);
   const charger = async () => {
     try { setErreur(null); setData(await apiGet("/api/bootstrap")); }
     catch (e) { setErreur(e.message || "Chargement impossible."); }
@@ -4041,6 +4083,77 @@ function EspaceImprimeur({ auth, onLogout }) {
         <button onClick={onLogout} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.12)" }}><LogOut size={15} /> Déconnexion</button>
       </div>
       <div className="no-print px-6 py-5" style={{ maxWidth: 1100, margin: "0 auto" }}>
+        {(() => {
+          // ---- Outils d'édition des listings ----
+          const lotLisible = `${auth.periode?.slice(0, 2)}/${auth.periode?.slice(2)}`;
+          const libGroupement = !groupement ? "Tous les groupements"
+            : groupement.startsWith("s:") ? (() => { const sy = syndicats.find((x) => x.id === groupement.slice(2)); return sy?.sigle || sy?.nom || "Collectif"; })()
+            : (() => { const as = associations.find((x) => x.id === groupement.slice(2)); return as?.sigle || as?.nom || "Association"; })();
+          const ligne = (type, x) => ({
+            type: TYPES_CARTE_IMPRIMEUR[type],
+            titulaire: type === "vehicule" ? x.immatriculation : `${x.prenoms || ""} ${x.nom || ""}`.trim(),
+            numero: x.numero || x.carteTransporteurNumero || x.numeroCarte || x.numeroCarteLigne || "",
+            groupement: nomGroupement(x),
+            envoi: [x.pretImpressionPar, x.pretImpressionAt ? fmt(x.pretImpressionAt) : null].filter(Boolean).join(" — "),
+            imprimee: x.carteImprimeeAt ? new Date(x.carteImprimeeAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "",
+          });
+          const tri = (a, b) => a.type.localeCompare(b.type, "fr") || a.groupement.localeCompare(b.groupement, "fr") || a.titulaire.localeCompare(b.titulaire, "fr");
+          const lignesAImprimer = Object.entries(listes).flatMap(([t, l]) => l.map((x) => ligne(t, x))).sort(tri);
+          const imp = data.imprimees || {};
+          const lignesImprimees = Object.keys(TYPES_CARTE_IMPRIMEUR).flatMap((t) => (imp[t] || []).filter(parGroupement).map((x) => ({ ...ligne(t, x), _t: t, _id: x.id }))).sort(tri);
+          const colsA = [{ cle: "type", titre: "Type de carte" }, { cle: "titulaire", titre: "Titulaire / immatriculation" }, { cle: "numero", titre: "N° carte" }, { cle: "groupement", titre: "Collectif · association" }, { cle: "envoi", titre: "Envoyée par" }];
+          const colsI = [{ cle: "type", titre: "Type de carte" }, { cle: "titulaire", titre: "Titulaire / immatriculation" }, { cle: "numero", titre: "N° carte" }, { cle: "groupement", titre: "Collectif · association" }, { cle: "imprimee", titre: "Imprimée le" }];
+          const remettre = async (x) => {
+            if (!window.confirm(`Remettre la carte « ${x.titulaire} » dans la liste à imprimer ? (marquage fait par erreur)`)) return;
+            const chemin = { transporteur: "proprietaires", chauffeur: "chauffeurs", element: "elements", vehicule: "vehicules" }[x._t];
+            try { await apiPatch(`/api/${chemin}?id=${x._id}`, { carteImprimee: false }); await charger(); }
+            catch (e) { alert(e.message || "Correction impossible."); }
+          };
+          const bouton = (lib, onClick, plein) => (
+            <button onClick={onClick} className="text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+              style={plein ? { background: C.greenDark, color: "#fff" } : { background: "#fff", color: C.ink, border: `1px solid ${C.border}` }}>{lib}</button>
+          );
+          const carte = (titre, n, sous, actions) => (
+            <div className="p-3 rounded-xl flex-1" style={{ background: "#fff", border: `1px solid ${C.border}`, minWidth: 300 }}>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-sm font-bold" style={{ color: C.ink }}>{titre}</span>
+                <span className="font-display" style={{ fontSize: 20, fontWeight: 800, color: C.greenDark }}>{n}</span>
+              </div>
+              <div className="text-xs mb-2" style={{ color: C.slate }}>{sous}</div>
+              <div className="flex flex-wrap gap-2">{actions}</div>
+            </div>
+          );
+          return (
+            <div className="mb-4">
+              <div className="flex flex-wrap gap-3">
+                {carte("Listing des cartes à imprimer", lignesAImprimer.length, libGroupement, [
+                  bouton(<><Printer size={13} /> Éditer le listing</>, () => editerListing({ titre: "COMIX-CI — Listing des cartes à imprimer", sousTitre: `Lot ${lotLisible} · ${libGroupement}`, colonnes: colsA, lignes: lignesAImprimer }), true),
+                  bouton(<><FileText size={13} /> Excel</>, () => exporterCsv(`cartes-a-imprimer-${auth.periode}.csv`, colsA, lignesAImprimer)),
+                ])}
+                {carte(`Cartes imprimées — lot ${lotLisible}`, lignesImprimees.length, libGroupement, [
+                  bouton(<><Printer size={13} /> Éditer le listing</>, () => editerListing({ titre: `COMIX-CI — Cartes imprimées (lot ${lotLisible})`, sousTitre: libGroupement, colonnes: colsI, lignes: lignesImprimees }), true),
+                  bouton(<><FileText size={13} /> Excel</>, () => exporterCsv(`cartes-imprimees-${auth.periode}.csv`, colsI, lignesImprimees)),
+                  bouton(vueImprimees ? "Masquer" : "Voir / corriger", () => setVueImprimees((v) => !v)),
+                ])}
+              </div>
+              {vueImprimees && (
+                <div className="mt-3" style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
+                  {lignesImprimees.length === 0 && <div className="p-5 text-sm text-center" style={{ color: C.slate }}>Aucune carte imprimée dans ce lot.</div>}
+                  {lignesImprimees.map((x) => (
+                    <div key={x._t + x._id} className="flex items-center gap-3 px-4 py-2 flex-wrap" style={{ borderBottom: `1px solid ${C.border}` }}>
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: C.cream }}>{x.type}</span>
+                      <span className="font-semibold text-sm" style={{ minWidth: 200 }}>{x.titulaire}</span>
+                      <span className="font-mono text-xs" style={{ color: C.slate, minWidth: 90 }}>{x.numero}</span>
+                      <span className="text-xs" style={{ color: C.slate }}>{x.groupement}</span>
+                      <span className="text-xs ml-auto" style={{ color: C.slate }}>Imprimée le {x.imprimee}</span>
+                      <button onClick={() => remettre(x)} className="text-xs font-semibold px-2.5 py-1 rounded-lg" style={{ background: C.amberLight, color: C.ink, border: `1px solid ${C.amber}` }}>Remettre à imprimer</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
         <div className="flex flex-wrap items-center gap-2 mb-4">
           {ONGLETS.map(([k, lab]) => (
             <button key={k} onClick={() => setOnglet(k)} className="px-4 py-2 rounded-full text-sm font-semibold"

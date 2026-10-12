@@ -149,7 +149,22 @@ export default async function handler(req, res) {
     for (const j of junctions) if (idsDrivers.has(j.chauffeurId)) idsVeh.add(j.vehiculeId);
     const vehs = allVehicules.filter((v) => idsVeh.has(v.id));
     for (const v of vehs) if (v.proprietaireId) idsOwners.add(v.proprietaireId);
+    // Cartes déjà imprimées dans SON lot (mois d'accès) : listing et correction
+    // d'un marquage fait par erreur. Champs légers uniquement (ni photo ni QR).
+    const duLot = (x) => x.carteImprimee && x.lotImpression === auth.periode;
+    const leger = (x) => ({
+      id: x.id, nom: x.nom || null, prenoms: x.prenoms || null, immatriculation: x.immatriculation || null,
+      numero: x.carteTransporteurNumero || x.numeroCarte || x.numeroCarteLigne || null,
+      syndicatId: x.syndicatId || null, associationId: x.associationId || null,
+      carteImprimeeAt: x.carteImprimeeAt, lotImpression: x.lotImpression,
+      pretImpressionPar: x.pretImpressionPar || null, pretImpressionAt: x.pretImpressionAt || null,
+    });
+    const imprimees = {
+      transporteur: allOwners.filter(duLot).map(leger), chauffeur: allDrivers.filter(duLot).map(leger),
+      element: allElements.filter(duLot).map(leger), vehicule: allVehicules.filter(duLot).map(leger),
+    };
     return envoyerJson(req, res, {
+      imprimees,
       proprietaires: allOwners.filter((o) => idsOwners.has(o.id)).map(toApiOwner),
       chauffeurs: driversP.map(toApiDriver),
       elements: elementsP.map(toApiElement),
