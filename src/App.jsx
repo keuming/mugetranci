@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { QRCodeSVG } from "qrcode.react";
 import {
   Car, User, Users, Bell, Plus, X, Check, AlertTriangle, CreditCard,
@@ -118,7 +119,17 @@ input, select, textarea { font-size: 16px !important; }
   .card-sheet-page:last-child { break-after: auto; page-break-after: auto; }
   .no-print { display: none !important; }
   @page { margin: 8mm; }
+  /* Imprimante à cartes : une face par page, au format exact de la carte */
+  html.mode-impression-cartes, html.mode-impression-cartes body { margin: 0 !important; padding: 0 !important; height: auto !important; min-height: 0 !important; overflow: visible !important; }
+  html.mode-impression-cartes body > *:not(.print-cartes-root.actif) { display: none !important; }
+  html.mode-impression-cartes .print-cartes-root.actif { display: block !important; position: static !important; }
+  html.mode-impression-cartes .print-cartes-root.actif,
+  html.mode-impression-cartes .print-cartes-root.actif * { visibility: visible !important; }
+  .page-carte { width: 85.6mm; height: 54mm; overflow: hidden; position: relative; break-inside: avoid; }
+  .page-carte + .page-carte,
+  .print-cartes-root.actif ~ .print-cartes-root.actif .page-carte:first-child { break-before: page; page-break-before: always; }
 }
+.print-cartes-root { display: none; }
 `;
 
 const TODAY = new Date("2026-07-27");
@@ -2137,6 +2148,10 @@ function CarteDroitDeLigne({ vehicule, owner, collectifTransporteurs, collectifC
           ? <CarteDroitDeLigneVerso vehicule={vehicule} owner={owner} scale={scale} />
           : <CarteDroitDeLigneFace vehicule={vehicule} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} scale={scale} />}
       </div>
+      <PagesImprimanteCartes groupe="carte" faces={[
+        <CarteDroitDeLigneFace key="r" vehicule={vehicule} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} />,
+        <CarteDroitDeLigneVerso key="v" vehicule={vehicule} owner={owner} />,
+      ]} />
       <div className="print-card-duo flex-wrap gap-4" style={{ display: "none" }}>
         <CarteDroitDeLigneFace vehicule={vehicule} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} />
         <CarteDroitDeLigneVerso vehicule={vehicule} owner={owner} />
@@ -2145,8 +2160,9 @@ function CarteDroitDeLigne({ vehicule, owner, collectifTransporteurs, collectifC
         <button onClick={() => setFlipped((f) => !f)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-2 rounded-full" style={{ border: `1px solid ${C.border}`, color: C.ink, background: "#fff" }}>
           <RotateCw size={13} /> {flipped ? "Voir le recto" : "Voir le verso"}
         </button>
+        <FormatImpression compact />
         <button
-          onClick={() => window.print()}
+          onClick={() => imprimerCartes("carte")}
           className="font-body flex items-center gap-2"
           style={{ background: C.orange, color: "#fff", fontSize: 13, fontWeight: 800, padding: "10px 18px", borderRadius: 10 }}
         >
@@ -2184,6 +2200,7 @@ function MemberCard({ member, category, logo1, logo2, numero, ficheValue, infoFi
           <MemberCardFace {...props} side={flipped ? "verso" : "recto"} />
         </div>
       </div>
+      <PagesImprimanteCartes groupe="carte" faces={["recto", "verso"].map((side) => <MemberCardFace key={side} {...props} side={side} />)} />
       <div className="print-area print-card-duo flex items-center justify-center flex-wrap gap-4">
         <MemberCardFace {...props} side="recto" />
         <MemberCardFace {...props} side="verso" />
@@ -2199,12 +2216,72 @@ function MemberCard({ member, category, logo1, logo2, numero, ficheValue, infoFi
         <button onClick={() => setFlipped((f) => !f)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ border: `1px solid ${C.border}`, color: C.ink }}>
           <RotateCw size={13} /> {flipped ? "Voir le recto" : "Voir le verso"}
         </button>
-        <button onClick={() => window.print()} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ border: `1px solid ${C.border}`, color: C.ink }}>
+        <FormatImpression compact />
+        <button onClick={() => imprimerCartes("carte")} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ border: `1px solid ${C.border}`, color: C.ink }}>
           <Printer size={13} /> Imprimer (recto + verso)
         </button>
       </div>
     </div>
   );
+}
+
+/* ============================================================
+   IMPRESSION SUR IMPRIMANTE À CARTES
+   Format demandé par l'imprimeur : une face par page, page au format exact
+   de la carte (CR80, 85,6 × 54 mm), RECTO PUIS VERSO de chaque carte à la
+   suite (recto au-dessus du verso), carte après carte. Le format « planche
+   A4 » reste disponible.
+   ============================================================ */
+const CARTE_W_MM = 85.6, CARTE_H_MM = 54;
+const ECHELLE_IMPRIMANTE = (CARTE_W_MM * 96 / 25.4) / 340;
+const CLE_FORMAT = "comix_format_impression";
+function lireFormatImpression() {
+  try { return localStorage.getItem(CLE_FORMAT) || "cartes"; } catch { return "cartes"; }
+}
+function FormatImpression({ compact = false }) {
+  const [format, setFormat] = useState(lireFormatImpression);
+  React.useEffect(() => {
+    const maj = () => setFormat(lireFormatImpression());
+    window.addEventListener("comix-format-impression", maj);
+    return () => window.removeEventListener("comix-format-impression", maj);
+  }, []);
+  return (
+    <select value={format} title="Format d'impression"
+      onChange={(e) => { try { localStorage.setItem(CLE_FORMAT, e.target.value); } catch {} setFormat(e.target.value); window.dispatchEvent(new Event("comix-format-impression")); }}
+      className="font-body text-xs font-semibold rounded-lg no-print"
+      style={{ border: `1px solid ${C.border}`, background: "#fff", color: C.ink, padding: compact ? "5px 6px" : "7px 8px" }}>
+      <option value="cartes">Imprimante à cartes (1 face/page, recto puis verso)</option>
+      <option value="planche">Planche A4 (6 cartes/feuille)</option>
+    </select>
+  );
+}
+// Pages « une face par page », rendues hors de l'écran (portail sur <body>).
+function PagesImprimanteCartes({ groupe, faces }) {
+  const [hote] = useState(() => { const d = document.createElement("div"); d.className = "print-cartes-root"; d.dataset.groupe = groupe; return d; });
+  React.useEffect(() => { document.body.appendChild(hote); return () => hote.remove(); }, [hote]);
+  if (!faces.length) return null;
+  return createPortal(faces.map((f, i) => <div key={i} className="page-carte"><div style={{ zoom: ECHELLE_IMPRIMANTE }}>{f}</div></div>), hote);
+}
+// groupe : "planche" (cartes sélectionnées) ou "carte" (carte ouverte).
+function imprimerCartes(groupe = "planche") {
+  const roots = [...document.querySelectorAll(`.print-cartes-root[data-groupe="${groupe}"]`)].filter((r) => r.childElementCount);
+  if (lireFormatImpression() !== "cartes" || !roots.length) { window.print(); return; }
+  const style = document.createElement("style");
+  style.textContent = `@page { size: ${CARTE_W_MM}mm ${CARTE_H_MM}mm !important; margin: 0 !important; }`;
+  document.body.appendChild(style); // en dernier : prime sur le @page { margin: 8mm } des planches A4
+  roots.forEach((r) => r.classList.add("actif"));
+  document.documentElement.classList.add("mode-impression-cartes");
+  let fait = false;
+  const fin = () => {
+    if (fait) return; fait = true;
+    roots.forEach((r) => r.classList.remove("actif"));
+    document.documentElement.classList.remove("mode-impression-cartes");
+    style.remove();
+    window.removeEventListener("afterprint", fin);
+  };
+  window.addEventListener("afterprint", fin);
+  window.print();
+  setTimeout(fin, 120000);
 }
 
 const LIGNE_CARDS_PER_SHEET = 6; // 6 cartes par feuille, recto + verso cote a cote sur chaque ligne
@@ -2217,6 +2294,11 @@ function LigneCardSheet({ items, title }) {
   for (let i = 0; i < items.length; i += LIGNE_CARDS_PER_SHEET) groups.push(items.slice(i, i + LIGNE_CARDS_PER_SHEET));
 
   return (
+    <>
+    <PagesImprimanteCartes groupe="planche" faces={items.flatMap((it) => [
+      <CarteDroitDeLigneFace key="r" vehicule={it.vehicule} owner={it.owner} collectifTransporteurs={it.collectifTransporteurs} collectifChauffeurs={it.collectifChauffeurs} />,
+      <CarteDroitDeLigneVerso key="v" vehicule={it.vehicule} owner={it.owner} />,
+    ])} />
     <div className="print-area print-card-sheet">
       {groups.map((group, gi) => (
         <div key={gi} className="card-sheet-page" style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: gi === 0 ? 0 : 10 }}>
@@ -2235,6 +2317,7 @@ function LigneCardSheet({ items, title }) {
         </div>
       ))}
     </div>
+    </>
   );
 }
 
@@ -2249,6 +2332,10 @@ function MemberCardSheet({ items, title }) {
   for (let i = 0; i < items.length; i += MEMBER_CARDS_PER_SHEET) groups.push(items.slice(i, i + MEMBER_CARDS_PER_SHEET));
 
   return (
+    <>
+    <PagesImprimanteCartes groupe="planche" faces={items.flatMap((it) => ["recto", "verso"].map((side) => (
+      <MemberCardFace key={side} member={it.member} category={it.category} logo1={it.logo1} logo2={it.logo2} numero={it.numero} ficheValue={it.ficheValue} infoFields={it.infoFields} side={side} />
+    )))} />
     <div className="print-area print-card-sheet">
       {groups.map((group, gi) => (
         <div key={gi} className="card-sheet-page" style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: gi === 0 ? 0 : 10 }}>
@@ -2267,6 +2354,7 @@ function MemberCardSheet({ items, title }) {
         </div>
       ))}
     </div>
+    </>
   );
 }
 
@@ -3759,8 +3847,9 @@ function EspaceImprimeur({ auth, onLogout }) {
             <button onClick={() => setSelection(choisis.length === lot.length && lot.length ? [] : lot.map((x) => x.id))} className="text-xs font-semibold px-3 py-1.5 rounded-full" style={{ border: `1px solid ${C.border}` }}>
               {choisis.length === lot.length && lot.length ? "Tout désélectionner" : `Sélectionner les ${lot.length} premières`}
             </button>
-            <button onClick={() => window.print()} disabled={!choisis.length} className="text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: choisis.length ? C.orange : "#ddd", color: "#fff" }}>
-              <Printer size={13} /> Imprimer la planche
+            <FormatImpression compact />
+            <button onClick={() => imprimerCartes("planche")} disabled={!choisis.length} className="text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: choisis.length ? C.orange : "#ddd", color: "#fff" }}>
+              <Printer size={13} /> Imprimer les cartes
             </button>
             <button onClick={marquerImprimees} disabled={!choisis.length || enCours} className="text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: choisis.length ? C.greenDark : "#ddd", color: "#fff" }}>
               {enCours ? "Confirmation…" : "Confirmer l'impression"}
@@ -4746,13 +4835,14 @@ function Dashboard({ auth, onLogout }) {
                       Marquer comme imprimées
                     </button>
                   )}
+                  <FormatImpression compact />
                   <button
-                    onClick={() => window.print()}
+                    onClick={() => imprimerCartes("planche")}
                     disabled={selectedVehicleIds.length === 0}
                     className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
                     style={{ background: selectedVehicleIds.length ? C.orange : "#D8B48A", color: "#fff", cursor: selectedVehicleIds.length ? "pointer" : "not-allowed" }}
                   >
-                    <Printer size={13} /> Générer la planche PDF ({LIGNE_CARDS_PER_SHEET} cartes/feuille)
+                    <Printer size={13} /> Imprimer les cartes sélectionnées
                   </button>
                 </div>
               </div>
@@ -4847,13 +4937,14 @@ function Dashboard({ auth, onLogout }) {
                       Retirer de l'imprimeur
                     </button>
                   )}
+                  <FormatImpression compact />
                   <button
-                    onClick={() => window.print()}
+                    onClick={() => imprimerCartes("planche")}
                     disabled={selectedOwnerIds.length === 0}
                     className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
                     style={{ background: selectedOwnerIds.length ? C.orange : "#D8B48A", color: "#fff", cursor: selectedOwnerIds.length ? "pointer" : "not-allowed" }}
                   >
-                    <Printer size={13} /> Générer la planche PDF ({MEMBER_CARDS_PER_SHEET} cartes/feuille)
+                    <Printer size={13} /> Imprimer les cartes sélectionnées
                   </button>
                   {auth.role !== "association" && (
                     <button onClick={() => setShowMemberFormFor(true)} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: C.green, color: "#fff" }}>
@@ -4997,13 +5088,14 @@ function Dashboard({ auth, onLogout }) {
                       Retirer de l'imprimeur
                     </button>
                   )}
+                  <FormatImpression compact />
                   <button
-                    onClick={() => window.print()}
+                    onClick={() => imprimerCartes("planche")}
                     disabled={selectedElementIds.length === 0}
                     className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
                     style={{ background: selectedElementIds.length ? C.orange : "#D8B48A", color: "#fff", cursor: selectedElementIds.length ? "pointer" : "not-allowed" }}
                   >
-                    <Printer size={13} /> Générer la planche PDF ({MEMBER_CARDS_PER_SHEET} cartes/feuille)
+                    <Printer size={13} /> Imprimer les cartes sélectionnées
                   </button>
                   {auth.role !== "association" && (
                     <button onClick={() => setShowElementFormFor(true)} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: C.green, color: "#fff" }}>
@@ -5203,13 +5295,14 @@ function Dashboard({ auth, onLogout }) {
                       Retirer de l'imprimeur
                     </button>
                   )}
+                  <FormatImpression compact />
                   <button
-                    onClick={() => window.print()}
+                    onClick={() => imprimerCartes("planche")}
                     disabled={selectedDriverIds.length === 0}
                     className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
                     style={{ background: selectedDriverIds.length ? C.orange : "#D8B48A", color: "#fff", cursor: selectedDriverIds.length ? "pointer" : "not-allowed" }}
                   >
-                    <Printer size={13} /> Générer la planche PDF ({MEMBER_CARDS_PER_SHEET} cartes/feuille)
+                    <Printer size={13} /> Imprimer les cartes sélectionnées
                   </button>
                   <button onClick={() => setShowDriverFormFor(true)} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: C.green, color: "#fff" }}>
                     <Plus size={16} /> Ajouter un chauffeur
