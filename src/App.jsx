@@ -702,6 +702,19 @@ function OrzayahCompteField({ value, onChange, telephone, onTelephone, membre })
    Secrétaire général, Chef de gare…), commune aux trois catégories et
    imprimée au recto de la carte. Liste ouverte : fonctions courantes +
    toutes celles déjà saisies, avec possibilité d'en ajouter une nouvelle. */
+const GROUPES_SANGUINS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+function GroupeSanguinField({ value, onChange }) {
+  return (
+    <Field label="Groupe sanguin" hint="Imprimé au recto de la carte.">
+      <select value={value || ""} onChange={(e) => onChange(e.target.value)} className="font-body w-full"
+        style={{ border: `1.5px solid ${C.border}`, borderRadius: 10, padding: "10px 12px", background: "#fff", color: C.ink, fontSize: 14 }}>
+        <option value="">Non renseigné</option>
+        {GROUPES_SANGUINS.map((g) => <option key={g} value={g}>{g}</option>)}
+      </select>
+    </Field>
+  );
+}
+
 function FonctionField({ value, onChange, dejaUtilisees = [], label = "Fonction / Qualification" }) {
   const [nouvelle, setNouvelle] = useState(false);
   const proposees = Array.from(new Set([...FONCTIONS_COURANTES, ...dejaUtilisees.filter(Boolean), ...(value ? [value] : [])]))
@@ -1194,6 +1207,7 @@ function VehicleForm({ auth, owners, drivers, vehicles = [], existants = [], onO
                     actions={({ kind, m }) => kind === "transporteur" ? [{ label: "Choisir ce transporteur", onClick: () => { setOwnerMode("existing"); setOwnerId(m.id); } }] : []} />
                   <FonctionField label="Fonction dans le collectif" value={newOwner.fonction} onChange={(v) => setNewOwner({ ...newOwner, fonction: v })} dejaUtilisees={[...owners, ...drivers].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
                   <FonctionField label="Fonction dans l'association" value={newOwner.fonctionAssociation} onChange={(v) => setNewOwner({ ...newOwner, fonctionAssociation: v })} dejaUtilisees={[...owners, ...drivers].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
+                  <GroupeSanguinField value={newOwner.groupeSanguin} onChange={(v) => setNewOwner({ ...newOwner, groupeSanguin: v })} />
                   <Field label="Numéro permis de conduire"><TextInput value={newOwner.numeroPermis} onChange={(e) => setNewOwner({ ...newOwner, numeroPermis: e.target.value })} /></Field>
                   <Field label="Adresse email"><TextInput value={newOwner.email} onChange={(e) => setNewOwner({ ...newOwner, email: e.target.value })} /></Field>
                   <Field label="Contact 1"><TextInput value={newOwner.contact1} onChange={(e) => setNewOwner({ ...newOwner, contact1: e.target.value })} /></Field>
@@ -1270,6 +1284,7 @@ function VehicleForm({ auth, owners, drivers, vehicles = [], existants = [], onO
                           actions={({ kind, m }) => kind === "chauffeur" ? [{ label: "Choisir ce chauffeur", onClick: () => updateDriverRow(i, { mode: "existing", id: m.id }) }] : []} />
                         <FonctionField label="Fonction dans le collectif" value={row.draft.fonction} onChange={(v) => updateDriverDraft(i, { fonction: v })} dejaUtilisees={[...owners, ...drivers].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
                         <FonctionField label="Fonction dans l'association" value={row.draft.fonctionAssociation} onChange={(v) => updateDriverDraft(i, { fonctionAssociation: v })} dejaUtilisees={[...owners, ...drivers].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
+                        <GroupeSanguinField value={row.draft.groupeSanguin} onChange={(v) => updateDriverDraft(i, { groupeSanguin: v })} />
                         <Field label="Numéro permis de conduire"><TextInput value={row.draft.permisNumero} onChange={(e) => updateDriverDraft(i, { permisNumero: e.target.value })} /></Field>
                         <Field label="Fin de validité du permis"><DateInput value={row.draft.permisDateFin} onChange={(e) => updateDriverDraft(i, { permisDateFin: e.target.value })} /></Field>
                         <Field label="Adresse email"><TextInput value={row.draft.email} onChange={(e) => updateDriverDraft(i, { email: e.target.value })} /></Field>
@@ -1434,6 +1449,7 @@ function FicheVehicule({ vehicle, owners, drivers, commissionsMixtes, syndicats,
                 <div><span style={{ color: C.slate, fontSize: 8.5 }}>Quartier</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.quartier}</div></div>
                 <div><span style={{ color: C.slate, fontSize: 8.5 }}>Fonction (collectif)</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.fonction || "—"}</div></div>
                 <div><span style={{ color: C.slate, fontSize: 8.5 }}>Fonction (association)</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.fonctionAssociation || "—"}</div></div>
+                <div><span style={{ color: C.slate, fontSize: 8.5 }}>Groupe sanguin</span><div className="font-medium" style={{ lineHeight: 1.3 }}>{owner.groupeSanguin || "—"}</div></div>
               </div>
             </div>
           ) : <div className="font-body text-xs" style={{ color: C.slate }}>Aucun transporteur enregistré.</div>}
@@ -1900,7 +1916,14 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
             </div>
             <div className="font-body">
               <div style={{ fontSize: 13.5, fontWeight: 700, color: tPrincipal, lineHeight: 1.15 }}>{member.prenoms} {member.nom}</div>
-              <div style={{ fontSize: 9, color: tSecondaire }}>{theme.label}</div>
+              <div className="flex items-center gap-1.5" style={{ fontSize: 9, color: tSecondaire }}>
+                <span>{theme.label}</span>
+                {member.groupeSanguin && (
+                  <span title="Groupe sanguin" style={{ background: "#C8102E", color: "#fff", fontSize: 7.5, fontWeight: 800, lineHeight: 1, padding: "2px 4px", borderRadius: 3, letterSpacing: 0.2, whiteSpace: "nowrap" }}>
+                    GS {member.groupeSanguin}
+                  </span>
+                )}
+              </div>
               {mentionPointFocal(communePointFocal) && (
                 <div style={{ fontSize: 7.5, color: tPrincipal, fontWeight: 800, marginTop: 1, letterSpacing: 0.3 }}>{mentionPointFocal(communePointFocal)}</div>
               )}
@@ -3191,6 +3214,7 @@ function MobileTransporteurSection({ owner, onLierOrzayah }) {
       <div style={{ height: 6 }} />
       <MobileField label="Fonction dans le collectif" value={owner.fonction} />
       <MobileField label="Fonction dans l'association" value={owner.fonctionAssociation} />
+      <MobileField label="Groupe sanguin" value={owner.groupeSanguin} />
       <MobileField label="N° CNI" value={owner.cni} mono />
       <MobileField label="N° permis" value={owner.numeroPermis} mono />
       <MobileField label="Téléphone" value={[owner.contact1, owner.contact2, owner.contact3].filter(Boolean).join(" · ")} mono />
@@ -3247,6 +3271,7 @@ function MobileChauffeurFiche({ d, onLierOrzayah }) {
       <div style={{ height: 6 }} />
       <MobileField label="Fonction dans le collectif" value={d.fonction} />
       <MobileField label="Fonction dans l'association" value={d.fonctionAssociation} />
+      <MobileField label="Groupe sanguin" value={d.groupeSanguin} />
       <MobileField label="N° CNI" value={d.cni} mono />
       <MobileField label="N° permis" value={d.permisNumero} mono />
       <div className="flex items-center justify-between" style={{ padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
@@ -3278,6 +3303,7 @@ function MobileElementSection({ el, syndicats, onLierOrzayah }) {
       <div style={{ height: 6 }} />
       <MobileField label="Fonction dans le collectif" value={el.fonction} />
       <MobileField label="Fonction dans l'association" value={el.fonctionAssociation} />
+      <MobileField label="Groupe sanguin" value={el.groupeSanguin} />
       <MobileField label="Association" value={syn ? (syn.sigle || syn.nom) : "—"} />
       <MobileField label="N° CNI" value={el.cni} mono />
       <MobileField label="Téléphone" value={[el.contact1, el.contact2, el.contact3].filter(Boolean).join(" · ")} mono />
@@ -6483,6 +6509,7 @@ function MemberForm({ initialMember, existants = [], onOuvrirExistant, commissio
   const [cni, setCni] = useState(initialMember?.cni || "");
   const [fonction, setFonction] = useState(initialMember?.fonction || "");
   const [fonctionAssociation, setFonctionAssociation] = useState(initialMember?.fonctionAssociation || "");
+  const [groupeSanguin, setGroupeSanguin] = useState(initialMember?.groupeSanguin || "");
   const [numeroPermis, setNumeroPermis] = useState(initialMember?.numeroPermis || "");
   const [contact1, setContact1] = useState(initialMember?.contact1 || "");
   const [contact2, setContact2] = useState(initialMember?.contact2 || "");
@@ -6522,7 +6549,7 @@ function MemberForm({ initialMember, existants = [], onOuvrirExistant, commissio
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo, orzayahCompte, orzayahTelephone, fonction, fonctionAssociation, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
+      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo, orzayahCompte, orzayahTelephone, fonction, fonctionAssociation, groupeSanguin, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -6578,6 +6605,7 @@ function MemberForm({ initialMember, existants = [], onOuvrirExistant, commissio
         )}
         <FonctionField label="Fonction dans le collectif" value={fonction} onChange={setFonction} dejaUtilisees={tousMembres.flatMap((m) => [m.fonction, m.fonctionAssociation])} />
         <FonctionField label="Fonction dans l'association" value={fonctionAssociation} onChange={setFonctionAssociation} dejaUtilisees={tousMembres.flatMap((m) => [m.fonction, m.fonctionAssociation])} />
+        <GroupeSanguinField value={groupeSanguin} onChange={setGroupeSanguin} />
         <Field label="Numéro permis de conduire"><TextInput value={numeroPermis} onChange={(e) => setNumeroPermis(e.target.value)} /></Field>
         <Field label="Adresse email"><TextInput value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
         <Field label="Contact 1"><TextInput value={contact1} onChange={(e) => setContact1(e.target.value)} /></Field>
@@ -6616,6 +6644,7 @@ function DriverForm({ initialDriver, existants = [], onOuvrirExistant, commissio
   const [cni, setCni] = useState(initialDriver?.cni || "");
   const [fonction, setFonction] = useState(initialDriver?.fonction || "");
   const [fonctionAssociation, setFonctionAssociation] = useState(initialDriver?.fonctionAssociation || "");
+  const [groupeSanguin, setGroupeSanguin] = useState(initialDriver?.groupeSanguin || "");
   const [permisNumero, setPermisNumero] = useState(initialDriver?.permisNumero || "");
   const [permisDateFin, setPermisDateFin] = useState(initialDriver?.permisDateFin || "");
   const [contact1, setContact1] = useState(initialDriver?.contact1 || "");
@@ -6652,7 +6681,7 @@ function DriverForm({ initialDriver, existants = [], onOuvrirExistant, commissio
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, permisNumero, permisDateFin, contact1, contact2, contact3, email, photo, orzayahCompte, orzayahTelephone, fonction, fonctionAssociation, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
+      await onSave({ nom, prenoms, cni, permisNumero, permisDateFin, contact1, contact2, contact3, email, photo, orzayahCompte, orzayahTelephone, fonction, fonctionAssociation, groupeSanguin, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -6706,6 +6735,7 @@ function DriverForm({ initialDriver, existants = [], onOuvrirExistant, commissio
         )}
         <FonctionField label="Fonction dans le collectif" value={fonction} onChange={setFonction} dejaUtilisees={tousMembres.flatMap((m) => [m.fonction, m.fonctionAssociation])} />
         <FonctionField label="Fonction dans l'association" value={fonctionAssociation} onChange={setFonctionAssociation} dejaUtilisees={tousMembres.flatMap((m) => [m.fonction, m.fonctionAssociation])} />
+        <GroupeSanguinField value={groupeSanguin} onChange={setGroupeSanguin} />
         <Field label="Numéro permis de conduire"><TextInput value={permisNumero} onChange={(e) => setPermisNumero(e.target.value)} /></Field>
         <Field label="Fin de validité du permis"><DateInput value={permisDateFin} onChange={(e) => setPermisDateFin(e.target.value)} /></Field>
         <Field label="Adresse email"><TextInput value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
@@ -6734,6 +6764,7 @@ function ElementForm({ initialElement, existants = [], onOuvrirExistant, commiss
   const [cni, setCni] = useState(initialElement?.cni || "");
   const [fonction, setFonction] = useState(initialElement?.fonction || "");
   const [fonctionAssociation, setFonctionAssociation] = useState(initialElement?.fonctionAssociation || "");
+  const [groupeSanguin, setGroupeSanguin] = useState(initialElement?.groupeSanguin || "");
   const [contact1, setContact1] = useState(initialElement?.contact1 || "");
   const [contact2, setContact2] = useState(initialElement?.contact2 || "");
   const [contact3, setContact3] = useState(initialElement?.contact3 || "");
@@ -6769,7 +6800,7 @@ function ElementForm({ initialElement, existants = [], onOuvrirExistant, commiss
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, fonction, fonctionAssociation, contact1, contact2, contact3, email, photo, orzayahCompte, orzayahTelephone, logo1Type, logo1Id, logo2Type, logo2Id, gareRoutiereId, ligneId, syndicatId, commune, commissionMixteId, associationId });
+      await onSave({ nom, prenoms, cni, fonction, fonctionAssociation, groupeSanguin, contact1, contact2, contact3, email, photo, orzayahCompte, orzayahTelephone, logo1Type, logo1Id, logo2Type, logo2Id, gareRoutiereId, ligneId, syndicatId, commune, commissionMixteId, associationId });
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -6813,6 +6844,7 @@ function ElementForm({ initialElement, existants = [], onOuvrirExistant, commiss
         )}
         <FonctionField label="Fonction dans le collectif" value={fonction} onChange={setFonction} dejaUtilisees={[...elements, ...tousMembres].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
         <FonctionField label="Fonction dans l'association" value={fonctionAssociation} onChange={setFonctionAssociation} dejaUtilisees={[...elements, ...tousMembres].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
+        <GroupeSanguinField value={groupeSanguin} onChange={setGroupeSanguin} />
         <Field label="Adresse email"><TextInput value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
         <Field label="Contact 1"><TextInput value={contact1} onChange={(e) => setContact1(e.target.value)} /></Field>
         <Field label="Contact 2"><TextInput value={contact2} onChange={(e) => setContact2(e.target.value)} /></Field>
