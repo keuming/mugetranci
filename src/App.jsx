@@ -6172,6 +6172,11 @@ function LogoPreview({ entity }) {
 
 /* Logo en haut A GAUCHE : le collectif de la commune choisie. */
 function libelleCollectif(s) {
+  // Groupement d'une autre nature (compagnie de transport, coopérative…) :
+  // sa nature et son nom, pas « Collectif des transporteurs ».
+  if (s.nature && s.nature.toLowerCase() !== "collectif") {
+    return `${s.nature} — ${s.sigle || s.nom}`;
+  }
   const base = s.type === "transporteurs" ? "Collectif des transporteurs"
     : s.type === "chauffeurs" ? "Collectif des chauffeurs"
     : (s.nom || "Collectif");
@@ -6186,18 +6191,18 @@ function CollectifSelector({ collectifId, onChange, syndicats, commune }) {
   const autres = commune ? syndicats.filter((s) => !COMMUNE_EQ(s.commune, commune)) : syndicats;
   const entity = syndicats.find((s) => s.id === collectifId) || null;
   return (
-    <Field label="" hint="Collectif des transporteurs ou des chauffeurs. C'est aussi l'association de rattachement du membre.">
+    <Field label="" hint="Collectif, compagnie de transport ou autre groupement du membre. Sa nature est transmise à ORZAYAH comme catégorie du compte.">
       <div className="flex items-center gap-2">
         <LogoPreview entity={entity} />
         <select style={commune ? inputStyle : inputDisabledStyle} className="font-body" value={collectifId || ""} onChange={(e) => onChange(e.target.value)} disabled={!commune}>
           <option value="">{commune ? "— Sélectionner —" : "— Choisissez d'abord une commune —"}</option>
           {deLaCommune.length > 0 && (
-            <optgroup label={`Collectifs de ${commune}`}>
+            <optgroup label={`Groupements de ${commune}`}>
               {deLaCommune.map((s) => <option key={s.id} value={s.id}>{libelleCollectif(s)}</option>)}
             </optgroup>
           )}
           {autres.length > 0 && (
-            <optgroup label={deLaCommune.length > 0 ? "Autres collectifs" : "Tous les collectifs"}>
+            <optgroup label={deLaCommune.length > 0 ? "Autres groupements" : "Tous les groupements"}>
               {autres.map((s) => (
                 <option key={s.id} value={s.id}>
                   {libelleCollectif(s)}{s.commune ? ` (${s.commune})` : " (commune non renseignée)"}
@@ -6209,7 +6214,7 @@ function CollectifSelector({ collectifId, onChange, syndicats, commune }) {
       </div>
       {commune && syndicats.length === 0 && (
         <p className="font-body text-xs mt-1" style={{ color: C.amber }}>
-          Aucun collectif enregistré — créez-en un depuis la page "Collectifs (Syndicats)".
+          Aucun groupement enregistré — créez-en un depuis la page "Collectifs (Syndicats)".
         </p>
       )}
     </Field>
@@ -6282,6 +6287,32 @@ function EtapeBadge({ n, actif, children }) {
   );
 }
 
+/* Choix d'un véhicule parmi plusieurs milliers : on tape quelques
+   caractères de l'immatriculation, du n° de carte grise ou du macaron. */
+function ChoixVehicule({ liste, value, onChange }) {
+  const [filtre, setFiltre] = useState("");
+  const choisi = liste.find((v) => v.id === value);
+  const qI = normImmat(filtre), qP = normPiece(filtre), qM = filtre.replace(/\D/g, "").replace(/^0+/, "");
+  const candidats = !filtre.trim() ? [] : liste.filter((v) =>
+    (qI.length >= 2 && normImmat(v.immatriculation).includes(qI))
+    || (qP.length >= 3 && normPiece(v.carteGrise).includes(qP))
+    || (qM && String(v.numeroMacaron || "").replace(/^0+/, "") === qM)
+  ).slice(0, 40);
+  return (
+    <div className="flex flex-col gap-2">
+      <TextInput value={filtre} onChange={(e) => setFiltre(e.target.value)} placeholder="Rechercher : immatriculation, n° carte grise ou macaron…" autoCapitalize="characters" />
+      <select style={inputStyle} className="font-body" value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">— Aucun pour l'instant —</option>
+        {choisi && !candidats.includes(choisi) && <option value={choisi.id}>{choisi.immatriculation}{choisi.numeroMacaron ? ` · macaron ${choisi.numeroMacaron}` : ""}</option>}
+        {candidats.map((v) => <option key={v.id} value={v.id}>{v.immatriculation}{v.numeroMacaron ? ` · macaron ${v.numeroMacaron}` : ""}{v.carteGrise ? ` · CG ${v.carteGrise}` : ""}</option>)}
+      </select>
+      <span className="font-body text-xs" style={{ color: C.slate }}>
+        {filtre.trim() ? `${candidats.length}${candidats.length === 40 ? "+" : ""} véhicule(s) trouvé(s)` : `${liste.length} véhicule(s) disponible(s) — tapez quelques caractères de l'immatriculation`}
+      </span>
+    </div>
+  );
+}
+
 function AppartenanceBlock({ commune, commissionMixteId, onCommune, logo2Id, onCollectif, logo1Id, onAssociation, commissionsMixtes, syndicats, associations }) {
   return (
     <div style={{ background: "#fff", border: `1.5px solid ${C.border}`, borderLeft: `5px solid ${C.orange}`, borderRadius: 14, padding: 16 }}>
@@ -6293,7 +6324,7 @@ function AppartenanceBlock({ commune, commissionMixteId, onCommune, logo2Id, onC
       <CommuneCommissionSelector commune={commune} onChange={onCommune} commissionsMixtes={commissionsMixtes} />
 
       <div style={{ height: 14 }} />
-      <EtapeBadge n="2" actif={!!commune}>Collectif — logo à gauche</EtapeBadge>
+      <EtapeBadge n="2" actif={!!commune}>Collectif ou groupement — logo à gauche</EtapeBadge>
       <CollectifSelector collectifId={logo2Id} onChange={onCollectif} syndicats={syndicats} commune={commune} />
 
       <div style={{ height: 14 }} />
@@ -6380,10 +6411,7 @@ function MemberForm({ initialMember, existants = [], onOuvrirExistant, commissio
       />
       {!isEdit && vehicles && (
         <Field label="Véhicule à rattacher (optionnel)" hint="Le dossier peut aussi être complété plus tard depuis la fiche du véhicule.">
-          <select style={inputStyle} className="font-body" value={vehiculeId} onChange={(e) => setVehiculeId(e.target.value)}>
-            <option value="">— Aucun pour l'instant —</option>
-            {vehiculesSansProprietaire.map((v) => <option key={v.id} value={v.id}>{v.immatriculation} — {v.carteGrise}</option>)}
-          </select>
+          <ChoixVehicule liste={vehiculesSansProprietaire} value={vehiculeId} onChange={setVehiculeId} />
           {vehiculesSansProprietaire.length === 0 && (
             <p className="font-body text-xs mt-1" style={{ color: C.slate }}>
               {(vehicles || []).length === 0
@@ -6513,15 +6541,12 @@ function DriverForm({ initialDriver, existants = [], onOuvrirExistant, commissio
       />
       {!isEdit && vehicles && (
         <Field label="Véhicule à rattacher (optionnel)" hint="Un véhicule peut avoir jusqu'à 3 chauffeurs — le dossier peut aussi être complété plus tard.">
-          <select style={inputStyle} className="font-body" value={vehiculeId} onChange={(e) => setVehiculeId(e.target.value)}>
-            <option value="">— Aucun pour l'instant —</option>
-            {vehicles.map((v) => <option key={v.id} value={v.id}>{v.immatriculation} — {v.carteGrise}</option>)}
-          </select>
-          <p className="font-body text-xs mt-1" style={{ color: vehicles.length ? C.slate : C.amber }}>
-            {vehicles.length === 0
-              ? "Aucun véhicule visible depuis ce compte. Si des véhicules existent, rechargez la page (ou réinstallez l'application) : les données affichées peuvent dater."
-              : `${vehicles.length} véhicule(s) disponible(s).`}
-          </p>
+          <ChoixVehicule liste={vehicles} value={vehiculeId} onChange={setVehiculeId} />
+          {vehicles.length === 0 && (
+            <p className="font-body text-xs mt-1" style={{ color: C.amber }}>
+              Aucun véhicule visible depuis ce compte. Si des véhicules existent, rechargez la page (ou réinstallez l'application) : les données affichées peuvent dater.
+            </p>
+          )}
         </Field>
       )}
       {isEdit && initialDriver?.numeroCarte && (
