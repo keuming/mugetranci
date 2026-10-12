@@ -65,8 +65,9 @@ export default async function handler(req, res) {
 
   const [syndicat] = await db.select().from(syndicats).where(eq(syndicats.login, login));
   if (syndicat && syndicat.pinCode && syndicat.pinCode === pin) {
-    const token = signToken({ role: "syndicat", syndicatId: syndicat.id, commissionMixteId: syndicat.commissionMixteId, nom: syndicat.nom });
-    return res.status(200).json({ token, role: "syndicat", syndicatId: syndicat.id, commissionMixteId: syndicat.commissionMixteId, nom: syndicat.nom, sigle: syndicat.sigle, logoUrl: syndicat.logoUrl });
+    const compagnie = !!syndicat.compagnie;
+    const token = signToken({ role: "syndicat", syndicatId: syndicat.id, commissionMixteId: syndicat.commissionMixteId, nom: syndicat.nom, compagnie });
+    return res.status(200).json({ token, role: "syndicat", syndicatId: syndicat.id, commissionMixteId: syndicat.commissionMixteId, nom: syndicat.nom, sigle: syndicat.sigle, logoUrl: syndicat.logoUrl, compagnie, couleurPrimaire: syndicat.couleurPrimaire, couleurSecondaire: syndicat.couleurSecondaire });
   }
 
   const [gare] = await db.select().from(garesRoutieres).where(eq(garesRoutieres.login, login));
@@ -83,6 +84,16 @@ export default async function handler(req, res) {
 
   const [agent] = await db.select().from(agents).where(eq(agents.login, login));
   if (agent && agent.actif && agent.pinCode === pin) {
+    // Agent administrateur d'une compagnie : il agit dans le périmètre de SA
+    // compagnie uniquement (pas d'accès au registre général).
+    if (agent.parentType === "syndicat" && agent.parentId) {
+      const [cie] = await db.select().from(syndicats).where(eq(syndicats.id, agent.parentId));
+      if (cie?.compagnie) {
+        const nomAgent = `${agent.prenoms} ${agent.nom}`;
+        const token = signToken({ role: "syndicat", syndicatId: cie.id, commissionMixteId: null, nom: cie.nom, compagnie: true, agentId: agent.id, agentNom: nomAgent });
+        return res.status(200).json({ token, role: "syndicat", syndicatId: cie.id, commissionMixteId: null, nom: cie.nom, sigle: cie.sigle, logoUrl: cie.logoUrl, compagnie: true, couleurPrimaire: cie.couleurPrimaire, couleurSecondaire: cie.couleurSecondaire, agentId: agent.id, agentNom: nomAgent });
+      }
+    }
     const token = signToken({ role: "agent", agentId: agent.id, parentType: agent.parentType, parentId: agent.parentId, nom: `${agent.prenoms} ${agent.nom}` });
     return res.status(200).json({ token, role: "agent", agentId: agent.id, parentType: agent.parentType, parentId: agent.parentId, nom: `${agent.prenoms} ${agent.nom}` });
   }

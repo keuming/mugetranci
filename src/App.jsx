@@ -1031,6 +1031,7 @@ function StepIndicator({ step }) {
 function VehicleForm({ auth, owners, drivers, vehicles = [], existants = [], onOuvrirVehicule, syndicats, associations, garesRoutieres, commissionsMixtes, lignes, onCancel, onSave, addOwner, addDriver, affecterVehicule }) {
   const [step, setStep] = useState(0);
   const isAdmin = auth?.role === "admin";
+  const estCie = !!auth?.compagnie; // compte d'une compagnie : ni commune, ni collectif, ni association à choisir
   const [syndicatIdSel, setSyndicatIdSel] = useState(isAdmin ? "" : (auth?.syndicatId || ""));
 
   const [marque, setMarque] = useState("");
@@ -1169,9 +1170,9 @@ function VehicleForm({ auth, owners, drivers, vehicles = [], existants = [], onO
                 {syndicats.length === 0 && <p className="font-body text-xs mt-1.5" style={{ color: C.red }}>Aucun collectif (syndicat) enregistré — créez-en un depuis la page "Commissions Mixtes" avant d'ajouter un véhicule.</p>}
               </div>
             )}
-            <div className="mt-5">
+            {!estCie && (<div className="mt-5">
               <CommuneCommissionSelector commune={commune} onChange={(cm, cid) => { setCommune(cm); setCommissionMixteId(cid); }} commissionsMixtes={commissionsMixtes} />
-            </div>
+            </div>)}
             <div className="grid grid-cols-2 gap-4 mt-1">
               <Field label="Marque (optionnel)"><TextInput value={marque} onChange={(e) => setMarque(e.target.value)} placeholder="Toyota" /></Field>
               <Field label="Modèle (optionnel)"><TextInput value={modele} onChange={(e) => setModele(e.target.value)} placeholder="Hiace 18 places" /></Field>
@@ -1261,10 +1262,10 @@ function VehicleForm({ auth, owners, drivers, vehicles = [], existants = [], onO
                   <PhotoUpload value={newOwner.photo} onChange={(v) => setNewOwner({ ...newOwner, photo: v })} label="Photo du propriétaire" />
                   <OrzayahCompteField value={newOwner.orzayahCompte} onChange={(v) => setNewOwner({ ...newOwner, orzayahCompte: v })} telephone={newOwner.orzayahTelephone} onTelephone={(v) => setNewOwner({ ...newOwner, orzayahTelephone: v })} />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                {!estCie && (<div className="grid grid-cols-2 gap-4">
                   <CollectifSelector collectifId={newOwner.logo2Id} onChange={(v) => setNewOwner({ ...newOwner, logo2Type: v ? "syndicat" : "", logo2Id: v, logo1Type: "", logo1Id: "" })} syndicats={syndicats} commune={commune} />
                   <AssociationSelector associationId={newOwner.logo1Id} onChange={(v) => setNewOwner({ ...newOwner, logo1Type: v ? "association" : "", logo1Id: v })} associations={associations} collectifId={newOwner.logo2Id} syndicats={syndicats} />
-                </div>
+                </div>)}
                 <div className="grid grid-cols-2 gap-4">
                   <Field label="Nom"><TextInput value={newOwner.nom} onChange={(e) => setNewOwner({ ...newOwner, nom: e.target.value })} /></Field>
                   <Field label="Prénoms"><TextInput value={newOwner.prenoms} onChange={(e) => setNewOwner({ ...newOwner, prenoms: e.target.value })} /></Field>
@@ -1338,10 +1339,10 @@ function VehicleForm({ auth, owners, drivers, vehicles = [], existants = [], onO
                         <PhotoUpload value={row.draft.photo} onChange={(v) => updateDriverDraft(i, { photo: v })} label="Photo du chauffeur" />
                         <div style={{ flex: 1, minWidth: 240 }}><OrzayahCompteField value={row.draft.orzayahCompte} onChange={(v) => updateDriverDraft(i, { orzayahCompte: v })} telephone={row.draft.orzayahTelephone} onTelephone={(v) => updateDriverDraft(i, { orzayahTelephone: v })} /></div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      {!estCie && (<div className="grid grid-cols-2 gap-4">
                         <CollectifSelector collectifId={row.draft.logo2Id} onChange={(v) => updateDriverDraft(i, { logo2Type: v ? "syndicat" : "", logo2Id: v, logo1Type: "", logo1Id: "" })} syndicats={syndicats} commune={commune} />
                         <AssociationSelector associationId={row.draft.logo1Id} onChange={(v) => updateDriverDraft(i, { logo1Type: v ? "association" : "", logo1Id: v })} associations={associations} collectifId={row.draft.logo2Id} syndicats={syndicats} />
-                      </div>
+                      </div>)}
                       <div className="grid grid-cols-2 gap-4">
                         <Field label="Nom"><TextInput value={row.draft.nom} onChange={(e) => updateDriverDraft(i, { nom: e.target.value })} /></Field>
                         <Field label="Prénoms"><TextInput value={row.draft.prenoms} onChange={(e) => updateDriverDraft(i, { prenoms: e.target.value })} /></Field>
@@ -1837,6 +1838,95 @@ const MEMBER_CARD_THEMES = {
   },
 };
 
+/* ============================================================
+   COMPAGNIES INDÉPENDANTES (VTC…) : carte à leurs couleurs et à leur logo.
+   Recto 100 % compagnie ; verso ORZAYAH inchangé.
+   ============================================================ */
+const COULEURS_CIE_DEFAUT = { primaire: "#0B6E4F", secondaire: "#E07A1F" };
+function couleursCompagnie(cie) {
+  const ok = (v) => /^#[0-9a-fA-F]{6}$/.test(v || "");
+  return {
+    primaire: ok(cie?.couleurPrimaire) ? cie.couleurPrimaire : COULEURS_CIE_DEFAUT.primaire,
+    secondaire: ok(cie?.couleurSecondaire) ? cie.couleurSecondaire : COULEURS_CIE_DEFAUT.secondaire,
+  };
+}
+// Texte lisible (noir ou blanc) sur une couleur de fond donnée.
+function texteSurCouleur(hex) {
+  const n = parseInt(String(hex).slice(1), 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45 ? "#14181A" : "#FFFFFF";
+}
+const LIBELLE_CIE = { transporteur: "Propriétaire", chauffeur: "Chauffeur", element: "Agent" };
+function compagnieDuMembre(member, syndicats = []) {
+  const s = syndicats.find((x) => x.id === member?.syndicatId);
+  return s?.compagnie ? s : null;
+}
+
+function RectoCompagnie({ compagnie, member, category, numero, ficheValue, infoFields = [] }) {
+  const { primaire, secondaire } = couleursCompagnie(compagnie);
+  const surPrimaire = texteSurCouleur(primaire), surSecondaire = texteSurCouleur(secondaire);
+  // Couleur d'accent pour du texte sur fond blanc : une couleur foncée de la compagnie, sinon l'encre.
+  const accent = surPrimaire === "#FFFFFF" ? primaire : surSecondaire === "#FFFFFF" ? secondaire : C.ink;
+  const imp = infosImpression(member);
+  return (
+    <div className="font-body" style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}>
+      {/* Bandeau : logo + nom de la compagnie */}
+      <div style={{ height: 44, background: primaire, display: "flex", alignItems: "center", gap: 8, padding: "0 14px", flexShrink: 0 }}>
+        <div style={{ width: 32, height: 32, borderRadius: 7, overflow: "hidden", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          {compagnie.logoUrl ? <img src={compagnie.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : <Building2 size={16} color={primaire} />}
+        </div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="font-display" style={{ fontSize: 12.5, fontWeight: 800, color: surPrimaire, lineHeight: 1.05, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{compagnie.nom}</div>
+          {compagnie.sigle && compagnie.sigle !== compagnie.nom && <div style={{ fontSize: 7.5, fontWeight: 700, color: surPrimaire, opacity: 0.8, letterSpacing: 0.4 }}>{compagnie.sigle}</div>}
+        </div>
+        <div style={{ background: secondaire, color: surSecondaire, fontSize: 8, fontWeight: 800, padding: "3px 7px", borderRadius: 4, letterSpacing: 0.4, textTransform: "uppercase", flexShrink: 0 }}>{LIBELLE_CIE[category] || "Membre"}</div>
+      </div>
+      <div style={{ height: 3, background: secondaire, flexShrink: 0 }} />
+
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "7px 14px 10px" }}>
+        <div className="flex items-center gap-2.5">
+          <div style={{ width: 54, height: 54, borderRadius: 9, overflow: "hidden", background: C.cream, border: `2px solid ${primaire}`, flexShrink: 0 }}>
+            {member.photo ? <img src={member.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-bold" style={{ color: C.slate, fontSize: 16 }}>{initials(member.nom, member.prenoms)}</div>}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink, lineHeight: 1.15 }}>{member.prenoms} {member.nom}</div>
+            <div className="flex items-center gap-1.5" style={{ marginTop: 2 }}>
+              {member.fonction && <span style={{ fontSize: 8.5, fontWeight: 800, color: accent }}>{member.fonction}</span>}
+              {member.groupeSanguin && (
+                <span title="Groupe sanguin" style={{ background: "#C8102E", color: "#fff", fontSize: 7.5, fontWeight: 800, lineHeight: 1, padding: "2px 4px", borderRadius: 3, whiteSpace: "nowrap" }}>GS {member.groupeSanguin}</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-start" style={{ fontSize: 8, color: C.slate, gap: infoFields.length > 2 ? 9 : 16, minWidth: 0 }}>
+          {infoFields.map((f, i) => (
+            <div key={i} style={{ minWidth: 0, flexShrink: i === 0 ? 0 : 1 }}>
+              <span style={{ fontSize: 6.8, whiteSpace: "nowrap" }}>{f.label}</span>
+              <div className="font-mono" style={{ fontSize: infoFields.length > 3 ? 8 : 9, color: C.ink, fontWeight: 600, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.value || "—"}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-end justify-between">
+          <div>
+            <div style={{ fontSize: 7.5, color: C.slate }}>N° Carte</div>
+            <div className="font-mono" style={{ fontWeight: 700, fontSize: 12, color: accent, lineHeight: 1.1 }}>{numero || "—"}</div>
+            <div style={{ fontSize: 6.8, color: C.ink, fontWeight: 700, marginTop: 2, lineHeight: 1.15 }}>
+              Valable jusqu'au <span className="font-mono">{imp.finValidite}</span>
+              <span style={{ color: C.slate, fontWeight: 600 }}> · Lot {imp.lotLisible}</span>
+            </div>
+          </div>
+          <div style={{ background: "#fff", borderRadius: 6, padding: 3, border: `1px solid ${C.border}`, flexShrink: 0 }}>
+            <QRCodeSVG value={ficheValue} size={60} bgColor="#ffffff" fgColor={C.ink} level="M" />
+          </div>
+        </div>
+      </div>
+      <div style={{ height: 6, background: `linear-gradient(90deg, ${secondaire} 0%, ${primaire} 45%, ${primaire} 100%)`, flexShrink: 0 }} />
+    </div>
+  );
+}
+
 // Résout l'entité logo (commission mixte ou syndicat) à partir du type/id
 // explicitement choisis dans le formulaire du membre.
 function resolveLogoEntity(type, id, commissionsMixtes, syndicats, associations = []) {
@@ -1853,6 +1943,9 @@ function resolveLogoEntity(type, id, commissionsMixtes, syndicats, associations 
 // carte, valeur du QR (vers la fiche pour transporteur/chauffeur, référence
 // d'identité pour un élément qui n'a pas de véhicule), et champs d'info.
 function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles, associations = [], garesRoutieres = [], lignes = []) {
+  return { ...cardDataBase(member, category, commissionsMixtes, syndicats, vehicles, associations, garesRoutieres, lignes), compagnie: compagnieDuMembre(member, syndicats) };
+}
+function cardDataBase(member, category, commissionsMixtes, syndicats, vehicles, associations = [], garesRoutieres = [], lignes = []) {
   const { commission: autoCommission } = getMemberHierarchy(member, commissionsMixtes, syndicats);
   // logo1 = haut a DROITE (association) ; logo2 = haut a GAUCHE (collectif)
   // Pas de repli automatique sur le collectif : un membre sans association
@@ -1905,9 +1998,14 @@ function cardDataFor(member, category, commissionsMixtes, syndicats, vehicles, a
   };
 }
 
-function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, infoFields = [], side, scale = 1 }) {
+function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, infoFields = [], side, scale = 1, compagnie = null }) {
   const isRecto = side === "recto";
-  const theme = MEMBER_CARD_THEMES[category];
+  const theme = compagnie ? (() => {
+    const { primaire, secondaire } = couleursCompagnie(compagnie);
+    return { ...MEMBER_CARD_THEMES[category], cardBackground: null,
+      barTop: `linear-gradient(90deg, ${primaire} 0%, ${primaire} 60%, ${secondaire} 100%)`,
+      barBottom: `linear-gradient(90deg, ${secondaire} 0%, ${primaire} 40%, ${primaire} 100%)` };
+  })() : MEMBER_CARD_THEMES[category];
   // Sur fond colore, les textes passent en clair pour rester lisibles.
   const surFondColore = isRecto && !!theme.cardBackground;
   const tPrincipal = surFondColore ? theme.textColor : C.ink;
@@ -1928,7 +2026,9 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 8, background: theme.barTop }} />
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 8, background: theme.barBottom }} />
 
-      {isRecto ? (
+      {isRecto && compagnie ? (
+        <RectoCompagnie compagnie={compagnie} member={member} category={category} numero={numero} ficheValue={ficheValue} infoFields={infoFields} />
+      ) : isRecto ? (
         <div className="flex flex-col h-full justify-between" style={{ padding: "7px 18px 9px" }}>
           {/* Double logo : collectif (gauche) + association (droite). Un
               membre peut n'appartenir a aucune association : dans ce cas la
@@ -2270,7 +2370,7 @@ function CarteDroitDeLigne({ vehicule, owner, collectifTransporteurs, collectifC
   );
 }
 
-function MemberCard({ member, category, logo1, logo2, numero, ficheValue, infoFields, initialFace = "recto" }) {
+function MemberCard({ member, category, logo1, logo2, numero, ficheValue, infoFields, initialFace = "recto", compagnie = null }) {
   const [flipped, setFlipped] = useState(initialFace === "verso");
   const format = useFormatImpression();
   const wrapRef = useRef(null);
@@ -2290,7 +2390,7 @@ function MemberCard({ member, category, logo1, logo2, numero, ficheValue, infoFi
   }, []);
 
   if (!member) return null;
-  const props = { member, category, logo1, logo2, numero, ficheValue, infoFields };
+  const props = { member, category, logo1, logo2, numero, ficheValue, infoFields, compagnie };
   return (
     <div className="flex flex-col items-center gap-3" ref={wrapRef} style={{ width: "100%" }}>
       {(format === "cartes" ? ["recto", "verso"] : [flipped ? "verso" : "recto"]).map((side) => (
@@ -2468,10 +2568,10 @@ function MemberCardSheet({ items, title, apercu = false }) {
   return (
     <>
     <PagesImprimanteCartes groupe="planche" faces={items.flatMap((it) => ["recto", "verso"].map((side) => (
-      <MemberCardFace key={side} member={it.member} category={it.category} logo1={it.logo1} logo2={it.logo2} numero={it.numero} ficheValue={it.ficheValue} infoFields={it.infoFields} side={side} />
+      <MemberCardFace key={side} member={it.member} category={it.category} logo1={it.logo1} logo2={it.logo2} numero={it.numero} ficheValue={it.ficheValue} infoFields={it.infoFields} compagnie={it.compagnie} side={side} />
     )))} />
     {apercu && format === "cartes" && <ApercuCartesVertical cartes={items.map((it) => {
-      const pr = { member: it.member, category: it.category, logo1: it.logo1, logo2: it.logo2, numero: it.numero, ficheValue: it.ficheValue, infoFields: it.infoFields };
+      const pr = { member: it.member, category: it.category, logo1: it.logo1, logo2: it.logo2, numero: it.numero, ficheValue: it.ficheValue, infoFields: it.infoFields, compagnie: it.compagnie };
       return { key: it.key, name: it.name, recto: (sc) => <MemberCardFace {...pr} side="recto" scale={sc} />, verso: (sc) => <MemberCardFace {...pr} side="verso" scale={sc} /> };
     })} />}
     <div className="print-area print-card-sheet">
@@ -2484,8 +2584,8 @@ function MemberCardSheet({ items, title, apercu = false }) {
           )}
           {group.map((it) => (
             <div key={it.key} className="flex items-center gap-4" style={{ borderBottom: `1px dashed ${C.border}`, paddingBottom: 8 }}>
-              <MemberCardFace member={it.member} category={it.category} logo1={it.logo1} logo2={it.logo2} numero={it.numero} ficheValue={it.ficheValue} infoFields={it.infoFields} side="recto" scale={MEMBER_SHEET_SCALE} />
-              <MemberCardFace member={it.member} category={it.category} logo1={it.logo1} logo2={it.logo2} numero={it.numero} ficheValue={it.ficheValue} infoFields={it.infoFields} side="verso" scale={MEMBER_SHEET_SCALE} />
+              <MemberCardFace member={it.member} category={it.category} logo1={it.logo1} logo2={it.logo2} numero={it.numero} ficheValue={it.ficheValue} infoFields={it.infoFields} compagnie={it.compagnie} side="recto" scale={MEMBER_SHEET_SCALE} />
+              <MemberCardFace member={it.member} category={it.category} logo1={it.logo1} logo2={it.logo2} numero={it.numero} ficheValue={it.ficheValue} infoFields={it.infoFields} compagnie={it.compagnie} side="verso" scale={MEMBER_SHEET_SCALE} />
               <div className="font-body" style={{ fontSize: 10, color: C.slate }}>{it.name}</div>
             </div>
           ))}
@@ -4220,7 +4320,7 @@ function Dashboard({ auth, onLogout }) {
   }, []);
 
   React.useEffect(() => {
-    if (page === "agents" && !agentsLoaded && (auth.role === "admin" || auth.role === "commission_mixte" || auth.role === "syndicat")) {
+    if ((page === "agents" || page === "compagnies") && !agentsLoaded && (auth.role === "admin" || (auth.role === "agent" && auth.parentType === "admin") || auth.role === "commission_mixte" || auth.role === "syndicat")) {
       loadAgents().catch((err) => console.error("loadAgents:", err));
     }
   }, [page, agentsLoaded]);
@@ -4524,11 +4624,12 @@ function Dashboard({ auth, onLogout }) {
         { key: "vehicles", label: "Véhicules", icon: <Car size={17} /> },
         { key: "owners", label: "Transporteurs", icon: <User size={17} /> },
         { key: "drivers", label: "Chauffeurs", icon: <Users size={17} /> },
-        { key: "elements", label: "Éléments", icon: <BadgeCheck size={17} /> },
+        ...(auth.compagnie ? [] : [{ key: "elements", label: "Éléments", icon: <BadgeCheck size={17} /> }]),
         ...(estAdminGeneral ? [{ key: "commissions", label: "Commissions Mixtes", icon: <MapPin size={17} /> }] : []),
         ...(estAdminGeneral || auth.role === "commission_mixte" ? [{ key: "syndicats", label: "Collectifs (Syndicats)", icon: <Building2 size={17} /> }] : []),
-        ...(estAdminGeneral || auth.role === "syndicat" ? [{ key: "garesroutieres", label: "Gares Routières", icon: <MapPin size={17} /> }] : []),
-        ...(estAdminGeneral || auth.role === "commission_mixte" || auth.role === "syndicat" ? [{ key: "agents", label: "Agents enrôleurs", icon: <Route size={17} /> }] : []),
+        ...(estAdminGeneral ? [{ key: "compagnies", label: "Compagnies", icon: <Car size={17} /> }] : []),
+        ...(estAdminGeneral || (auth.role === "syndicat" && !auth.compagnie) ? [{ key: "garesroutieres", label: "Gares Routières", icon: <MapPin size={17} /> }] : []),
+        ...(estAdminGeneral || auth.role === "commission_mixte" || auth.role === "syndicat" ? [{ key: "agents", label: auth.compagnie ? "Agents administrateurs" : "Agents enrôleurs", icon: <Route size={17} /> }] : []),
         ...(estAdminGeneral ? [{ key: "imprimeur", label: "Accès imprimeur", icon: <Printer size={17} /> }] : []),
         ...(estAdminGeneral ? [{ key: "maintenance", label: "Maintenance", icon: <Settings size={17} /> }] : []),
         { key: "carburant", label: "Carburant", icon: <Fuel size={17} /> },
@@ -4536,6 +4637,7 @@ function Dashboard({ auth, onLogout }) {
       ];
 
   return (
+    <CompteContext.Provider value={auth}>
     <div className="font-body" style={{ background: C.cream, minHeight: "100vh", color: C.ink }}>
       <style>{FONTS}</style>
       {isMobile ? (
@@ -5323,6 +5425,11 @@ function Dashboard({ auth, onLogout }) {
           })()}
 
           {page === "imprimeur" && estAdminGeneral && <AccesImprimeurPage />}
+          {page === "compagnies" && estAdminGeneral && (
+            <CompagniesPage syndicats={syndicats} owners={owners} drivers={drivers} vehicles={vehicles} agents={agentsList}
+              onAdd={addSyndicat} onUpdate={updateSyndicat} onDelete={deleteSyndicat}
+              onAddAgent={addAgent} onUpdateAgent={updateAgent} onDeleteAgent={deleteAgent} />
+          )}
           {page === "maintenance" && estAdminGeneral && <MaintenancePage />}
           {page === "agents" && (
             <div className="flex flex-col gap-4">
@@ -6030,6 +6137,7 @@ function Dashboard({ auth, onLogout }) {
         />
       </Modal>}
     </div>
+    </CompteContext.Provider>
   );
 }
 
@@ -6547,13 +6655,55 @@ function ChoixVehicule({ liste, value, onChange }) {
   );
 }
 
+// Compte connecté, accessible aux formulaires (compte de compagnie : appartenance imposée).
+const CompteContext = React.createContext(null);
+
 function AppartenanceBlock({ commune, commissionMixteId, onCommune, logo2Id, onCollectif, logo1Id, onAssociation, commissionsMixtes, syndicats, associations }) {
+  const compte = React.useContext(CompteContext);
+  const compagnies = syndicats.filter((s) => s.compagnie);
+  const cieCompte = compte?.compagnie
+    ? (syndicats.find((s) => s.id === compte.syndicatId) || { id: compte.syndicatId, nom: compte.nom, sigle: compte.sigle, logoUrl: compte.logoUrl, compagnie: true })
+    : null;
+  const cieChoisie = syndicats.find((s) => s.id === logo2Id && s.compagnie) || null;
+  const [mode, setMode] = useState(cieCompte || cieChoisie ? "compagnie" : "collectif");
+  // Compte d'une compagnie : ses membres lui sont toujours rattachés.
+  React.useEffect(() => {
+    if (cieCompte && logo2Id !== cieCompte.id) onCollectif(cieCompte.id);
+  }, [cieCompte?.id, logo2Id]);
+
+  if (cieCompte) {
+    return (
+      <div style={{ background: "#fff", border: `1.5px solid ${C.border}`, borderLeft: `5px solid ${couleursCompagnie(cieCompte).primaire}`, borderRadius: 14, padding: 16 }}>
+        <div className="font-display" style={{ fontSize: 14.5, fontWeight: 800, color: C.ink, marginBottom: 8 }}>Appartenance du membre</div>
+        <div className="flex items-center gap-2 font-body text-sm"><LogoPreview entity={cieCompte} /> <b>{cieCompte.nom}</b></div>
+        <p className="font-body text-xs mt-2" style={{ color: C.slate }}>Le membre est enregistré dans votre compagnie ; sa carte sera à vos couleurs et à votre logo.</p>
+      </div>
+    );
+  }
+  const onglet = (cle, libelle) => (
+    <button type="button" onClick={() => { if (mode !== cle) { setMode(cle); onCollectif(""); } }}
+      className="font-body text-xs font-semibold px-3 py-1.5 rounded-full"
+      style={{ background: mode === cle ? C.greenDark : "#fff", color: mode === cle ? "#fff" : C.ink, border: `1px solid ${mode === cle ? C.greenDark : C.border}` }}>{libelle}</button>
+  );
   return (
     <div style={{ background: "#fff", border: `1.5px solid ${C.border}`, borderLeft: `5px solid ${C.orange}`, borderRadius: 14, padding: 16 }}>
       <div className="font-display" style={{ fontSize: 14.5, fontWeight: 800, color: C.ink, marginBottom: 12, letterSpacing: -0.2 }}>
         Appartenance du membre
       </div>
-
+      {compagnies.length > 0 && (
+        <div className="flex gap-2 mb-3">{onglet("collectif", "Collectif / commune")}{onglet("compagnie", "Compagnie indépendante")}</div>
+      )}
+      {mode === "compagnie" ? (
+        <Field label="Compagnie" hint="Carte aux couleurs et au logo de la compagnie, ORZAYAH au verso.">
+          <div className="flex items-center gap-2">
+            <LogoPreview entity={cieChoisie} />
+            <select style={inputStyle} className="font-body" value={cieChoisie?.id || ""} onChange={(e) => onCollectif(e.target.value)}>
+              <option value="">— Sélectionner une compagnie —</option>
+              {compagnies.map((c) => <option key={c.id} value={c.id}>{c.nom}{c.sigle ? ` (${c.sigle})` : ""}</option>)}
+            </select>
+          </div>
+        </Field>
+      ) : (<>
       <EtapeBadge n="1" actif>Commune et commission mixte</EtapeBadge>
       <CommuneCommissionSelector commune={commune} onChange={onCommune} commissionsMixtes={commissionsMixtes} />
 
@@ -6564,6 +6714,7 @@ function AppartenanceBlock({ commune, commissionMixteId, onCommune, logo2Id, onC
       <div style={{ height: 14 }} />
       <EtapeBadge n="3" actif={!!logo2Id}>Association — logo à droite</EtapeBadge>
       <AssociationSelector associationId={logo1Id} onChange={onAssociation} associations={associations} collectifId={logo2Id} syndicats={syndicats} />
+      </>)}
     </div>
   );
 }
@@ -6607,7 +6758,7 @@ function MemberForm({ initialMember, existants = [], onOuvrirExistant, commissio
   const doublons = detecterDoublons("transporteur", champsModifies({ cni, numeroPermis, contact1, orzayahCompte, orzayahTelephone }, initialMember), membres, initialMember?.id, tousMembres);
   const cniOk = !!cni || (!!initialMember && !initialMember.cni); // fiche importée sans CNI : modifiable, CNI à compléter
   // La commune est exigée à la création (mention « Point Focal » de la carte)
-  const communeOk = !!commune || !!initialMember;
+  const communeOk = !!commune || !!initialMember || !!syndicats.find((s) => s.id === logo2Id && s.compagnie);
   const champsManquants = [!nom && "Nom", !prenoms && "Prénoms", !cniOk && "Numéro CNI", !communeOk && "Commune (Appartenance du membre)"].filter(Boolean);
   const canSave = nom && prenoms && cniOk && communeOk && !doublons.length && !saving;
 
@@ -6739,7 +6890,7 @@ function DriverForm({ initialDriver, existants = [], onOuvrirExistant, commissio
 
   const doublons = detecterDoublons("chauffeur", champsModifies({ cni, permisNumero, contact1, orzayahCompte, orzayahTelephone }, initialDriver), membres, initialDriver?.id, tousMembres);
   const cniOk = !!cni || (!!initialDriver && !initialDriver.cni);
-  const communeOk = !!commune || !!initialDriver;
+  const communeOk = !!commune || !!initialDriver || !!syndicats.find((s) => s.id === logo2Id && s.compagnie);
   const champsManquants = [!nom && "Nom", !prenoms && "Prénoms", !cniOk && "Numéro CNI", !permisNumero && "Numéro permis de conduire", !permisDateFin && "Fin de validité du permis", !communeOk && "Commune (Appartenance du membre)"].filter(Boolean);
   const canSave = nom && prenoms && cniOk && permisNumero && permisDateFin && communeOk && !doublons.length && !saving;
 
@@ -7006,6 +7157,212 @@ function AssociationForm({ initialAsso, collectif, onCancel, onSave }) {
           <Check size={16} /> {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Créer l'association"}
         </button>
       </div>
+    </div>
+  );
+}
+
+
+/* ============================================================
+   BACK-OFFICE : COMPAGNIES INDÉPENDANTES (VTC, compagnies de transport…)
+   Créées et paramétrées par l'administrateur général : identité visuelle
+   (logo + 2 couleurs) appliquée à leurs cartes, compte de connexion, et
+   agents administrateurs. Verso ORZAYAH toujours inchangé.
+   ============================================================ */
+const NATURES_COMPAGNIE = ["Compagnie de transport", "VTC"];
+
+function ChoixCouleur({ label, value, onChange }) {
+  return (
+    <Field label={label}>
+      <div className="flex items-center gap-2">
+        <input type="color" value={value} onChange={(e) => onChange(e.target.value.toUpperCase())}
+          style={{ width: 46, height: 42, border: `1.5px solid ${C.border}`, borderRadius: 10, padding: 3, background: "#fff", cursor: "pointer" }} />
+        <TextInput value={value} onChange={(e) => {
+          let v = e.target.value.trim().toUpperCase(); if (v && !v.startsWith("#")) v = "#" + v;
+          onChange(v.slice(0, 7));
+        }} placeholder="#0B6E4F" />
+      </div>
+    </Field>
+  );
+}
+
+function CompagnieForm({ initial, onCancel, onSave }) {
+  const isEdit = !!initial;
+  const [nom, setNom] = useState(initial?.nom || "");
+  const [sigle, setSigle] = useState(initial?.sigle || "");
+  const [logoUrl, setLogoUrl] = useState(initial?.logoUrl || null);
+  const [nature, setNature] = useState(initial?.nature || "Compagnie de transport");
+  const [couleurPrimaire, setCouleurPrimaire] = useState(initial?.couleurPrimaire || COULEURS_CIE_DEFAUT.primaire);
+  const [couleurSecondaire, setCouleurSecondaire] = useState(initial?.couleurSecondaire || COULEURS_CIE_DEFAUT.secondaire);
+  const [presidentNom, setPresidentNom] = useState(initial?.presidentNom || "");
+  const [presidentContact, setPresidentContact] = useState(initial?.presidentContact || "");
+  const [login, setLogin] = useState(initial?.login || "");
+  const [pinCode, setPinCode] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const hexOk = (v) => /^#[0-9A-Fa-f]{6}$/.test(v);
+  const canSave = nom.trim() && nature.trim() && hexOk(couleurPrimaire) && hexOk(couleurSecondaire) && (!pinCode || /^\d{4}$/.test(pinCode)) && !saving;
+
+  const apercu = { compagnie: true, nom: nom || "Nom de la compagnie", sigle, logoUrl, couleurPrimaire: hexOk(couleurPrimaire) ? couleurPrimaire : null, couleurSecondaire: hexOk(couleurSecondaire) ? couleurSecondaire : null };
+  const membreExemple = { id: "apercu", nom: "KOUASSI", prenoms: "JEAN", fonction: "Chauffeur titulaire", groupeSanguin: "O+", contact1: "07 07 00 00 00", permisNumero: "CI-123456", permisDateFin: "2029-12-31" };
+
+  const handleSave = async () => {
+    setSaving(true); setError(null);
+    try {
+      const payload = { compagnie: true, nom: nom.trim(), sigle: sigle.trim(), logoUrl, nature: nature.trim(), couleurPrimaire, couleurSecondaire, presidentNom, presidentContact, login: login.trim() };
+      if (pinCode) payload.pinCode = pinCode;
+      await onSave(payload);
+    } catch (err) {
+      setError(err.message || "Erreur lors de l'enregistrement.");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-4">
+        <PhotoUpload value={logoUrl} onChange={setLogoUrl} label="Logo de la compagnie" shape="square" />
+        <div className="flex flex-col gap-3">
+          <ChoixCouleur label="Couleur principale" value={couleurPrimaire} onChange={setCouleurPrimaire} />
+          <ChoixCouleur label="Couleur secondaire" value={couleurSecondaire} onChange={setCouleurSecondaire} />
+        </div>
+      </div>
+      <div>
+        <div className="font-body text-xs mb-2" style={{ color: C.ink, fontWeight: 800 }}>Aperçu de la carte (recto à ses couleurs, verso ORZAYAH)</div>
+        <div className="flex gap-3 flex-wrap">
+          <MemberCardFace member={membreExemple} category="chauffeur" compagnie={apercu} numero="C00001" ficheValue="apercu" side="recto" scale={0.78}
+            infoFields={[{ label: "N° Permis", value: membreExemple.permisNumero }, { label: "Permis valide au", value: "31 déc. 2029" }, { label: "Téléphone", value: membreExemple.contact1 }]} />
+          <MemberCardFace member={membreExemple} category="chauffeur" compagnie={apercu} numero="C00001" ficheValue="apercu" side="verso" scale={0.78} />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Nom de la compagnie *"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Ex. Yango Drive CI" /></Field>
+        <Field label="Sigle"><TextInput value={sigle} onChange={(e) => setSigle(e.target.value)} placeholder="YDC" maxLength={20} /></Field>
+        <Field label="Nature" hint="Transmise à ORZAYAH comme catégorie des comptes marchands">
+          <select style={inputStyle} className="font-body" value={NATURES_COMPAGNIE.includes(nature) ? nature : "__autre__"} onChange={(e) => setNature(e.target.value === "__autre__" ? "" : e.target.value)}>
+            {NATURES_COMPAGNIE.map((n) => <option key={n} value={n}>{n}</option>)}
+            <option value="__autre__">Autre…</option>
+          </select>
+          {!NATURES_COMPAGNIE.includes(nature) && <TextInput value={nature} onChange={(e) => setNature(e.target.value)} placeholder="Ex. Taxi compteur" />}
+        </Field>
+        <div />
+        <Field label="Nom du responsable"><TextInput value={presidentNom} onChange={(e) => setPresidentNom(e.target.value)} /></Field>
+        <Field label="Contact du responsable"><TextInput value={presidentContact} onChange={(e) => setPresidentContact(e.target.value)} /></Field>
+      </div>
+      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
+        <p className="font-body text-xs mb-3" style={{ color: C.slate }}>
+          Compte de la compagnie : elle gère elle-même ses chauffeurs, véhicules, transporteurs et ses agents administrateurs. Elle ne voit que ses propres données.
+        </p>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Login (numéro de téléphone)"><TextInput value={login} onChange={(e) => setLogin(e.target.value)} placeholder="07 08 12 34 56" /></Field>
+          <Field label={isEdit ? (initial?.pinConfigure ? "Nouveau code PIN (vide = inchangé)" : "Code PIN (4 chiffres)") : "Code PIN (4 chiffres)"}>
+            <TextInput value={pinCode} onChange={(e) => setPinCode(e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="••••" />
+          </Field>
+        </div>
+      </div>
+      <div className="flex items-center justify-end gap-3 pt-2">
+        {error && <span className="font-body text-xs" style={{ color: C.red, flex: 1 }}>{error}</span>}
+        <button onClick={onCancel} className="font-body" style={{ color: C.ink, fontSize: 14, fontWeight: 700, padding: "12px 16px", borderRadius: 11 }}>Annuler</button>
+        <button onClick={handleSave} disabled={!canSave} className="font-body flex items-center gap-2" style={{ background: canSave ? C.green : "#B9C4BE", color: "#fff", cursor: canSave ? "pointer" : "not-allowed", fontSize: 14, fontWeight: 800, padding: "12px 18px", borderRadius: 11 }}>
+          {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Créer la compagnie"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CompagniesPage({ syndicats, owners, drivers, vehicles, agents, onAdd, onUpdate, onDelete, onAddAgent, onUpdateAgent, onDeleteAgent }) {
+  const compagnies = syndicats.filter((s) => s.compagnie).sort((a, b) => (a.nom || "").localeCompare(b.nom || "", "fr"));
+  const [formCie, setFormCie] = useState(null); // null | "new" | compagnie
+  const [agentPour, setAgentPour] = useState(null); // { cie, agent? }
+  const compte = (liste, id) => liste.filter((x) => x.syndicatId === id).length;
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <p className="font-body text-sm" style={{ color: C.slate }}>
+          {compagnies.length} compagnie{compagnies.length > 1 ? "s" : ""} indépendante{compagnies.length > 1 ? "s" : ""} — chacune gère ses chauffeurs, véhicules, transporteurs et agents ; ses cartes sont à son logo et à ses couleurs, avec ORZAYAH au verso.
+        </p>
+        <button onClick={() => setFormCie("new")} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: C.orange, color: "#fff" }}>
+          <Plus size={16} /> Ajouter une compagnie
+        </button>
+      </div>
+      {compagnies.length === 0 && (
+        <div className="font-body text-sm p-6 text-center rounded-xl" style={{ background: "#fff", border: `1px dashed ${C.border}`, color: C.slate }}>Aucune compagnie pour le moment.</div>
+      )}
+      <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))" }}>
+        {compagnies.map((cie) => {
+          const { primaire, secondaire } = couleursCompagnie(cie);
+          const sesAgents = agents.filter((a) => a.parentType === "syndicat" && a.parentId === cie.id);
+          return (
+            <div key={cie.id} className="font-body" style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
+              <div style={{ background: primaire, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 8, background: "#fff", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  {cie.logoUrl ? <img src={cie.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : <Building2 size={18} color={primaire} />}
+                </div>
+                <div style={{ minWidth: 0, flex: 1, color: texteSurCouleur(primaire) }}>
+                  <div className="font-display" style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{cie.nom}</div>
+                  <div style={{ fontSize: 11, opacity: 0.85 }}>{[cie.sigle, cie.nature].filter(Boolean).join(" · ")}</div>
+                </div>
+                <span title="Couleurs" style={{ display: "flex", gap: 3 }}>
+                  <span style={{ width: 14, height: 14, borderRadius: 3, background: primaire, border: "2px solid #fff" }} />
+                  <span style={{ width: 14, height: 14, borderRadius: 3, background: secondaire, border: "2px solid #fff" }} />
+                </span>
+              </div>
+              <div style={{ padding: 14 }} className="flex flex-col gap-2.5">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  {[["Chauffeurs", compte(drivers, cie.id)], ["Véhicules", compte(vehicles, cie.id)], ["Transporteurs", compte(owners, cie.id)]].map(([l, n]) => (
+                    <div key={l} style={{ background: C.cream, borderRadius: 8, padding: "6px 4px" }}>
+                      <div className="font-display" style={{ fontSize: 17, fontWeight: 800, color: C.ink }}>{n}</div>
+                      <div style={{ fontSize: 10.5, color: C.slate }}>{l}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="text-xs" style={{ color: C.slate }}>
+                  Responsable : <b style={{ color: C.ink }}>{cie.presidentNom || "—"}</b>{cie.presidentContact ? ` · ${cie.presidentContact}` : ""}<br />
+                  Compte : {cie.login ? <b style={{ color: C.ink }}>{cie.login}</b> : "non configuré"}{cie.login && !cie.pinConfigure ? " (code PIN manquant)" : ""}
+                </div>
+                <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold" style={{ color: C.ink }}>Agents administrateurs ({sesAgents.length})</span>
+                    <button onClick={() => setAgentPour({ cie })} className="text-xs font-semibold flex items-center gap-1" style={{ color: C.greenDark }}><Plus size={12} /> Ajouter</button>
+                  </div>
+                  {sesAgents.map((a) => (
+                    <div key={a.id} className="flex items-center gap-2 text-xs py-1">
+                      <span style={{ color: C.ink, fontWeight: 600 }}>{a.prenoms} {a.nom}</span>
+                      <span style={{ color: C.slate }}>{a.login}</span>
+                      <span className="ml-auto flex items-center gap-2">
+                        <button onClick={() => onUpdateAgent(a.id, { actif: !a.actif })} style={{ color: a.actif ? C.greenDark : C.red, fontWeight: 700 }}>{a.actif ? "Actif" : "Désactivé"}</button>
+                        <button onClick={() => setAgentPour({ cie, agent: a })} title="Modifier" style={{ color: C.slate }}><Pencil size={12} /></button>
+                        <button onClick={async () => { if (window.confirm(`Supprimer l'agent ${a.prenoms} ${a.nom} ?`)) { try { await onDeleteAgent(a.id); } catch (err) { alert(err.message); } } }} title="Supprimer" style={{ color: C.red }}><Trash2 size={12} /></button>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button onClick={() => setFormCie(cie)} className="text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ border: `1px solid ${C.border}`, color: C.ink }}><Pencil size={13} /> Modifier</button>
+                  <button onClick={async () => { if (!window.confirm(`Supprimer la compagnie ${cie.nom} ?`)) return; try { await onDelete(cie.id); } catch (err) { alert(err.message || "Suppression impossible."); } }} className="text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: C.redLight, color: C.red }}><Trash2 size={13} /> Supprimer</button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {formCie && (
+        <Modal wide title={formCie === "new" ? "Nouvelle compagnie" : `Modifier — ${formCie.nom}`} onClose={() => setFormCie(null)}>
+          <CompagnieForm initial={formCie === "new" ? null : formCie} onCancel={() => setFormCie(null)}
+            onSave={async (payload) => { if (formCie === "new") await onAdd(payload); else await onUpdate(formCie.id, payload); setFormCie(null); }} />
+        </Modal>
+      )}
+      {agentPour && (
+        <Modal title={`${agentPour.agent ? "Modifier l'agent" : "Nouvel agent administrateur"} — ${agentPour.cie.sigle || agentPour.cie.nom}`} onClose={() => setAgentPour(null)}>
+          <AgentForm initialAgent={agentPour.agent} onCancel={() => setAgentPour(null)}
+            onSave={async (payload) => {
+              if (agentPour.agent) await onUpdateAgent(agentPour.agent.id, payload);
+              else await onAddAgent({ ...payload, parentType: "syndicat", parentId: agentPour.cie.id });
+              setAgentPour(null);
+            }} />
+        </Modal>
+      )}
     </div>
   );
 }

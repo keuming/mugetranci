@@ -3,6 +3,12 @@ import { db } from "../db/index.js";
 import { syndicats, proprietaires, associations, garesRoutieres, chauffeurs, elements, vehicules } from "../db/schema.js";
 import { requireAuth , estAdministrateur } from "../lib/auth.js";
 
+// Couleur au format #RRGGBB, sinon null.
+function couleur(v) {
+  const t = String(v || "").trim();
+  return /^#[0-9a-fA-F]{6}$/.test(t) ? t.toUpperCase() : null;
+}
+
 function toApi(row) {
   const { pinCode, ...rest } = row;
   return { ...rest, pinConfigure: !!pinCode };
@@ -115,6 +121,34 @@ export default async function handler(req, res) {
       }
 
       const body = req.body || {};
+      // Compagnie indépendante (VTC…) : créée par l'administrateur général
+      // uniquement, sans commune ni commission mixte.
+      if (body.compagnie) {
+        if (auth.role !== "admin") return res.status(403).json({ error: "Seul l'administrateur général crée une compagnie." });
+        if (!body.nom) return res.status(400).json({ error: "Le nom de la compagnie est requis." });
+        if (body.pinCode && !/^\d{4}$/.test(body.pinCode)) return res.status(400).json({ error: "Le code PIN doit comporter exactement 4 chiffres" });
+        try {
+          const [created] = await db.insert(syndicats).values({
+            commissionMixteId: null,
+            compagnie: true,
+            nom: body.nom,
+            sigle: body.sigle || null,
+            logoUrl: body.logoUrl || null,
+            nature: String(body.nature || "Compagnie de transport").trim().slice(0, 60) || "Compagnie de transport",
+            couleurPrimaire: couleur(body.couleurPrimaire) || "#0B6E4F",
+            couleurSecondaire: couleur(body.couleurSecondaire) || "#E07A1F",
+            presidentNom: body.presidentNom || null,
+            presidentContact: body.presidentContact || null,
+            login: body.login || null,
+            pinCode: body.pinCode || null,
+          }).returning();
+          return res.status(201).json(toApi(created));
+        } catch (err) {
+          if (err.code === "23505") return res.status(400).json({ error: "Ce numéro de téléphone (login) est déjà utilisé." });
+          console.error("POST /api/syndicats (compagnie):", err);
+          return res.status(500).json({ error: "Erreur lors de l'enregistrement." });
+        }
+      }
       const commissionMixteId = auth.role === "commission_mixte" ? auth.commissionMixteId : body.commissionMixteId;
       if (!body.nom || !commissionMixteId) {
         return res.status(400).json({ error: "nom et commissionMixteId sont requis" });
@@ -181,7 +215,9 @@ export default async function handler(req, res) {
 
   async function assertOwnership(allowSelfSyndicat) {
     if (auth.role === "admin") return true;
-    if (allowSelfSyndicat && auth.role === "syndicat" && auth.syndicatId === id) return true;
+    // Le profil (identifiants compris) d'une compagnie n'est modifiable que par
+    // son compte titulaire, pas par ses agents.
+    if (allowSelfSyndicat && auth.role === "syndicat" && auth.syndicatId === id && !auth.agentId) return true;
     if (auth.role !== "commission_mixte") {
       res.status(403).json({ error: "Modification réservée à l'admin général, à la commission mixte, ou au syndicat pour son propre profil." });
       return false;
@@ -205,6 +241,15 @@ export default async function handler(req, res) {
     });
     if (body.pinCode) patch.pinCode = body.pinCode;
     if ("nature" in body) patch.nature = String(body.nature || "Collectif").trim().slice(0, 60) || "Collectif";
+    // Identité visuelle d'une compagnie : gérée depuis le back-office général.
+    if (auth.role === "admin") {
+      if ("couleurPrimaire" in body) patch.couleurPrimaire = couleur(body.couleurPrimaire);
+      if ("couleurSecondaire" in body) patch.couleurSecondaire = couleur(body.couleurSecondaire);
+    } else if (auth.role === "syndicat") {
+      // Le compte d'une compagnie ne modifie ni son logo, ni sa nature, ni son nom.
+      const [moi] = await db.select().from(syndicats).where(eq(syndicats.id, id));
+      if (moi?.compagnie) { delete patch.logoUrl; delete patch.nature; delete patch.nom; delete patch.sigle; delete patch.commune; delete patch.type; }
+    }
 
     if (Object.keys(patch).length === 0) {
       return res.status(400).json({ error: "Aucun champ à mettre à jour" });

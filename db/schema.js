@@ -30,7 +30,8 @@ export const commissionsMixtes = pgTable("commissions_mixtes", {
    routières). */
 export const syndicats = pgTable("syndicats", {
   id: uuid("id").defaultRandom().primaryKey(),
-  commissionMixteId: uuid("commission_mixte_id").references(() => commissionsMixtes.id).notNull(),
+  // NULL pour une compagnie indépendante (VTC…), rattachée directement au back-office général.
+  commissionMixteId: uuid("commission_mixte_id").references(() => commissionsMixtes.id),
   nom: varchar("nom", { length: 160 }).notNull(),
   sigle: varchar("sigle", { length: 20 }),
   logoUrl: text("logo_url"),
@@ -39,6 +40,12 @@ export const syndicats = pgTable("syndicats", {
   // Nature du groupement : Collectif, Compagnie de transport, ou autre nature
   // créée plus tard. Transmise à ORZAYAH comme catégorie des comptes marchands.
   nature: varchar("nature", { length: 60 }).default("Collectif").notNull(),
+  // Compagnie de transport indépendante (VTC…) : son propre compte, ses
+  // chauffeurs, véhicules, transporteurs et agents ; cartes à ses couleurs
+  // et à son logo (verso ORZAYAH inchangé).
+  compagnie: boolean("compagnie").default(false).notNull(),
+  couleurPrimaire: varchar("couleur_primaire", { length: 7 }),
+  couleurSecondaire: varchar("couleur_secondaire", { length: 7 }),
   presidentNom: varchar("president_nom", { length: 160 }),
   presidentContact: varchar("president_contact", { length: 30 }),
   login: varchar("login", { length: 20 }).unique(),
