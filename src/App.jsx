@@ -4100,29 +4100,44 @@ export default function App() {
    export Excel (CSV ; séparateur « ; », accents conservés).
    ============================================================ */
 const echapperHtml = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-function editerListing({ titre, sousTitre, colonnes, lignes }) {
+function editerListing({ titre, sousTitre, colonnes, lignes, sections = null, paysage = false, nomFichier = "listing.csv" }) {
   const w = window.open("", "_blank");
   if (!w) { alert("Le navigateur a bloqué la fenêtre du listing : autorisez les fenêtres pop-up pour ce site."); return; }
   const date = new Date().toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" });
+  const blocs = sections || [{ titre: null, lignes }];
+  const total = blocs.reduce((n, b) => n + b.lignes.length, 0);
+  const tableau = (ls) => `<table><thead><tr><th>N°</th>${colonnes.map((c) => `<th>${echapperHtml(c.titre)}</th>`).join("")}</tr></thead>
+<tbody>${ls.map((l, i) => `<tr><td>${i + 1}</td>${colonnes.map((c) => `<td>${echapperHtml(l[c.cle])}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${colonnes.length + 1}">Aucun enregistrement.</td></tr>`}</tbody></table>`;
+  // Excel : même contenu (avec la colonne du groupement quand le listing est découpé en sections)
+  const cell = (v) => { const t = String(v ?? ""); return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+  const entete = ["N°", ...(sections ? ["Groupement"] : []), ...colonnes.map((c) => c.titre)];
+  let n = 0;
+  const csv = [entete.map(cell).join(";"), ...blocs.flatMap((b) => b.lignes.map((l) => [++n, ...(sections ? [b.titre] : []), ...colonnes.map((c) => l[c.cle])].map(cell).join(";")))].join("\r\n");
   w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${echapperHtml(titre)}</title>
 <style>
-  @page { size: A4; margin: 12mm; }
-  body { font-family: Arial, Helvetica, sans-serif; color: #14181A; font-size: 11px; }
+  @page { size: A4 ${paysage ? "landscape" : "portrait"}; margin: 11mm; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #14181A; font-size: 10.5px; }
   h1 { font-size: 16px; margin: 0 0 2px; } .st { color: #555; margin: 0 0 10px; font-size: 11px; }
-  table { width: 100%; border-collapse: collapse; } thead { display: table-header-group; }
-  th { background: #0B6E4F; color: #fff; text-align: left; padding: 5px 6px; font-size: 10.5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  td { border-bottom: 1px solid #ddd; padding: 4px 6px; vertical-align: top; } tr:nth-child(even) td { background: #F6F4EF; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  h2 { font-size: 12.5px; margin: 14px 0 5px; color: #0B6E4F; } h2 span { color: #666; font-weight: normal; }
+  .saut { break-before: page; page-break-before: always; }
+  table { width: 100%; border-collapse: collapse; } thead { display: table-header-group; } tr { break-inside: avoid; }
+  th { background: #0B6E4F; color: #fff; text-align: left; padding: 5px 5px; font-size: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  td { border-bottom: 1px solid #ddd; padding: 3.5px 5px; vertical-align: top; } tr:nth-child(even) td { background: #F6F4EF; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .pied { margin-top: 14px; display: flex; justify-content: space-between; font-size: 10.5px; } .sig { margin-top: 30px; }
-  .barre { margin: 0 0 10px; } .barre button { font-size: 13px; padding: 7px 14px; cursor: pointer; }
+  .barre { margin: 0 0 10px; display: flex; gap: 8px; } .barre button { font-size: 13px; padding: 7px 14px; cursor: pointer; }
   @media print { .barre { display: none; } }
 </style></head><body>
-<div class="barre"><button onclick="window.print()">Imprimer / Enregistrer en PDF</button></div>
-<h1>${echapperHtml(titre)}</h1><p class="st">${echapperHtml(sousTitre)} — ${lignes.length} carte${lignes.length > 1 ? "s" : ""} — édité le ${echapperHtml(date)}</p>
-<table><thead><tr><th>N°</th>${colonnes.map((c) => `<th>${echapperHtml(c.titre)}</th>`).join("")}</tr></thead>
-<tbody>${lignes.map((l, i) => `<tr><td>${i + 1}</td>${colonnes.map((c) => `<td>${echapperHtml(l[c.cle])}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${colonnes.length + 1}">Aucune carte.</td></tr>`}</tbody></table>
-<div class="pied"><div class="sig">Visa de l'imprimeur :</div><div class="sig">Visa COMIX-CI :</div></div>
+<div class="barre"><button onclick="window.print()">Imprimer / Enregistrer en PDF</button><button id="xls">Exporter vers Excel</button></div>
+<h1>${echapperHtml(titre)}</h1><p class="st">${echapperHtml(sousTitre || "")} — ${total} enregistrement${total > 1 ? "s" : ""} — édité le ${echapperHtml(date)}</p>
+${blocs.map((b, k) => `${b.titre ? `<h2 class="${k && sections && sections.sautDePage ? "saut" : ""}">${echapperHtml(b.titre)} <span>(${b.lignes.length})</span></h2>` : ""}${tableau(b.lignes)}`).join("")}
+<div class="pied"><div class="sig">Visa du responsable :</div><div class="sig">Visa COMIX-CI :</div></div>
 </body></html>`);
   w.document.close();
+  const btn = w.document.getElementById("xls");
+  if (btn) btn.onclick = () => {
+    const url = w.URL.createObjectURL(new w.Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
+    const a = w.document.createElement("a"); a.href = url; a.download = nomFichier; w.document.body.appendChild(a); a.click(); a.remove();
+  };
   w.focus();
 }
 function exporterCsv(nomFichier, colonnes, lignes) {
@@ -4133,6 +4148,139 @@ function exporterCsv(nomFichier, colonnes, lignes) {
   const a = document.createElement("a"); a.href = url; a.download = nomFichier; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
+/* ============================================================
+   LISTINGS DES MEMBRES — chauffeurs, transporteurs, véhicules
+   Par collectif, par association, par collectif ET association, ou
+   listing général (option : regroupé par groupement). Impression A4 et
+   export Excel depuis la fenêtre du listing.
+   ============================================================ */
+const TYPES_LISTING = {
+  transporteur: { titre: "Transporteurs", fichier: "transporteurs" },
+  chauffeur: { titre: "Chauffeurs", fichier: "chauffeurs" },
+  vehicule: { titre: "Véhicules", fichier: "vehicules" },
+};
+function preparerListing(type, { owners, drivers, vehicles, syndicats, associations }) {
+  const sy = (id) => syndicats.find((s) => s.id === id), as = (id) => associations.find((a) => a.id === id);
+  const lib = (e) => e ? (e.sigle || e.nom) : "";
+  const nomP = (p) => p ? `${p.nom || ""} ${p.prenoms || ""}`.trim() : "";
+  if (type === "transporteur") {
+    return {
+      liste: owners,
+      colonnes: [{ cle: "nom", titre: "Nom et prénoms" }, { cle: "carte", titre: "N° carte" }, { cle: "cni", titre: "N° CNI" }, { cle: "tel", titre: "Téléphone" }, { cle: "veh", titre: "Véhicule(s)" }, { cle: "fonction", titre: "Fonction" }, { cle: "collectif", titre: "Collectif" }, { cle: "asso", titre: "Association" }],
+      ligne: (o) => ({ nom: nomP(o), carte: o.carteTransporteurNumero, cni: o.cni, tel: [o.contact1, o.contact2].filter(Boolean).join(" / "),
+        veh: vehicles.filter((v) => v.proprietaireId === o.id).map((v) => v.immatriculation).join(", "),
+        fonction: [o.fonction, o.fonctionAssociation].filter(Boolean).join(" / "), collectif: lib(sy(o.syndicatId)), asso: lib(as(o.associationId)) }),
+    };
+  }
+  if (type === "chauffeur") {
+    return {
+      liste: drivers,
+      colonnes: [{ cle: "nom", titre: "Nom et prénoms" }, { cle: "carte", titre: "N° carte" }, { cle: "permis", titre: "N° permis" }, { cle: "validite", titre: "Permis valide au" }, { cle: "tel", titre: "Téléphone" }, { cle: "veh", titre: "Véhicule" }, { cle: "collectif", titre: "Collectif" }, { cle: "asso", titre: "Association" }],
+      ligne: (d) => ({ nom: nomP(d), carte: d.numeroCarte, permis: d.permisNumero, validite: d.permisDateFin ? fmt(d.permisDateFin) : "", tel: d.contact1,
+        veh: vehicles.filter((v) => (v.chauffeurIds || []).includes(d.id)).map((v) => v.immatriculation).join(", "),
+        collectif: lib(sy(d.syndicatId)), asso: lib(as(d.associationId)) }),
+    };
+  }
+  return {
+    liste: vehicles,
+    colonnes: [{ cle: "immat", titre: "Immatriculation" }, { cle: "modele", titre: "Marque / modèle" }, { cle: "places", titre: "Places" }, { cle: "transporteur", titre: "Transporteur" }, { cle: "tel", titre: "Téléphone" }, { cle: "carte", titre: "N° carte ligne" }, { cle: "macaron", titre: "Macaron" }, { cle: "collectif", titre: "Collectif" }, { cle: "asso", titre: "Association" }],
+    ligne: (v) => { const p = owners.find((o) => o.id === v.proprietaireId); return { immat: v.immatriculation, modele: [v.marque, v.modele].filter(Boolean).join(" "), places: v.nombrePlaces, transporteur: nomP(p) || v.nomCarteGrise || "", tel: p?.contact1, carte: v.numeroCarteLigne, macaron: v.numeroMacaron, collectif: lib(sy(v.syndicatId)), asso: lib(as(v.associationId || p?.associationId)) }; },
+  };
+}
+const tri = (a, b, k) => String(a[k] || "").localeCompare(String(b[k] || ""), "fr");
+
+function ListingsMembres({ type, owners, drivers, vehicles, syndicats, associations }) {
+  const [ouvert, setOuvert] = useState(false);
+  const [mode, setMode] = useState("collectif"); // collectif | association | collectifAsso | general
+  const [collectifId, setCollectifId] = useState("");
+  const [associationId, setAssociationId] = useState("");
+  const [regrouper, setRegrouper] = useState(true);
+  const [sautDePage, setSautDePage] = useState(false);
+  const T = TYPES_LISTING[type];
+  const { liste, colonnes, ligne } = preparerListing(type, { owners, drivers, vehicles, syndicats, associations });
+  const assoDe = (x) => x.associationId || (type === "vehicule" ? owners.find((o) => o.id === x.proprietaireId)?.associationId : null);
+  const cle = colonnes[0].cle;
+  const collectifsUtiles = syndicats.filter((s) => liste.some((x) => x.syndicatId === s.id));
+  const assosUtiles = associations.filter((a) => liste.some((x) => assoDe(x) === a.id) && (mode !== "collectifAsso" || !collectifId || a.syndicatId === collectifId));
+  const nomG = (e) => e ? `${e.nom}${e.sigle ? ` (${e.sigle})` : ""}` : "";
+
+  const editer = (general = false) => {
+    const m = general ? "general" : mode;
+    let filtres = liste, sous = "Listing général";
+    if (m === "collectif") { filtres = liste.filter((x) => x.syndicatId === collectifId); sous = `Collectif : ${nomG(syndicats.find((s) => s.id === collectifId))}`; }
+    if (m === "association") { filtres = liste.filter((x) => assoDe(x) === associationId); sous = `Association : ${nomG(associations.find((a) => a.id === associationId))}`; }
+    if (m === "collectifAsso") {
+      filtres = liste.filter((x) => x.syndicatId === collectifId && (!associationId || assoDe(x) === associationId));
+      sous = `Collectif : ${nomG(syndicats.find((s) => s.id === collectifId))}${associationId ? ` — Association : ${nomG(associations.find((a) => a.id === associationId))}` : " — toutes ses associations"}`;
+    }
+    const lignes = filtres.map(ligne).sort((a, b) => tri(a, b, cle));
+    let sections = null;
+    // Regroupement : par collectif (listing général) ou par association (listing d'un collectif)
+    const regroupe = general ? true : regrouper;
+    if ((m === "general" || m === "collectifAsso") && regroupe) {
+      const parGroupe = new Map();
+      filtres.forEach((x) => {
+        const g = m === "general"
+          ? (syndicats.find((s) => s.id === x.syndicatId)?.nom || "Sans collectif")
+          : (associations.find((a) => a.id === assoDe(x))?.nom || "Sans association");
+        if (!parGroupe.has(g)) parGroupe.set(g, []);
+        parGroupe.get(g).push(ligne(x));
+      });
+      sections = [...parGroupe.entries()].sort((a, b) => a[0].localeCompare(b[0], "fr")).map(([titre, ls]) => ({ titre, lignes: ls.sort((a, b) => tri(a, b, cle)) }));
+      sections.sautDePage = general ? false : sautDePage;
+    }
+    editerListing({ titre: `COMIX-CI — Listing des ${T.titre.toLowerCase()}`, sousTitre: sous, colonnes, lignes, sections, paysage: true,
+      nomFichier: `listing-${T.fichier}-${new Date().toISOString().slice(0, 10)}.csv` });
+  };
+  const pret = mode === "collectif" ? !!collectifId : mode === "association" ? !!associationId : mode === "collectifAsso" ? !!collectifId : true;
+  const sel = (value, onChange, options, vide) => (
+    <select style={inputStyle} className="font-body" value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">{vide}</option>
+      {options.map((o) => <option key={o.id} value={o.id}>{nomG(o)}</option>)}
+    </select>
+  );
+  return (
+    <>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <button onClick={() => setOuvert(true)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: "#fff", border: `1px solid ${C.border}`, color: C.ink }}>
+          <Printer size={13} /> Listing par collectif / association
+        </button>
+        <button onClick={() => editer(true)} className="font-body text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: C.greenDark, color: "#fff" }}>
+          <FileText size={13} /> Listing général des {T.titre.toLowerCase()}
+        </button>
+      </div>
+      {ouvert && (
+        <Modal title={`Listing des ${T.titre.toLowerCase()}`} onClose={() => setOuvert(false)}>
+          <div className="flex flex-col gap-4 font-body">
+            <div className="flex flex-wrap gap-2">
+              {[["collectif", "Par collectif"], ["association", "Par association"], ["collectifAsso", "Collectif + association"], ["general", "Général"]].map(([k, l]) => (
+                <button key={k} onClick={() => { setMode(k); setAssociationId(""); }} className="px-3 py-1.5 rounded-full text-xs font-semibold"
+                  style={{ background: mode === k ? C.greenDark : "#fff", color: mode === k ? "#fff" : C.ink, border: `1px solid ${mode === k ? C.greenDark : C.border}` }}>{l}</button>
+              ))}
+            </div>
+            {(mode === "collectif" || mode === "collectifAsso") && <Field label="Collectif / compagnie">{sel(collectifId, (v) => { setCollectifId(v); setAssociationId(""); }, collectifsUtiles, "— Choisir —")}</Field>}
+            {mode === "association" && <Field label="Association">{sel(associationId, setAssociationId, assosUtiles, "— Choisir —")}</Field>}
+            {mode === "collectifAsso" && <Field label="Association du collectif" hint="Vide = toutes les associations du collectif, regroupées">{sel(associationId, setAssociationId, assosUtiles, "Toutes ses associations")}</Field>}
+            {(mode === "general" || (mode === "collectifAsso" && !associationId)) && (
+              <div className="flex flex-col gap-1.5 text-sm">
+                <label className="flex items-center gap-2"><input type="checkbox" checked={regrouper} onChange={(e) => setRegrouper(e.target.checked)} /> Regrouper {mode === "general" ? "par collectif" : "par association"}</label>
+                {regrouper && <label className="flex items-center gap-2"><input type="checkbox" checked={sautDePage} onChange={(e) => setSautDePage(e.target.checked)} /> Une page par groupement</label>}
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setOuvert(false)} className="text-sm font-bold px-4 py-2.5">Fermer</button>
+              <button disabled={!pret} onClick={() => editer(false)} className="text-sm font-bold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: pret ? C.green : "#B9C4BE", color: "#fff" }}>
+                <Printer size={15} /> Éditer le listing
+              </button>
+            </div>
+            <p className="text-xs" style={{ color: C.slate }}>Le listing s'ouvre dans une nouvelle fenêtre : « Imprimer / Enregistrer en PDF » ou « Exporter vers Excel ».</p>
+          </div>
+        </Modal>
+      )}
+    </>
+  );
+}
+
 const TYPES_CARTE_IMPRIMEUR = { transporteur: "Transporteur", chauffeur: "Chauffeur", element: "Élément", vehicule: "Droit de ligne" };
 
 function EspaceImprimeur({ auth, onLogout }) {
@@ -5243,6 +5391,7 @@ function Dashboard({ auth, onLogout }) {
             const eligibles = filteredVehicles.filter((v) => !!v.carteImprimee === showVehiclesArchive && (!filtreImprimeur || showVehiclesArchive || v.pretImpression));
             return (
             <div className="flex flex-col gap-4">
+              <ListingsMembres type="vehicule" owners={owners} drivers={drivers} vehicles={vehicles} syndicats={syndicats} associations={associations} />
               <div className="flex items-center gap-2">
                 <button onClick={() => { setShowVehiclesArchive(false); setSelectedVehicleIds([]); }} className="font-body text-xs font-semibold px-3.5 py-2 rounded-full" style={{ background: !showVehiclesArchive ? C.orangeLight : "transparent", color: !showVehiclesArchive ? C.orangeDark : C.slate, border: `1px solid ${!showVehiclesArchive ? C.orange : C.border}` }}>
                   Nouvelles cartes ({filteredVehicles.filter((v) => !v.carteImprimee).length})
@@ -5357,6 +5506,7 @@ function Dashboard({ auth, onLogout }) {
             const visibleOwners = owners.filter((o) => !!o.carteImprimee === showOwnersArchive && (!idsTrouves || idsTrouves.transporteur.has(o.id)) && (!filtreImprimeur || showOwnersArchive || o.pretImpression));
             return (
             <div className="flex flex-col gap-4">
+              <ListingsMembres type="transporteur" owners={owners} drivers={drivers} vehicles={vehicles} syndicats={syndicats} associations={associations} />
               <div className="flex items-center gap-2">
                 <button onClick={() => { setShowOwnersArchive(false); setSelectedOwnerIds([]); }} className="font-body text-xs font-semibold px-3.5 py-2 rounded-full" style={{ background: !showOwnersArchive ? C.orangeLight : "transparent", color: !showOwnersArchive ? C.orangeDark : C.slate, border: `1px solid ${!showOwnersArchive ? C.orange : C.border}` }}>
                   Nouvelles cartes ({owners.filter((o) => !o.carteImprimee).length})
@@ -5734,6 +5884,7 @@ function Dashboard({ auth, onLogout }) {
             const visibleDrivers = drivers.filter((d) => !!d.carteImprimee === showDriversArchive && (!idsTrouves || idsTrouves.chauffeur.has(d.id)) && (!filtreImprimeur || showDriversArchive || d.pretImpression));
             return (
             <div className="flex flex-col gap-4">
+              <ListingsMembres type="chauffeur" owners={owners} drivers={drivers} vehicles={vehicles} syndicats={syndicats} associations={associations} />
               <div className="flex items-center gap-2">
                 <button onClick={() => { setShowDriversArchive(false); setSelectedDriverIds([]); }} className="font-body text-xs font-semibold px-3.5 py-2 rounded-full" style={{ background: !showDriversArchive ? C.orangeLight : "transparent", color: !showDriversArchive ? C.orangeDark : C.slate, border: `1px solid ${!showDriversArchive ? C.orange : C.border}` }}>
                   Nouvelles cartes ({drivers.filter((d) => !d.carteImprimee).length})
