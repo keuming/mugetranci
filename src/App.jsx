@@ -4514,6 +4514,7 @@ function Dashboard({ auth, onLogout }) {
   const [nbAffiches, setNbAffiches] = useState(PAS_AFFICHAGE);
   React.useEffect(() => { setNbAffiches(PAS_AFFICHAGE); }, [page]);
   const [showForm, setShowForm] = useState(false);
+  const [triEtat, setTriEtat] = useState({ etat: "tous", entite: "" }); // tri par état des cartes (pages membres / véhicules)
   const [ficheVehicle, setFicheVehicle] = useState(null);
   const [cardDriver, setCardDriver] = useState(null);
   const [cardOwner, setCardOwner] = useState(null);
@@ -5388,10 +5389,13 @@ function Dashboard({ auth, onLogout }) {
           )}
 
           {page === "vehicles" && (() => {
-            const eligibles = filteredVehicles.filter((v) => !!v.carteImprimee === showVehiclesArchive && (!filtreImprimeur || showVehiclesArchive || v.pretImpression));
+            const ctxEtat = { owners, vehicles, syndicats };
+            const baseVehicules = filteredVehicles.filter((v) => !!v.carteImprimee === showVehiclesArchive && (!filtreImprimeur || showVehiclesArchive || v.pretImpression));
+            const eligibles = baseVehicules.filter((v) => passeTriEtat("vehicule", v, triEtat, ctxEtat));
             return (
             <div className="flex flex-col gap-4">
               <ListingsMembres type="vehicule" owners={owners} drivers={drivers} vehicles={vehicles} syndicats={syndicats} associations={associations} />
+              <FiltreEtatCartes kind="vehicule" base={baseVehicules} tri={triEtat} setTri={setTriEtat} ctx={ctxEtat} syndicats={syndicats} associations={associations} />
               <div className="flex items-center gap-2">
                 <button onClick={() => { setShowVehiclesArchive(false); setSelectedVehicleIds([]); }} className="font-body text-xs font-semibold px-3.5 py-2 rounded-full" style={{ background: !showVehiclesArchive ? C.orangeLight : "transparent", color: !showVehiclesArchive ? C.orangeDark : C.slate, border: `1px solid ${!showVehiclesArchive ? C.orange : C.border}` }}>
                   Nouvelles cartes ({filteredVehicles.filter((v) => !v.carteImprimee).length})
@@ -5486,7 +5490,7 @@ function Dashboard({ auth, onLogout }) {
               )}
               <BandeauRecherche saisie={search.trim()} critere={critereRecherche} total={eligibles.length} onEffacer={() => setSearch("")} />
                 <VehicleGrid
-                  vehicles={eligibles.slice(0, nbAffiches)} owners={owners} drivers={drivers} onFiche={openFiche} onPhoto={updateVehiclePhoto}
+                  vehicles={eligibles.slice(0, nbAffiches)} ctxEtat={ctxEtat} owners={owners} drivers={drivers} onFiche={openFiche} onPhoto={updateVehiclePhoto}
                   commissionsMixtes={commissionsMixtes} lignes={lignes} affectations={affectations}
                   onReassign={setReassignVehicle} onEdit={setEditVehicle} onDelete={deleteVehicle}
                   onCardOwner={setCardOwner} onCardDriver={openCard}
@@ -5503,10 +5507,13 @@ function Dashboard({ auth, onLogout }) {
           })()}
 
           {page === "owners" && (() => {
-            const visibleOwners = owners.filter((o) => !!o.carteImprimee === showOwnersArchive && (!idsTrouves || idsTrouves.transporteur.has(o.id)) && (!filtreImprimeur || showOwnersArchive || o.pretImpression));
+            const ctxEtat = { owners, vehicles, syndicats };
+            const baseOwners = owners.filter((o) => !!o.carteImprimee === showOwnersArchive && (!idsTrouves || idsTrouves.transporteur.has(o.id)) && (!filtreImprimeur || showOwnersArchive || o.pretImpression));
+            const visibleOwners = baseOwners.filter((o) => passeTriEtat("transporteur", o, triEtat, ctxEtat));
             return (
             <div className="flex flex-col gap-4">
               <ListingsMembres type="transporteur" owners={owners} drivers={drivers} vehicles={vehicles} syndicats={syndicats} associations={associations} />
+              <FiltreEtatCartes kind="transporteur" base={baseOwners} tri={triEtat} setTri={setTriEtat} ctx={ctxEtat} syndicats={syndicats} associations={associations} />
               <div className="flex items-center gap-2">
                 <button onClick={() => { setShowOwnersArchive(false); setSelectedOwnerIds([]); }} className="font-body text-xs font-semibold px-3.5 py-2 rounded-full" style={{ background: !showOwnersArchive ? C.orangeLight : "transparent", color: !showOwnersArchive ? C.orangeDark : C.slate, border: `1px solid ${!showOwnersArchive ? C.orange : C.border}` }}>
                   Nouvelles cartes ({owners.filter((o) => !o.carteImprimee).length})
@@ -5600,6 +5607,7 @@ function Dashboard({ auth, onLogout }) {
                       <AvatarUpload photo={o.photo} nom={o.nom} prenoms={o.prenoms} size={48} onUpload={(dataUrl) => updateOwnerPhoto(o.id, dataUrl)} />
                       <div>
                         <div className="font-display" style={{ fontSize: 15, fontWeight: 800, color: C.ink }}>{o.prenoms} {o.nom}</div>
+                        <div style={{ marginTop: 3 }}><BadgeEtatCarte kind="transporteur" x={o} ctx={ctxEtat} /></div>
                         <div className="text-xs" style={{ color: C.slate }}>{ownedCount} véhicule{ownedCount > 1 ? "s" : ""} · N° {o.carteTransporteurNumero || "—"}</div>
                       </div>
                     </div>
@@ -5655,9 +5663,12 @@ function Dashboard({ auth, onLogout }) {
           })()}
 
           {page === "elements" && (() => {
-            const visibleElements = elements.filter((e) => !!e.carteImprimee === showElementsArchive && (!idsTrouves || idsTrouves.element.has(e.id)) && (!filtreImprimeur || showElementsArchive || e.pretImpression));
+            const ctxEtat = { owners, vehicles, syndicats };
+            const baseElements = elements.filter((e) => !!e.carteImprimee === showElementsArchive && (!idsTrouves || idsTrouves.element.has(e.id)) && (!filtreImprimeur || showElementsArchive || e.pretImpression));
+            const visibleElements = baseElements.filter((e) => passeTriEtat("element", e, triEtat, ctxEtat));
             return (
             <div className="flex flex-col gap-4">
+              <FiltreEtatCartes kind="element" base={baseElements} tri={triEtat} setTri={setTriEtat} ctx={ctxEtat} syndicats={syndicats} associations={associations} />
               <div className="flex items-center gap-2">
                 <button onClick={() => { setShowElementsArchive(false); setSelectedElementIds([]); }} className="font-body text-xs font-semibold px-3.5 py-2 rounded-full" style={{ background: !showElementsArchive ? C.orangeLight : "transparent", color: !showElementsArchive ? C.orangeDark : C.slate, border: `1px solid ${!showElementsArchive ? C.orange : C.border}` }}>
                   Nouvelles cartes ({elements.filter((e) => !e.carteImprimee).length})
@@ -5750,6 +5761,7 @@ function Dashboard({ auth, onLogout }) {
                       <AvatarUpload photo={e.photo} nom={e.nom} prenoms={e.prenoms} size={48} onUpload={async (dataUrl) => { await updateElement(e.id, { photo: dataUrl }); }} />
                       <div>
                         <div className="font-display" style={{ fontSize: 15, fontWeight: 800, color: C.ink }}>{e.prenoms} {e.nom}</div>
+                        <div style={{ marginTop: 3 }}><BadgeEtatCarte kind="element" x={e} ctx={ctxEtat} /></div>
                         <div className="text-xs" style={{ color: C.slate }}>{e.fonction || "—"} · N° {e.numeroCarte || "—"}</div>
                         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                         <button onClick={() => setEditElement(e)} title="Modifier la fiche (liaison ORZAYAH)"><OrzayahStatutPill membre={e} /></button>
@@ -5881,10 +5893,13 @@ function Dashboard({ auth, onLogout }) {
           )}
 
           {page === "drivers" && (() => {
-            const visibleDrivers = drivers.filter((d) => !!d.carteImprimee === showDriversArchive && (!idsTrouves || idsTrouves.chauffeur.has(d.id)) && (!filtreImprimeur || showDriversArchive || d.pretImpression));
+            const ctxEtat = { owners, vehicles, syndicats };
+            const baseDrivers = drivers.filter((d) => !!d.carteImprimee === showDriversArchive && (!idsTrouves || idsTrouves.chauffeur.has(d.id)) && (!filtreImprimeur || showDriversArchive || d.pretImpression));
+            const visibleDrivers = baseDrivers.filter((d) => passeTriEtat("chauffeur", d, triEtat, ctxEtat));
             return (
             <div className="flex flex-col gap-4">
               <ListingsMembres type="chauffeur" owners={owners} drivers={drivers} vehicles={vehicles} syndicats={syndicats} associations={associations} />
+              <FiltreEtatCartes kind="chauffeur" base={baseDrivers} tri={triEtat} setTri={setTriEtat} ctx={ctxEtat} syndicats={syndicats} associations={associations} />
               <div className="flex items-center gap-2">
                 <button onClick={() => { setShowDriversArchive(false); setSelectedDriverIds([]); }} className="font-body text-xs font-semibold px-3.5 py-2 rounded-full" style={{ background: !showDriversArchive ? C.orangeLight : "transparent", color: !showDriversArchive ? C.orangeDark : C.slate, border: `1px solid ${!showDriversArchive ? C.orange : C.border}` }}>
                   Nouvelles cartes ({drivers.filter((d) => !d.carteImprimee).length})
@@ -5973,6 +5988,7 @@ function Dashboard({ auth, onLogout }) {
                       <AvatarUpload photo={d.photo} nom={d.nom} prenoms={d.prenoms} size={48} onUpload={(dataUrl) => updateDriverPhoto(d.id, dataUrl)} />
                       <div>
                         <div className="font-display" style={{ fontSize: 15, fontWeight: 800, color: C.ink }}>{d.prenoms} {d.nom}</div>
+                        <div style={{ marginTop: 3 }}><BadgeEtatCarte kind="chauffeur" x={d} ctx={ctxEtat} /></div>
                         <div className="text-xs" style={{ color: C.slate }}>{veh ? veh.immatriculation : "Non affecté"}</div>
                       </div>
                     </div>
@@ -7830,6 +7846,48 @@ function etatCarte(kind, x, { owners = [], vehicles = [], syndicats = [] }) {
 const ETATS_CARTE = [["tous", "Toutes les cartes"], ["prete", "✓ Prêtes à imprimer"], ["sansOrzayah", "Sans ORZAYAH"], ["incomplete", "Informations manquantes"]];
 const TYPES_AVEC_CARTE = ["vehicule", "transporteur", "chauffeur", "element"];
 
+// Tri par état de carte sur les pages Véhicules / Transporteurs / Chauffeurs / Éléments.
+function passeTriEtat(kind, x, tri, ctx) {
+  if (tri.entite) {
+    const asso = x.associationId || (kind === "vehicule" ? ctx.owners.find((o) => o.id === x.proprietaireId)?.associationId : null);
+    if (tri.entite.startsWith("s:") ? x.syndicatId !== tri.entite.slice(2) : asso !== tri.entite.slice(2)) return false;
+  }
+  if (tri.etat === "tous") return true;
+  const e = etatCarte(kind, x, ctx);
+  return tri.etat === "prete" ? e.prete : tri.etat === "sansOrzayah" ? !e.orzayah : e.manque.length > 0;
+}
+function FiltreEtatCartes({ kind, base, tri, setTri, ctx, syndicats, associations }) {
+  const compte = (etat) => base.filter((x) => passeTriEtat(kind, x, { ...tri, etat }, ctx)).length;
+  return (
+    <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 rounded-xl font-body" style={{ background: "#fff", border: `1px solid ${C.border}` }}>
+      <span className="text-xs font-semibold" style={{ color: C.slate }}>État des cartes</span>
+      {ETATS_CARTE.map(([k, lib]) => {
+        const couleur = k === "prete" ? C.greenDark : k === "sansOrzayah" ? C.orangeDark : k === "incomplete" ? C.red : C.ink;
+        return (
+          <button key={k} onClick={() => setTri({ ...tri, etat: k })} className="px-3 py-1.5 rounded-full text-xs font-semibold"
+            style={{ background: tri.etat === k ? couleur : "#fff", color: tri.etat === k ? "#fff" : couleur, border: `1px solid ${couleur}` }}>{lib} ({compte(k)})</button>
+        );
+      })}
+      <select style={{ ...inputStyle, width: "auto", minWidth: 220, padding: "6px 10px", fontSize: 13, marginLeft: "auto" }} className="font-body" value={tri.entite} onChange={(e) => setTri({ ...tri, entite: e.target.value })}>
+        <option value="">Toutes les entités</option>
+        {syndicats.some((s) => s.compagnie) && <optgroup label="Compagnies">{syndicats.filter((s) => s.compagnie).map((s) => <option key={s.id} value={`s:${s.id}`}>{s.nom}</option>)}</optgroup>}
+        <optgroup label="Collectifs">{syndicats.filter((s) => !s.compagnie).map((s) => <option key={s.id} value={`s:${s.id}`}>{s.sigle ? `${s.sigle} — ` : ""}{s.nom}</option>)}</optgroup>
+        <optgroup label="Associations">{associations.map((a) => <option key={a.id} value={`a:${a.id}`}>{a.sigle ? `${a.sigle} — ` : ""}{a.nom}</option>)}</optgroup>
+      </select>
+    </div>
+  );
+}
+function BadgeEtatCarte({ kind, x, ctx }) {
+  const e = etatCarte(kind, x, ctx);
+  if (e.prete) return <span className="font-body text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: C.greenLight, color: C.greenDark }}>✓ Prête à imprimer</span>;
+  return (
+    <span className="flex flex-wrap gap-1.5 font-body">
+      {!e.orzayah && <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: C.orangeLight, color: C.orangeDark }}>Sans ORZAYAH</span>}
+      {e.manque.length > 0 && <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: C.redLight, color: C.red }}><b>Manque :</b> {e.manque.join(", ")}</span>}
+    </span>
+  );
+}
+
 const LIB_CREATEUR = { admin: "Administrateur", commission_mixte: "Commission mixte", syndicat: "Collectif / compagnie", gare: "Gare routière", association: "Association", agent: "Agent" };
 function HistoriqueAjouts({ estAdmin, peutCommission, owners, drivers, elements, vehicles, syndicats, associations, commissionsMixtes, agents, actions }) {
   const [type, setType] = useState("tous");
@@ -8656,7 +8714,7 @@ function AfficherPlus({ total, affiches, onPlus, pas = 60 }) {
 }
 
 function VehicleGrid({ vehicles, owners, drivers, commissionsMixtes, lignes, affectations, onFiche, onPhoto, onReassign, onEdit, onDelete,
-  onCardOwner, onCardDriver, onEditOwner, onEditDriver, selectedIds = [], onToggleSelect, vide = "Aucun véhicule." }) {
+  onCardOwner, onCardDriver, onEditOwner, onEditDriver, selectedIds = [], onToggleSelect, vide = "Aucun véhicule." , ctxEtat = null}) {
   if (!vehicles.length) {
     return <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 24 }} className="font-body text-sm text-center"><span style={{ color: C.slate }}>{vide}</span></div>;
   }
@@ -8693,6 +8751,7 @@ function VehicleGrid({ vehicles, owners, drivers, commissionsMixtes, lignes, aff
               <AvatarUpload photo={v.photo} size={48} shape="square" fallbackIcon={<Car size={18} color={C.slate} />} onUpload={(dataUrl) => onPhoto(v.id, dataUrl)} />
               <div style={{ minWidth: 0 }}>
                 <div className="font-mono" style={{ fontSize: 16, fontWeight: 800, color: C.ink, letterSpacing: 0.5 }}>{v.immatriculation}</div>
+                {ctxEtat && <div style={{ marginTop: 3 }}><BadgeEtatCarte kind="vehicule" x={v} ctx={ctxEtat} /></div>}
                 <div className="text-xs" style={{ color: C.slate }}>{[v.marque, v.modele].filter(Boolean).join(" ") || "—"} · N° {v.numeroCarteLigne || "—"}{v.numeroMacaron ? ` · Macaron ${v.numeroMacaron}` : ""}</div>
                 {v.pretImpression && !v.carteImprimee && <div className="font-body text-xs font-semibold mt-0.5" style={{ color: C.greenDark }} title={`Envoyée par ${v.pretImpressionPar || "—"}`}>🖨 Chez l'imprimeur</div>}
               </div>
