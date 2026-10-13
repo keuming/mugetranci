@@ -42,6 +42,8 @@ async function handleAssociations(req, res, id) {
         nom: body.nom,
         sigle: body.sigle || null,
         logoUrl: body.logoUrl || null,
+        cachetUrl: body.cachetUrl || null,
+        signatureUrl: body.signatureUrl || null,
         presidentNom: body.presidentNom || null,
         presidentContact: body.presidentContact || null,
         login: body.login || null,
@@ -66,7 +68,7 @@ async function handleAssociations(req, res, id) {
   if (req.method === "PATCH") {
     const body = req.body || {};
     const patch = {};
-    ["nom", "sigle", "logoUrl", "presidentNom", "presidentContact", "login"].forEach((k) => {
+    ["nom", "sigle", "logoUrl", "cachetUrl", "signatureUrl", "presidentNom", "presidentContact", "login"].forEach((k) => {
       if (k in body) patch[k] = body[k] || null;
     });
     if ("pinCode" in body && body.pinCode) {
@@ -137,6 +139,8 @@ export default async function handler(req, res) {
             nature: String(body.nature || "Compagnie de transport").trim().slice(0, 60) || "Compagnie de transport",
             couleurPrimaire: couleur(body.couleurPrimaire) || "#0B6E4F",
             couleurSecondaire: couleur(body.couleurSecondaire) || "#E07A1F",
+            cachetUrl: body.cachetUrl || null,
+            signatureUrl: body.signatureUrl || null,
             presidentNom: body.presidentNom || null,
             presidentContact: body.presidentContact || null,
             login: body.login || null,
@@ -188,6 +192,8 @@ export default async function handler(req, res) {
           nom: body.nom,
           sigle: body.sigle || null,
           logoUrl: body.logoUrl || null,
+          cachetUrl: body.cachetUrl || null,
+          signatureUrl: body.signatureUrl || null,
           commune: body.commune || null,
           type: body.type || null,
           nature: natureGroupement,
@@ -236,7 +242,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Le code PIN doit comporter exactement 4 chiffres" });
     }
     const patch = {};
-    ["nom", "sigle", "logoUrl", "commune", "type", "presidentNom", "presidentContact", "login"].forEach((k) => {
+    ["nom", "sigle", "logoUrl", "cachetUrl", "signatureUrl", "commune", "type", "presidentNom", "presidentContact", "login"].forEach((k) => {
       if (k in body) patch[k] = body[k] || null;
     });
     if (body.pinCode) patch.pinCode = body.pinCode;
@@ -248,7 +254,7 @@ export default async function handler(req, res) {
     } else if (auth.role === "syndicat") {
       // Le compte d'une compagnie ne modifie ni son logo, ni sa nature, ni son nom.
       const [moi] = await db.select().from(syndicats).where(eq(syndicats.id, id));
-      if (moi?.compagnie) { delete patch.logoUrl; delete patch.nature; delete patch.nom; delete patch.sigle; delete patch.commune; delete patch.type; }
+      if (moi?.compagnie) { delete patch.logoUrl; delete patch.cachetUrl; delete patch.signatureUrl; delete patch.nature; delete patch.nom; delete patch.sigle; delete patch.commune; delete patch.type; }
     }
 
     if (Object.keys(patch).length === 0) {

@@ -132,7 +132,9 @@ input, select, textarea { font-size: 16px !important; }
 .print-cartes-root { display: none; }
 `;
 
-const TODAY = new Date("2026-07-27");
+// Date du jour (minuit) : référence de toutes les échéances. Elle était figée
+// au 27/07/2026 depuis la maquette initiale, ce qui faussait les alertes.
+function aujourdhui() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
 const TRANSPORT_CATEGORIES = ["VTC", "Minibus", "Taxi brousse", "Taxi compteur", "Taxi communal", "Taxi intercommunal"];
 const TYPES_ENERGIE = ["Essence", "Diesel", "Hybride", "Électrique", "GPL"];
 // Communes d'Abidjan + principales villes de Côte d'Ivoire — liste par
@@ -191,7 +193,7 @@ const SYNDICAT_TYPES = [
 function daysUntil(dateStr) {
   if (!dateStr) return null;
   const d = new Date(dateStr);
-  return Math.round((d - TODAY) / (1000 * 60 * 60 * 24));
+  return Math.round((d - aujourdhui()) / (1000 * 60 * 60 * 24));
 }
 function statusOf(dateStr) {
   const days = daysUntil(dateStr);
@@ -860,6 +862,75 @@ function detenteursRemplis(liste) {
 // Photo d'une personne : 480 px suffisent pour la carte imprimée et l'écran
 // (~30-50 Ko au lieu de 150-300 Ko) ; les documents gardent 1200 px pour rester lisibles.
 const PHOTO_PERSONNE = { maxSide: 480, quality: 0.8 };
+/* Cachet / signature numérisés : l'image est réduite (420 px max) et son
+   fond clair rendu TRANSPARENT (PNG), pour se poser proprement sur la carte. */
+function lireTampon(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Lecture du fichier impossible."));
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Image illisible."));
+      img.onload = () => {
+        const scale = Math.min(1, 420 / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const px = data.data;
+        for (let i = 0; i < px.length; i += 4) {
+          const lum = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+          if (lum > 225) px[i + 3] = 0;                                   // fond blanc / papier
+          else if (lum > 185) px[i + 3] = Math.round(px[i + 3] * (225 - lum) / 40); // bords adoucis
+        }
+        ctx.putImageData(data, 0, 0);
+        resolve(canvas.toDataURL("image/png"));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+const DAMIER = "repeating-conic-gradient(#EEE 0% 25%, #FFF 0% 50%) 50% / 12px 12px";
+function TamponUpload({ value, onChange, label, hint }) {
+  const ref = useRef(null);
+  const [erreur, setErreur] = useState(null);
+  const onFile = async (e) => {
+    const f = e.target.files?.[0]; e.target.value = "";
+    if (!f) return;
+    try { setErreur(null); onChange(await lireTampon(f)); } catch (err) { setErreur(err.message); }
+  };
+  return (
+    <div className="flex items-center gap-3">
+      <div onClick={() => ref.current?.click()} title="Charger l'image numérisée"
+        style={{ width: 96, height: 64, borderRadius: 10, cursor: "pointer", border: `1.5px dashed ${C.border}`, background: value ? DAMIER : C.cream, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
+        {value ? <img src={value} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} /> : <FileText size={20} color={C.slate} />}
+      </div>
+      <div className="flex flex-col gap-1" style={{ minWidth: 0 }}>
+        <span className="font-body text-xs font-semibold" style={{ color: C.ink }}>{label}</span>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <button type="button" onClick={() => ref.current?.click()} className="font-body text-xs font-semibold flex items-center gap-1 px-2.5 py-1.5 rounded-lg" style={{ background: C.orangeLight, color: C.orangeDark }}>
+            <FileText size={13} /> {value ? "Remplacer" : "Charger"}
+          </button>
+          {value && <button type="button" onClick={() => onChange(null)} className="font-body text-xs font-semibold px-2 py-1.5" style={{ color: C.red }}>Retirer</button>}
+        </div>
+        <span className="font-body" style={{ fontSize: 10.5, color: erreur ? C.red : C.slate }}>{erreur || hint || "Scan ou photo sur fond blanc : le fond est rendu transparent."}</span>
+      </div>
+      <input ref={ref} type="file" accept="image/*" onChange={onFile} style={{ display: "none" }} />
+    </div>
+  );
+}
+function CachetSignatureFields({ cachet, onCachet, signature, onSignature, qui }) {
+  return (
+    <div className="grid grid-cols-2 gap-4" style={{ background: C.cream, borderRadius: 12, padding: 12 }}>
+      <TamponUpload label={`Cachet numérisé ${qui}`} value={cachet} onChange={onCachet} />
+      <TamponUpload label="Signature numérisée du responsable" value={signature} onChange={onSignature} />
+    </div>
+  );
+}
+
 function PhotoUpload({ value, onChange, label, shape = "circle" }) {
   const ref = useRef(null);       // galerie / fichiers
   const camRef = useRef(null);    // appareil photo
@@ -1276,6 +1347,8 @@ function VehicleForm({ auth, owners, drivers, vehicles = [], existants = [], onO
                   <FonctionField label="Fonction dans l'association" value={newOwner.fonctionAssociation} onChange={(v) => setNewOwner({ ...newOwner, fonctionAssociation: v })} dejaUtilisees={[...owners, ...drivers].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
                   <GroupeSanguinField value={newOwner.groupeSanguin} onChange={(v) => setNewOwner({ ...newOwner, groupeSanguin: v })} />
                   <Field label="Numéro permis de conduire"><TextInput value={newOwner.numeroPermis} onChange={(e) => setNewOwner({ ...newOwner, numeroPermis: e.target.value })} /></Field>
+                  <Field label="Permis valide jusqu'au" hint="Alerte avant expiration"><DateInput value={newOwner.permisDateFin || ""} onChange={(e) => setNewOwner({ ...newOwner, permisDateFin: e.target.value })} /></Field>
+                  <Field label="CNI valide jusqu'au" hint="Alerte avant expiration"><DateInput value={newOwner.cniDateFin || ""} onChange={(e) => setNewOwner({ ...newOwner, cniDateFin: e.target.value })} /></Field>
                   <Field label="Adresse email"><TextInput value={newOwner.email} onChange={(e) => setNewOwner({ ...newOwner, email: e.target.value })} /></Field>
                   <Field label="Contact 1"><TextInput value={newOwner.contact1} onChange={(e) => setNewOwner({ ...newOwner, contact1: e.target.value })} /></Field>
                   <Field label="Contact 2"><TextInput value={newOwner.contact2} onChange={(e) => setNewOwner({ ...newOwner, contact2: e.target.value })} /></Field>
@@ -1470,7 +1543,7 @@ function FicheVehicule({ vehicle, owners, drivers, commissionsMixtes, syndicats,
       </div>
       {showCarteLigne && (
         <Modal onClose={() => setShowCarteLigne(false)} title="Carte de droit d'exploitation de ligne" wide>
-          <CarteDroitDeLigne vehicule={vehicle} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} onClose={() => setShowCarteLigne(false)} />
+          <CarteDroitDeLigne vehicule={vehicle} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} association={associations.find((a) => a.id === (vehicle.associationId || owner?.associationId)) || null} onClose={() => setShowCarteLigne(false)} />
         </Modal>
       )}
       <div className="print-area" style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
@@ -1862,6 +1935,28 @@ function compagnieDuMembre(member, syndicats = []) {
   return s?.compagnie ? s : null;
 }
 
+/* Cachets et signatures numérisés des groupements (collectif, association,
+   compagnie) apposés sur la carte : cachet en fond, signature par-dessus. */
+function TamponsCarte({ entites = [], largeur = 46, hauteur = 32, clair = false }) {
+  const avecImage = entites.filter((e) => e && (e.cachetUrl || e.signatureUrl));
+  if (!avecImage.length) return null;
+  return (
+    <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "flex-end" }}>
+      {avecImage.map((e, i) => (
+        <div key={i} style={{ width: largeur, display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div style={{ position: "relative", width: largeur, height: hauteur, ...(clair ? { background: "rgba(255,255,255,0.88)", borderRadius: 5 } : {}) }}>
+            {e.cachetUrl && <img src={e.cachetUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", opacity: 0.9, mixBlendMode: "multiply" }} />}
+            {e.signatureUrl && <img src={e.signatureUrl} alt="" style={{ position: "absolute", left: "8%", top: "18%", width: "84%", height: "70%", objectFit: "contain", mixBlendMode: "multiply" }} />}
+          </div>
+          <div style={{ fontSize: 4.6, fontWeight: 700, color: clair ? "rgba(255,255,255,0.8)" : C.slate, lineHeight: 1.1, textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: largeur }}>{e.libelle}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+const tampon = (entite, libelle) => entite && (entite.cachetUrl || entite.signatureUrl)
+  ? { cachetUrl: entite.cachetUrl, signatureUrl: entite.signatureUrl, libelle: libelle || entite.sigle || entite.nom } : null;
+
 function RectoCompagnie({ compagnie, member, category, numero, ficheValue, infoFields = [] }) {
   const { primaire, secondaire } = couleursCompagnie(compagnie);
   const surPrimaire = texteSurCouleur(primaire), surSecondaire = texteSurCouleur(secondaire);
@@ -1897,6 +1992,7 @@ function RectoCompagnie({ compagnie, member, category, numero, ficheValue, infoF
               )}
             </div>
           </div>
+          <div style={{ marginLeft: "auto" }}><TamponsCarte entites={[tampon(compagnie, "La Direction")]} largeur={58} hauteur={38} /></div>
         </div>
 
         <div className="flex items-start" style={{ fontSize: 8, color: C.slate, gap: infoFields.length > 2 ? 9 : 16, minWidth: 0 }}>
@@ -2094,6 +2190,9 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
                 <div style={{ fontSize: 7.5, color: tPrincipal, fontWeight: 800, marginTop: 1, letterSpacing: 0.3 }}>{mentionPointFocal(communePointFocal)}</div>
               )}
             </div>
+            <div style={{ marginLeft: "auto" }}>
+              <TamponsCarte clair={surFondColore} entites={[tampon(logo2, "Le Collectif"), tampon(logo1, "L'Association")]} />
+            </div>
           </div>
 
           <div className="font-body flex items-start" style={{ fontSize: 8, color: tSecondaire, gap: infoFields.length > 2 ? 9 : 16, minWidth: 0 }}>
@@ -2163,7 +2262,7 @@ function decouperNomCarteGrise(nomComplet) {
   return { nom: t.slice(0, i), prenoms: t.slice(i + 1) };
 }
 
-function CarteDroitDeLigneFace({ vehicule, owner, collectifTransporteurs, collectifChauffeurs, scale = 1 }) {
+function CarteDroitDeLigneFace({ vehicule, owner, collectifTransporteurs, collectifChauffeurs, association = null, scale = 1 }) {
   const numero = vehicule.numeroCarteLigne || "—";
   const dateInscription = vehicule.createdAt ? fmt(vehicule.createdAt) : "—";
   const president = collectifTransporteurs?.presidentNom;
@@ -2192,7 +2291,9 @@ function CarteDroitDeLigneFace({ vehicule, owner, collectifTransporteurs, collec
     ["Châssis", vehicule.chassis],
   ];
   const renseignees = caracteristiques.filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== "");
-  const lignesCaracteristiques = (renseignees.length ? renseignees : caracteristiques.slice(0, 6)).slice(0, 7);
+  // Avec cachets/signatures, deux lignes sont libérées pour les apposer sans masquer le texte.
+  const tamponsLigne = [tampon(collectifTransporteurs, collectifTransporteurs?.compagnie ? "La Direction" : "Le Collectif"), tampon(association, "L'Association")].filter(Boolean);
+  const lignesCaracteristiques = (renseignees.length ? renseignees : caracteristiques.slice(0, 6)).slice(0, tamponsLigne.length ? 5 : 7);
 
   return (
     <div style={{ width: 340 * scale, height: 214 * scale, overflow: "hidden", flexShrink: 0 }}>
@@ -2264,6 +2365,10 @@ function CarteDroitDeLigneFace({ vehicule, owner, collectifTransporteurs, collec
               ))}
             </div>
 
+            {/* Cachets et signatures : collectif (ou compagnie) + association */}
+            <div style={{ position: "absolute", right: 60, bottom: 31, pointerEvents: "none" }}>
+              <TamponsCarte entites={tamponsLigne} largeur={44} hauteur={30} />
+            </div>
             {/* QR d'acces a la fiche publique du vehicule */}
             <div style={{ flexShrink: 0, alignSelf: "flex-end", background: "#fff", borderRadius: 5, padding: 2, border: `1px solid ${C.border}` }}>
               <QRCodeSVG value={ficheUrl(vehicule.id)} size={46} bgColor="#ffffff" fgColor={C.ink} level="M" />
@@ -2319,7 +2424,7 @@ function CarteDroitDeLigneVerso({ vehicule, owner, scale = 1 }) {
   );
 }
 
-function CarteDroitDeLigne({ vehicule, owner, collectifTransporteurs, collectifChauffeurs, onClose }) {
+function CarteDroitDeLigne({ vehicule, owner, collectifTransporteurs, collectifChauffeurs, association = null, onClose }) {
   const [flipped, setFlipped] = useState(false);
   const format = useFormatImpression();
   const wrapRef = useRef(null);
@@ -2335,22 +2440,22 @@ function CarteDroitDeLigne({ vehicule, owner, collectifTransporteurs, collectifC
     <div className="flex flex-col items-center gap-3" ref={wrapRef} style={{ width: "100%" }}>
       {format === "cartes" ? (
         <div className="no-print flex flex-col items-center gap-3">
-          <CarteDroitDeLigneFace vehicule={vehicule} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} scale={scale} />
+          <CarteDroitDeLigneFace vehicule={vehicule} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} association={association} scale={scale} />
           <CarteDroitDeLigneVerso vehicule={vehicule} owner={owner} scale={scale} />
         </div>
       ) : (
       <div className="no-print">
         {flipped
           ? <CarteDroitDeLigneVerso vehicule={vehicule} owner={owner} scale={scale} />
-          : <CarteDroitDeLigneFace vehicule={vehicule} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} scale={scale} />}
+          : <CarteDroitDeLigneFace vehicule={vehicule} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} association={association} scale={scale} />}
       </div>
       )}
       <PagesImprimanteCartes groupe="carte" faces={[
-        <CarteDroitDeLigneFace key="r" vehicule={vehicule} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} />,
+        <CarteDroitDeLigneFace key="r" vehicule={vehicule} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} association={association} />,
         <CarteDroitDeLigneVerso key="v" vehicule={vehicule} owner={owner} />,
       ]} />
       <div className="print-card-duo flex-wrap gap-4" style={{ display: "none" }}>
-        <CarteDroitDeLigneFace vehicule={vehicule} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} />
+        <CarteDroitDeLigneFace vehicule={vehicule} owner={owner} collectifTransporteurs={collectifTransporteurs} collectifChauffeurs={collectifChauffeurs} association={association} />
         <CarteDroitDeLigneVerso vehicule={vehicule} owner={owner} />
       </div>
       <div className="no-print flex items-center gap-2">
@@ -2526,11 +2631,11 @@ function LigneCardSheet({ items, title, apercu = false }) {
   return (
     <>
     <PagesImprimanteCartes groupe="planche" faces={items.flatMap((it) => [
-      <CarteDroitDeLigneFace key="r" vehicule={it.vehicule} owner={it.owner} collectifTransporteurs={it.collectifTransporteurs} collectifChauffeurs={it.collectifChauffeurs} />,
+      <CarteDroitDeLigneFace key="r" vehicule={it.vehicule} owner={it.owner} collectifTransporteurs={it.collectifTransporteurs} collectifChauffeurs={it.collectifChauffeurs} association={it.association} />,
       <CarteDroitDeLigneVerso key="v" vehicule={it.vehicule} owner={it.owner} />,
     ])} />
     {apercu && format === "cartes" && <ApercuCartesVertical cartes={items.map((it) => ({ key: it.key, name: it.name,
-      recto: (sc) => <CarteDroitDeLigneFace vehicule={it.vehicule} owner={it.owner} collectifTransporteurs={it.collectifTransporteurs} collectifChauffeurs={it.collectifChauffeurs} scale={sc} />,
+      recto: (sc) => <CarteDroitDeLigneFace vehicule={it.vehicule} owner={it.owner} collectifTransporteurs={it.collectifTransporteurs} collectifChauffeurs={it.collectifChauffeurs} association={it.association} scale={sc} />,
       verso: (sc) => <CarteDroitDeLigneVerso vehicule={it.vehicule} owner={it.owner} scale={sc} /> }))} />}
     <div className="print-area print-card-sheet">
       {groups.map((group, gi) => (
@@ -2542,7 +2647,7 @@ function LigneCardSheet({ items, title, apercu = false }) {
           )}
           {group.map((it) => (
             <div key={it.key} className="flex items-center gap-4" style={{ borderBottom: `1px dashed ${C.border}`, paddingBottom: 8 }}>
-              <CarteDroitDeLigneFace vehicule={it.vehicule} owner={it.owner} collectifTransporteurs={it.collectifTransporteurs} collectifChauffeurs={it.collectifChauffeurs} scale={LIGNE_SHEET_SCALE} />
+              <CarteDroitDeLigneFace vehicule={it.vehicule} owner={it.owner} collectifTransporteurs={it.collectifTransporteurs} collectifChauffeurs={it.collectifChauffeurs} association={it.association} scale={LIGNE_SHEET_SCALE} />
               <CarteDroitDeLigneVerso vehicule={it.vehicule} owner={it.owner} scale={LIGNE_SHEET_SCALE} />
               <div className="font-body" style={{ fontSize: 10, color: C.slate }}>{it.name}</div>
             </div>
@@ -2636,10 +2741,10 @@ function HautConseilPanel({ vehicles, owners, commissionsMixtes, syndicats, gare
   // l'expiration (≤ 30 j), signalés automatiquement par l'application.
   const nonCompliant = [];
   const seen = new Set();
-  critical.forEach((a) => {
+  critical.filter((a) => a.vehicle).forEach((a) => {
     if (!seen.has(a.vehicle.id)) {
       seen.add(a.vehicle.id);
-      nonCompliant.push({ vehicle: a.vehicle, issues: critical.filter((x) => x.vehicle.id === a.vehicle.id) });
+      nonCompliant.push({ vehicle: a.vehicle, issues: critical.filter((x) => x.vehicle?.id === a.vehicle.id) });
     }
   });
   nonCompliant.sort((a, b) => Math.min(...a.issues.map((i) => i.days ?? 9999)) - Math.min(...b.issues.map((i) => i.days ?? 9999)));
@@ -2647,7 +2752,7 @@ function HautConseilPanel({ vehicles, owners, commissionsMixtes, syndicats, gare
   // Indicateur distinct : échéances qui approchent dans les 15 prochains
   // jours (et pas encore expirées) — alerte précoce avant le seuil ≤ 30 j.
   const approaching15Count = new Set(
-    critical.filter((a) => a.days !== null && a.days >= 0 && a.days <= 15).map((a) => a.vehicle.id)
+    critical.filter((a) => a.vehicle && a.days !== null && a.days >= 0 && a.days <= 15).map((a) => a.vehicle.id)
   ).size;
 
   function groupKeyAndLabel(vehicle) {
@@ -2833,6 +2938,13 @@ function computeAlerts(vehicles, owners, drivers) {
       const d = drivers.find((x) => x.id === id);
       if (d) rows.push({ vehicle: v, label: `Permis — ${d.prenoms} ${d.nom}`, date: d.permisDateFin, days: daysUntil(d.permisDateFin) });
     });
+  });
+  // Documents des transporteurs : permis de conduire et carte nationale d'identité.
+  owners.forEach((o) => {
+    const v = vehicles.find((x) => x.proprietaireId === o.id) || null;
+    const qui = `${o.prenoms || ""} ${o.nom || ""}`.trim();
+    if (o.permisDateFin) rows.push({ vehicle: v, owner: o, label: `Permis de conduire — ${qui} (transporteur)`, date: o.permisDateFin, days: daysUntil(o.permisDateFin) });
+    if (o.cniDateFin) rows.push({ vehicle: v, owner: o, label: `CNI — ${qui} (transporteur)`, date: o.cniDateFin, days: daysUntil(o.cniDateFin) });
   });
   return rows.sort((a, b) => (a.days ?? 9999) - (b.days ?? 9999));
 }
@@ -3383,6 +3495,8 @@ function MobileTransporteurSection({ owner, onLierOrzayah }) {
       <MobileField label="Groupe sanguin" value={owner.groupeSanguin} />
       <MobileField label="N° CNI" value={owner.cni} mono />
       <MobileField label="N° permis" value={owner.numeroPermis} mono />
+      <MobileField label="Permis valide jusqu'au" value={owner.permisDateFin ? fmt(owner.permisDateFin) : null} />
+      <MobileField label="CNI valide jusqu'au" value={owner.cniDateFin ? fmt(owner.cniDateFin) : null} />
       <MobileField label="Téléphone" value={[owner.contact1, owner.contact2, owner.contact3].filter(Boolean).join(" · ")} mono />
       <MobileField label="Email" value={owner.email} />
       <MobileField label="Commune" value={owner.commune} />
@@ -4229,7 +4343,7 @@ function EspaceImprimeur({ auth, onLogout }) {
             const owner = owners.find((o) => o.id === v.proprietaireId);
             const collectifTransporteurs = syndicats.find((sy) => sy.id === v.syndicatId) || null;
             const collectifChauffeurs = collectifTransporteurs ? syndicats.find((sy) => normC(sy.commune) === normC(collectifTransporteurs.commune) && sy.type === "chauffeurs") : null;
-            return { key: v.id, name: v.immatriculation, vehicule: v, owner, collectifTransporteurs, collectifChauffeurs };
+            return { key: v.id, name: v.immatriculation, vehicule: v, owner, collectifTransporteurs, collectifChauffeurs, association: associations.find((a) => a.id === (v.associationId || owner?.associationId)) || null };
           })} />
       ) : (
         <MemberCardSheet apercu title={`Planche — cartes ${onglet}s — lot ${auth.periode}`}
@@ -4433,7 +4547,7 @@ function Dashboard({ auth, onLogout }) {
   }, []);
 
   React.useEffect(() => {
-    if ((page === "agents" || page === "compagnies") && !agentsLoaded && (auth.role === "admin" || (auth.role === "agent" && auth.parentType === "admin") || auth.role === "commission_mixte" || auth.role === "syndicat")) {
+    if ((page === "agents" || page === "compagnies" || page === "historique") && !agentsLoaded && (auth.role === "admin" || (auth.role === "agent" && auth.parentType === "admin") || auth.role === "commission_mixte" || auth.role === "syndicat")) {
       loadAgents().catch((err) => console.error("loadAgents:", err));
     }
   }, [page, agentsLoaded]);
@@ -4722,6 +4836,7 @@ function Dashboard({ auth, onLogout }) {
         { key: "owners", label: "Transporteurs", icon: <User size={17} /> },
         { key: "drivers", label: "Chauffeurs", icon: <Users size={17} /> },
         { key: "elements", label: "Éléments", icon: <BadgeCheck size={17} /> },
+        { key: "historique", label: "Historique des ajouts", icon: <Calendar size={17} /> },
         { key: "alerts", label: "Alertes documents", icon: <Bell size={17} />, count: critical.length },
       ]
     : isAgent
@@ -4745,6 +4860,7 @@ function Dashboard({ auth, onLogout }) {
         ...(estAdminGeneral || auth.role === "commission_mixte" || auth.role === "syndicat" ? [{ key: "agents", label: auth.compagnie ? "Agents administrateurs" : "Agents enrôleurs", icon: <Route size={17} /> }] : []),
         ...(estAdminGeneral ? [{ key: "imprimeur", label: "Accès imprimeur", icon: <Printer size={17} /> }] : []),
         ...(estAdminGeneral ? [{ key: "maintenance", label: "Maintenance", icon: <Settings size={17} /> }] : []),
+        { key: "historique", label: "Historique des ajouts", icon: <Calendar size={17} /> },
         { key: "carburant", label: "Carburant", icon: <Fuel size={17} /> },
         { key: "alerts", label: "Alertes documents", icon: <Bell size={17} />, count: critical.length },
       ];
@@ -5104,7 +5220,7 @@ function Dashboard({ auth, onLogout }) {
                           <div className="flex items-center gap-3">
                             <Car size={15} color={C.slate} />
                             <div>
-                              <div className="text-sm font-medium">{a.vehicle.immatriculation} <span style={{ color: C.slate, fontWeight: 400 }}>· {a.label}</span></div>
+                              <div className="text-sm font-medium">{a.vehicle ? a.vehicle.immatriculation : "Transporteur"} <span style={{ color: C.slate, fontWeight: 400 }}>· {a.label}</span></div>
                               <div className="text-xs" style={{ color: C.slate }}>Échéance {fmt(a.date)}</div>
                             </div>
                           </div>
@@ -5538,6 +5654,20 @@ function Dashboard({ auth, onLogout }) {
           })()}
 
           {page === "imprimeur" && estAdminGeneral && <AccesImprimeurPage />}
+          {page === "historique" && (
+            <HistoriqueAjouts estAdmin={estAdminGeneral} peutCommission={auth.role === "commission_mixte"}
+              owners={owners} drivers={drivers} elements={elements} vehicles={vehicles} syndicats={syndicats} associations={associations}
+              commissionsMixtes={commissionsMixtes} agents={agentsList}
+              actions={{
+                voir: { vehicule: openFiche, transporteur: (o) => setCardOwner(o), chauffeur: (d) => openCard(d), element: (e) => setCardElement(e) },
+                modifier: { vehicule: setEditVehicle, transporteur: setEditMember, chauffeur: setEditDriver, element: setEditElement, agent: setEditAgent, collectif: setEditSyndicat, compagnie: setEditSyndicat, association: setEditAsso },
+                supprimer: { vehicule: deleteVehicle, transporteur: deleteOwner, chauffeur: deleteDriver, element: deleteElement, agent: deleteAgent,
+                  ...(estAdminGeneral || auth.role === "commission_mixte" ? { collectif: deleteSyndicat, association: deleteAssociation } : {}),
+                  ...(estAdminGeneral ? { compagnie: deleteSyndicat } : {}) },
+                ajouter: { vehicule: () => setShowForm(true), transporteur: () => setShowMemberFormFor(true), chauffeur: () => setShowDriverFormFor(true), element: () => setShowElementFormFor(true), agent: () => setShowAgentFormFor(true),
+                  collectif: () => setPage("syndicats"), compagnie: () => setPage("compagnies"), association: () => setPage("syndicats") },
+              }} />
+          )}
           {page === "compagnies" && estAdminGeneral && (
             <CompagniesPage syndicats={syndicats} owners={owners} drivers={drivers} vehicles={vehicles} agents={agentsList}
               onAdd={addSyndicat} onUpdate={updateSyndicat} onDelete={deleteSyndicat}
@@ -6016,7 +6146,7 @@ function Dashboard({ auth, onLogout }) {
                     <div className="flex items-center gap-3">
                       <Car size={15} color={C.slate} />
                       <div>
-                        <div className="text-sm font-medium">{a.vehicle.immatriculation} <span style={{ color: C.slate, fontWeight: 400 }}>· {a.vehicle.marque} {a.vehicle.modele}</span></div>
+                        <div className="text-sm font-medium">{a.vehicle ? <>{a.vehicle.immatriculation} <span style={{ color: C.slate, fontWeight: 400 }}>· {a.vehicle.marque} {a.vehicle.modele}</span></> : <>{a.owner?.prenoms} {a.owner?.nom} <span style={{ color: C.slate, fontWeight: 400 }}>· transporteur sans véhicule</span></>}</div>
                         <div className="text-xs" style={{ color: C.slate }}>{a.label} — échéance {fmt(a.date)}</div>
                       </div>
                     </div>
@@ -6098,6 +6228,7 @@ function Dashboard({ auth, onLogout }) {
           return {
             key: v.id, name: v.immatriculation, vehicule: v, owner,
             collectifTransporteurs, collectifChauffeurs,
+            association: associations.find((a) => a.id === (v.associationId || owner?.associationId)) || null,
           };
         })}
       />
@@ -6119,7 +6250,9 @@ function Dashboard({ auth, onLogout }) {
       </Modal>}
 
       {editSyndicat && <Modal onClose={() => setEditSyndicat(null)} title={`Modifier — ${editSyndicat.nom}`} wide>
-        <SyndicatForm syndicats={syndicats} commission={commissionsMixtes.find((c) => c.id === editSyndicat.commissionMixteId)} initialSyndicat={editSyndicat} onCancel={() => setEditSyndicat(null)} onSave={async (payload) => { await updateSyndicat(editSyndicat.id, payload); setEditSyndicat(null); }} />
+        {editSyndicat.compagnie ? (
+          <CompagnieForm initial={editSyndicat} onCancel={() => setEditSyndicat(null)} onSave={async (payload) => { await updateSyndicat(editSyndicat.id, payload); setEditSyndicat(null); }} />
+        ) : <SyndicatForm syndicats={syndicats} commission={commissionsMixtes.find((c) => c.id === editSyndicat.commissionMixteId)} initialSyndicat={editSyndicat} onCancel={() => setEditSyndicat(null)} onSave={async (payload) => { await updateSyndicat(editSyndicat.id, payload); setEditSyndicat(null); }} />}
       </Modal>}
 
       {showGareRoutiereFormFor && <Modal onClose={() => setShowGareRoutiereFormFor(null)} title="Ajouter une gare routière" wide>
@@ -6446,6 +6579,8 @@ function SyndicatForm({ commission, initialSyndicat, syndicats = [], onCancel, o
   const [nom, setNom] = useState(initialSyndicat?.nom || "");
   const [sigle, setSigle] = useState(initialSyndicat?.sigle || "");
   const [logoUrl, setLogoUrl] = useState(initialSyndicat?.logoUrl || null);
+  const [cachetUrl, setCachetUrl] = useState(initialSyndicat?.cachetUrl || null);
+  const [signatureUrl, setSignatureUrl] = useState(initialSyndicat?.signatureUrl || null);
   const [commune, setCommune] = useState(initialSyndicat?.commune || "");
   const [type, setType] = useState(initialSyndicat?.type || "");
   const [nature, setNature] = useState(initialSyndicat?.nature || "Collectif");
@@ -6465,7 +6600,7 @@ function SyndicatForm({ commission, initialSyndicat, syndicats = [], onCancel, o
     setSaving(true);
     setError(null);
     try {
-      await onSave({ commissionMixteId: commission.id, nom, sigle, logoUrl, commune, type, nature: nature.trim(), presidentNom, presidentContact, login, pinCode });
+      await onSave({ commissionMixteId: commission.id, nom, sigle, logoUrl, cachetUrl, signatureUrl, commune, type, nature: nature.trim(), presidentNom, presidentContact, login, pinCode });
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -6478,6 +6613,7 @@ function SyndicatForm({ commission, initialSyndicat, syndicats = [], onCancel, o
         Collectif (syndicat) rattaché à <strong>{commission?.nom}</strong> ({commission?.commune})
       </p>
       <PhotoUpload value={logoUrl} onChange={setLogoUrl} label="Logo du collectif (syndicat)" shape="square" />
+      <CachetSignatureFields qui="du collectif" cachet={cachetUrl} onCachet={setCachetUrl} signature={signatureUrl} onSignature={setSignatureUrl} />
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom du collectif (syndicat)"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Syndicat des Transporteurs de Yopougon" /></Field>
         <Field label="Sigle" hint="Affiché sur le tableau de bord"><TextInput value={sigle} onChange={(e) => setSigle(e.target.value)} placeholder="STY" maxLength={20} /></Field>
@@ -6841,6 +6977,8 @@ function MemberForm({ initialMember, existants = [], onOuvrirExistant, commissio
   const [fonctionAssociation, setFonctionAssociation] = useState(initialMember?.fonctionAssociation || "");
   const [groupeSanguin, setGroupeSanguin] = useState(initialMember?.groupeSanguin || "");
   const [numeroPermis, setNumeroPermis] = useState(initialMember?.numeroPermis || "");
+  const [permisDateFin, setPermisDateFin] = useState(initialMember?.permisDateFin || "");
+  const [cniDateFin, setCniDateFin] = useState(initialMember?.cniDateFin || "");
   const [contact1, setContact1] = useState(initialMember?.contact1 || "");
   const [contact2, setContact2] = useState(initialMember?.contact2 || "");
   const [contact3, setContact3] = useState(initialMember?.contact3 || "");
@@ -6879,7 +7017,7 @@ function MemberForm({ initialMember, existants = [], onOuvrirExistant, commissio
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nom, prenoms, cni, numeroPermis, contact1, contact2, contact3, email, ville, quartier, photo, orzayahCompte, orzayahTelephone, fonction, fonctionAssociation, groupeSanguin, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
+      await onSave({ nom, prenoms, cni, numeroPermis, permisDateFin, cniDateFin, contact1, contact2, contact3, email, ville, quartier, photo, orzayahCompte, orzayahTelephone, fonction, fonctionAssociation, groupeSanguin, logo1Type, logo1Id, logo2Type, logo2Id, commune, commissionMixteId, syndicatId, associationId }, vehiculeId || null);
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement.");
       setSaving(false);
@@ -6937,6 +7075,8 @@ function MemberForm({ initialMember, existants = [], onOuvrirExistant, commissio
         <FonctionField label="Fonction dans l'association" value={fonctionAssociation} onChange={setFonctionAssociation} dejaUtilisees={tousMembres.flatMap((m) => [m.fonction, m.fonctionAssociation])} />
         <GroupeSanguinField value={groupeSanguin} onChange={setGroupeSanguin} />
         <Field label="Numéro permis de conduire"><TextInput value={numeroPermis} onChange={(e) => setNumeroPermis(e.target.value)} /></Field>
+        <Field label="Permis valide jusqu'au" hint="Alerte avant expiration"><DateInput value={permisDateFin} onChange={(e) => setPermisDateFin(e.target.value)} /></Field>
+        <Field label="CNI valide jusqu'au" hint="Alerte avant expiration"><DateInput value={cniDateFin} onChange={(e) => setCniDateFin(e.target.value)} /></Field>
         <Field label="Adresse email"><TextInput value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
         <Field label="Contact 1"><TextInput value={contact1} onChange={(e) => setContact1(e.target.value)} /></Field>
         <Field label="Contact 2"><TextInput value={contact2} onChange={(e) => setContact2(e.target.value)} /></Field>
@@ -7221,6 +7361,8 @@ function AssociationForm({ initialAsso, collectif, onCancel, onSave }) {
   const [nom, setNom] = useState(initialAsso?.nom || "");
   const [sigle, setSigle] = useState(initialAsso?.sigle || "");
   const [logoUrl, setLogoUrl] = useState(initialAsso?.logoUrl || null);
+  const [cachetUrl, setCachetUrl] = useState(initialAsso?.cachetUrl || null);
+  const [signatureUrl, setSignatureUrl] = useState(initialAsso?.signatureUrl || null);
   const [presidentNom, setPresidentNom] = useState(initialAsso?.presidentNom || "");
   const [presidentContact, setPresidentContact] = useState(initialAsso?.presidentContact || "");
   const [login, setLogin] = useState(initialAsso?.login || "");
@@ -7233,7 +7375,7 @@ function AssociationForm({ initialAsso, collectif, onCancel, onSave }) {
   const handleSave = async () => {
     setSaving(true); setError(null);
     try {
-      await onSave({ syndicatId: collectif.id, nom, sigle, logoUrl, presidentNom, presidentContact, login, pinCode });
+      await onSave({ syndicatId: collectif.id, nom, sigle, logoUrl, cachetUrl, signatureUrl, presidentNom, presidentContact, login, pinCode });
     } catch (err) { setError(err.message || "Erreur lors de l'enregistrement."); setSaving(false); }
   };
 
@@ -7244,6 +7386,7 @@ function AssociationForm({ initialAsso, collectif, onCancel, onSave }) {
         {collectif?.commune ? ` (${collectif.commune})` : ""}
       </p>
       <PhotoUpload value={logoUrl} onChange={setLogoUrl} label="Logo de l'association" shape="square" />
+      <CachetSignatureFields qui="de l'association" cachet={cachetUrl} onCachet={setCachetUrl} signature={signatureUrl} onSignature={setSignatureUrl} />
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom de l'association"><TextInput value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Syndicat des conducteurs de Niangon" /></Field>
         <Field label="Sigle" hint="Affiché sur la carte"><TextInput value={sigle} onChange={(e) => setSigle(e.target.value)} maxLength={20} /></Field>
@@ -7303,6 +7446,8 @@ function CompagnieForm({ initial, onCancel, onSave }) {
   const [nom, setNom] = useState(initial?.nom || "");
   const [sigle, setSigle] = useState(initial?.sigle || "");
   const [logoUrl, setLogoUrl] = useState(initial?.logoUrl || null);
+  const [cachetUrl, setCachetUrl] = useState(initial?.cachetUrl || null);
+  const [signatureUrl, setSignatureUrl] = useState(initial?.signatureUrl || null);
   const [nature, setNature] = useState(initial?.nature || "Compagnie de transport");
   const [couleurPrimaire, setCouleurPrimaire] = useState(initial?.couleurPrimaire || COULEURS_CIE_DEFAUT.primaire);
   const [couleurSecondaire, setCouleurSecondaire] = useState(initial?.couleurSecondaire || COULEURS_CIE_DEFAUT.secondaire);
@@ -7315,13 +7460,13 @@ function CompagnieForm({ initial, onCancel, onSave }) {
   const hexOk = (v) => /^#[0-9A-Fa-f]{6}$/.test(v);
   const canSave = nom.trim() && nature.trim() && hexOk(couleurPrimaire) && hexOk(couleurSecondaire) && (!pinCode || /^\d{4}$/.test(pinCode)) && !saving;
 
-  const apercu = { compagnie: true, nom: nom || "Nom de la compagnie", sigle, logoUrl, couleurPrimaire: hexOk(couleurPrimaire) ? couleurPrimaire : null, couleurSecondaire: hexOk(couleurSecondaire) ? couleurSecondaire : null };
+  const apercu = { compagnie: true, nom: nom || "Nom de la compagnie", sigle, logoUrl, cachetUrl, signatureUrl, couleurPrimaire: hexOk(couleurPrimaire) ? couleurPrimaire : null, couleurSecondaire: hexOk(couleurSecondaire) ? couleurSecondaire : null };
   const membreExemple = { id: "apercu", nom: "KOUASSI", prenoms: "JEAN", fonction: "Chauffeur titulaire", groupeSanguin: "O+", contact1: "07 07 00 00 00", permisNumero: "CI-123456", permisDateFin: "2029-12-31" };
 
   const handleSave = async () => {
     setSaving(true); setError(null);
     try {
-      const payload = { compagnie: true, nom: nom.trim(), sigle: sigle.trim(), logoUrl, nature: nature.trim(), couleurPrimaire, couleurSecondaire, presidentNom, presidentContact, login: login.trim() };
+      const payload = { compagnie: true, nom: nom.trim(), sigle: sigle.trim(), logoUrl, cachetUrl, signatureUrl, nature: nature.trim(), couleurPrimaire, couleurSecondaire, presidentNom, presidentContact, login: login.trim() };
       if (pinCode) payload.pinCode = pinCode;
       await onSave(payload);
     } catch (err) {
@@ -7339,6 +7484,7 @@ function CompagnieForm({ initial, onCancel, onSave }) {
           <ChoixCouleur label="Couleur secondaire" value={couleurSecondaire} onChange={setCouleurSecondaire} />
         </div>
       </div>
+      <CachetSignatureFields qui="de la compagnie" cachet={cachetUrl} onCachet={setCachetUrl} signature={signatureUrl} onSignature={setSignatureUrl} />
       <div>
         <div className="font-body text-xs mb-2" style={{ color: C.ink, fontWeight: 800 }}>Aperçu de la carte (recto à ses couleurs, verso ORZAYAH)</div>
         <div className="flex gap-3 flex-wrap">
@@ -7476,6 +7622,90 @@ function CompagniesPage({ syndicats, owners, drivers, vehicles, agents, onAdd, o
             }} />
         </Modal>
       )}
+    </div>
+  );
+}
+
+/* ============================================================
+   HISTORIQUE DES AJOUTS — CRUD
+   Tout ce qui a été enregistré (groupements, membres, véhicules, agents),
+   du plus récent au plus ancien, avec recherche, période, et les actions
+   Voir · Modifier · Supprimer · Ajouter pour corriger facilement les fiches.
+   ============================================================ */
+const LIB_CREATEUR = { admin: "Administrateur", commission_mixte: "Commission mixte", syndicat: "Collectif / compagnie", gare: "Gare routière", association: "Association", agent: "Agent" };
+function HistoriqueAjouts({ estAdmin, peutCommission, owners, drivers, elements, vehicles, syndicats, associations, commissionsMixtes, agents, actions }) {
+  const [type, setType] = useState("tous");
+  const [texte, setTexte] = useState("");
+  const [du, setDu] = useState("");
+  const [au, setAu] = useState("");
+  const nomCreateur = (x) => {
+    if (!x.creatorType) return "—";
+    const ent = x.creatorType === "syndicat" ? syndicats.find((s) => s.id === x.creatorId)
+      : x.creatorType === "commission_mixte" ? commissionsMixtes.find((c) => c.id === x.creatorId)
+      : x.creatorType === "association" ? associations.find((a) => a.id === x.creatorId) : null;
+    return [LIB_CREATEUR[x.creatorType] || x.creatorType, ent?.sigle || ent?.nom].filter(Boolean).join(" · ");
+  };
+  const grp = (x) => {
+    const sy = syndicats.find((s) => s.id === x.syndicatId), as = associations.find((a) => a.id === x.associationId);
+    return [sy?.sigle || sy?.nom, as?.sigle || as?.nom].filter(Boolean).join(" · ");
+  };
+  const TYPES = [
+    ["vehicule", "Véhicules", vehicles, (v) => ({ titre: v.immatriculation, detail: [[v.marque, v.modele].filter(Boolean).join(" "), v.numeroCarteLigne && `carte ${v.numeroCarteLigne}`, grp(v)].filter(Boolean).join(" · ") })],
+    ["transporteur", "Transporteurs", owners, (o) => ({ titre: `${o.prenoms || ""} ${o.nom || ""}`.trim(), detail: [o.carteTransporteurNumero, o.contact1, grp(o)].filter(Boolean).join(" · ") })],
+    ["chauffeur", "Chauffeurs", drivers, (d) => ({ titre: `${d.prenoms || ""} ${d.nom || ""}`.trim(), detail: [d.numeroCarte, d.contact1, grp(d)].filter(Boolean).join(" · ") })],
+    ["element", "Éléments / agents administratifs", elements, (e) => ({ titre: `${e.prenoms || ""} ${e.nom || ""}`.trim(), detail: [e.fonction, e.numeroCarte, grp(e)].filter(Boolean).join(" · ") })],
+    ["agent", "Agents", agents, (a) => ({ titre: `${a.prenoms || ""} ${a.nom || ""}`.trim(), detail: [a.login, a.actif ? "actif" : "désactivé"].join(" · ") })],
+    ...(estAdmin || peutCommission ? [["collectif", "Collectifs", syndicats.filter((s) => !s.compagnie), (s) => ({ titre: s.nom, detail: [s.sigle, s.nature, s.commune].filter(Boolean).join(" · ") })]] : []),
+    ...(estAdmin ? [["compagnie", "Compagnies", syndicats.filter((s) => s.compagnie), (s) => ({ titre: s.nom, detail: [s.sigle, s.nature].filter(Boolean).join(" · ") })]] : []),
+    ...(estAdmin || peutCommission ? [["association", "Associations", associations, (a) => { const sy = syndicats.find((s) => s.id === a.syndicatId); return { titre: a.nom, detail: [a.sigle, sy && `collectif ${sy.sigle || sy.nom}`].filter(Boolean).join(" · ") }; }]] : []),
+  ];
+  const q = normTexte(texte);
+  const lignes = TYPES.filter(([k]) => type === "tous" || type === k).flatMap(([k, lib, liste, fmtLigne]) => (liste || []).map((x) => ({ k, lib, x, ...fmtLigne(x), date: x.createdAt || null, par: nomCreateur(x) })))
+    .filter((l) => !q || normTexte(`${l.titre} ${l.detail} ${l.par}`).includes(q))
+    .filter((l) => (!du || (l.date && l.date.slice(0, 10) >= du)) && (!au || (l.date && l.date.slice(0, 10) <= au)))
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+  const visibles = lignes.slice(0, 300);
+  const compte = (k) => (TYPES.find((t) => t[0] === k)?.[2] || []).length;
+  const btn = (lib, onClick, style = {}) => <button onClick={onClick} className="text-xs font-semibold flex items-center gap-1 px-2.5 py-1 rounded-lg" style={{ border: `1px solid ${C.border}`, color: C.ink, background: "#fff", ...style }}>{lib}</button>;
+  const LIB_AJOUT = { vehicule: "un véhicule", transporteur: "un transporteur", chauffeur: "un chauffeur", element: "un élément", agent: "un agent", collectif: "un collectif", compagnie: "une compagnie", association: "une association" };
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap gap-2">
+        {[["tous", "Tout", lignes.length], ...TYPES.map(([k, lib]) => [k, lib, compte(k)])].map(([k, lib, n]) => (
+          <button key={k} onClick={() => setType(k)} className="px-3 py-1.5 rounded-full text-xs font-semibold"
+            style={{ background: type === k ? C.greenDark : "#fff", color: type === k ? "#fff" : C.ink, border: `1px solid ${type === k ? C.greenDark : C.border}` }}>{lib}{k !== "tous" ? ` (${n})` : ""}</button>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-end gap-3 p-3 rounded-xl" style={{ background: "#fff", border: `1px solid ${C.border}` }}>
+        <div style={{ flex: 1, minWidth: 220 }}><Field label="Rechercher"><TextInput value={texte} onChange={(e) => setTexte(e.target.value)} placeholder="Nom, immatriculation, n° de carte, téléphone, groupement…" /></Field></div>
+        <Field label="Ajoutés du"><DateInput value={du} onChange={(e) => setDu(e.target.value)} /></Field>
+        <Field label="au"><DateInput value={au} onChange={(e) => setAu(e.target.value)} /></Field>
+        {type !== "tous" && actions.ajouter[type] && (
+          <button onClick={actions.ajouter[type]} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: C.orange, color: "#fff" }}><Plus size={15} /> Ajouter {LIB_AJOUT[type]}</button>
+        )}
+      </div>
+      <div className="text-xs" style={{ color: C.slate }}>{lignes.length} enregistrement{lignes.length > 1 ? "s" : ""}{lignes.length > visibles.length ? ` — les ${visibles.length} plus récents affichés, affinez la recherche` : ""}</div>
+      <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
+        {visibles.length === 0 && <div className="p-6 text-sm text-center" style={{ color: C.slate }}>Aucun ajout correspondant.</div>}
+        {visibles.map((l) => (
+          <div key={l.k + l.x.id} className="flex items-center gap-3 px-4 py-2.5 flex-wrap" style={{ borderBottom: `1px solid ${C.border}` }}>
+            <span className="font-mono text-xs" style={{ color: C.slate, width: 118, flexShrink: 0 }}>{l.date ? new Date(l.date).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "—"}</span>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: C.cream, flexShrink: 0 }}>{l.lib}</span>
+            <div style={{ minWidth: 200, flex: 1 }}>
+              <div className="text-sm font-semibold" style={{ color: C.ink }}>{l.titre || "—"}</div>
+              <div className="text-xs" style={{ color: C.slate }}>{l.detail}{l.par !== "—" ? ` — ajouté par ${l.par}` : ""}</div>
+            </div>
+            <span className="flex items-center gap-1.5">
+              {actions.voir[l.k] && btn("Voir", () => actions.voir[l.k](l.x))}
+              {actions.modifier[l.k] && btn(<><Pencil size={12} /> Modifier</>, () => actions.modifier[l.k](l.x))}
+              {actions.supprimer[l.k] && btn(<><Trash2 size={12} /> Supprimer</>, async () => {
+                if (!window.confirm(`Supprimer définitivement « ${l.titre} » (${l.lib.toLowerCase()}) ?`)) return;
+                try { await actions.supprimer[l.k](l.x.id); } catch (err) { alert(err.message || "Suppression impossible."); }
+              }, { color: C.red, borderColor: C.redLight })}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

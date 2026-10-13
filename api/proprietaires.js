@@ -15,6 +15,8 @@ function toApi(row) {
 function toDb(body) {
   body = nettoyerFiche(body);
   const { photo, qrPaiement, carteTransporteurNumero, ...rest } = body; // le numéro de carte est généré côté serveur, jamais fourni par le client
+  // Dates de validité facultatives : une saisie vide n'est pas une date.
+  for (const k of ["permisDateFin", "cniDateFin"]) if (k in rest) rest[k] = rest[k] || null;
   return retirerChampsOrzayahServeur({ ...rest, photoUrl: photo ?? null, qrPaiementUrl: qrPaiement ?? null, commissionMixteId: rest.commissionMixteId || null, commune: rest.commune || null, associationId: rest.associationId || null, syndicatId: rest.syndicatId || null });
 }
 
@@ -155,6 +157,8 @@ export default async function handler(req, res) {
     if ("nom" in body) patch.nom = body.nom;
     if ("prenoms" in body) patch.prenoms = body.prenoms;
     if ("numeroPermis" in body) patch.numeroPermis = body.numeroPermis;
+    if ("permisDateFin" in body) patch.permisDateFin = body.permisDateFin || null;
+    if ("cniDateFin" in body) patch.cniDateFin = body.cniDateFin || null;
     // CNI modifiable (correction d'une erreur de saisie) ; jamais vidée, et soumise au contrôle anti-doublons.
     if ("cni" in body && String(body.cni || "").trim()) patch.cni = String(body.cni).trim();
     if ("contact1" in body) patch.contact1 = body.contact1;

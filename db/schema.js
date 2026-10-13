@@ -46,6 +46,8 @@ export const syndicats = pgTable("syndicats", {
   compagnie: boolean("compagnie").default(false).notNull(),
   couleurPrimaire: varchar("couleur_primaire", { length: 7 }),
   couleurSecondaire: varchar("couleur_secondaire", { length: 7 }),
+  cachetUrl: text("cachet_url"),       // cachet numérisé (PNG détouré) — imprimé sur les cartes
+  signatureUrl: text("signature_url"), // signature numérisée du responsable — imprimée sur les cartes
   presidentNom: varchar("president_nom", { length: 160 }),
   presidentContact: varchar("president_contact", { length: 30 }),
   login: varchar("login", { length: 20 }).unique(),
@@ -68,6 +70,8 @@ export const proprietaires = pgTable("proprietaires", {
   pretImpressionPar: varchar("pret_impression_par", { length: 160 }),
   lotImpression: varchar("lot_impression", { length: 6 }),
   numeroPermis: varchar("numero_permis", { length: 60 }),
+  permisDateFin: date("permis_date_fin"), // fin de validité du permis — alertes documents
+  cniDateFin: date("cni_date_fin"),       // fin de validité de la CNI — alertes documents
   contact1: varchar("contact1", { length: 30 }),
   contact2: varchar("contact2", { length: 30 }),
   contact3: varchar("contact3", { length: 30 }),
@@ -342,6 +346,8 @@ export const associations = pgTable("associations", {
   nom: varchar("nom", { length: 160 }).notNull(),
   sigle: varchar("sigle", { length: 20 }),
   logoUrl: text("logo_url"),
+  cachetUrl: text("cachet_url"),       // cachet numérisé — imprimé sur les cartes de ses membres
+  signatureUrl: text("signature_url"), // signature numérisée du président
   presidentNom: varchar("president_nom", { length: 160 }),
   presidentContact: varchar("president_contact", { length: 30 }),
   login: varchar("login", { length: 20 }).unique(),
