@@ -7783,12 +7783,61 @@ function CompagniesPage({ syndicats, owners, drivers, vehicles, agents, onAdd, o
    du plus récent au plus ancien, avec recherche, période, et les actions
    Voir · Modifier · Supprimer · Ajouter pour corriger facilement les fiches.
    ============================================================ */
+/* État d'une carte pour le tri de l'historique :
+   - « prête » : tous les champs de la carte renseignés ET compte ORZAYAH lié (QR du verso) ;
+   - « sans ORZAYAH » : verso sans QR de paiement ;
+   - « informations manquantes » : au moins un champ du formulaire vide (listés). */
+function etatCarte(kind, x, { owners = [], vehicles = [], syndicats = [] }) {
+  const vide = (v) => v === null || v === undefined || String(v).trim() === "";
+  const manque = [];
+  const verif = (cond, lib) => { if (cond) manque.push(lib); };
+  let porteurOrz = x;
+  if (kind === "vehicule") {
+    const p = owners.find((o) => o.id === x.proprietaireId);
+    porteurOrz = p || null;
+    verif(vide(x.immatriculation), "immatriculation");
+    verif(vide(x.carteGrise), "n° carte grise");
+    verif(vide(x.nomCarteGrise), "nom sur la carte grise");
+    verif(vide(x.marque) && vide(x.modele), "marque / modèle");
+    verif(vide(x.nombrePlaces), "nombre de places");
+    verif(vide(x.energie), "énergie");
+    verif(!p, "transporteur");
+    verif(vide(x.syndicatId), "collectif");
+  } else {
+    const cie = syndicats.find((s) => s.id === x.syndicatId)?.compagnie;
+    verif(vide(x.photo), "photo");
+    verif(vide(x.nom), "nom");
+    verif(vide(x.prenoms), "prénoms");
+    verif(vide(x.cni), "CNI");
+    verif(vide(x.contact1), "téléphone");
+    verif(vide(x.groupeSanguin), "groupe sanguin");
+    verif(vide(x.syndicatId), cie === undefined ? "collectif / compagnie" : "collectif");
+    if (!cie) {
+      verif(vide(x.associationId), "association");
+      verif(vide(x.commune), "commune");
+    }
+    if (kind === "transporteur") verif(!vehicles.some((v) => v.proprietaireId === x.id), "véhicule rattaché");
+    if (kind === "chauffeur") {
+      verif(vide(x.permisNumero), "n° de permis");
+      verif(vide(x.permisDateFin), "validité du permis");
+      verif(!vehicles.some((v) => (v.chauffeurIds || []).includes(x.id)), "véhicule rattaché");
+    }
+    if (kind === "element") verif(vide(x.fonction), "fonction");
+  }
+  const orzayah = !!(porteurOrz && porteurOrz.orzayahStatut === "lie" && (porteurOrz.orzayahQrUrl || porteurOrz.orzayahQrImage));
+  return { orzayah, manque, prete: orzayah && manque.length === 0 };
+}
+const ETATS_CARTE = [["tous", "Toutes les cartes"], ["prete", "✓ Prêtes à imprimer"], ["sansOrzayah", "Sans ORZAYAH"], ["incomplete", "Informations manquantes"]];
+const TYPES_AVEC_CARTE = ["vehicule", "transporteur", "chauffeur", "element"];
+
 const LIB_CREATEUR = { admin: "Administrateur", commission_mixte: "Commission mixte", syndicat: "Collectif / compagnie", gare: "Gare routière", association: "Association", agent: "Agent" };
 function HistoriqueAjouts({ estAdmin, peutCommission, owners, drivers, elements, vehicles, syndicats, associations, commissionsMixtes, agents, actions }) {
   const [type, setType] = useState("tous");
   const [texte, setTexte] = useState("");
   const [du, setDu] = useState("");
   const [au, setAu] = useState("");
+  const [etat, setEtat] = useState("tous");
+  const [entite, setEntite] = useState(""); // "s:<id>" collectif/compagnie, "a:<id>" association
   const nomCreateur = (x) => {
     if (!x.creatorType) return "—";
     const ent = x.creatorType === "syndicat" ? syndicats.find((s) => s.id === x.creatorId)
@@ -7811,9 +7860,21 @@ function HistoriqueAjouts({ estAdmin, peutCommission, owners, drivers, elements,
     ...(estAdmin || peutCommission ? [["association", "Associations", associations, (a) => { const sy = syndicats.find((s) => s.id === a.syndicatId); return { titre: a.nom, detail: [a.sigle, sy && `collectif ${sy.sigle || sy.nom}`].filter(Boolean).join(" · ") }; }]] : []),
   ];
   const q = normTexte(texte);
-  const lignes = TYPES.filter(([k]) => type === "tous" || type === k).flatMap(([k, lib, liste, fmtLigne]) => (liste || []).map((x) => ({ k, lib, x, ...fmtLigne(x), date: x.createdAt || null, par: nomCreateur(x) })))
+  const ctxEtat = { owners, vehicles, syndicats };
+  const assoDe = (k, x) => x.associationId || (k === "vehicule" ? owners.find((o) => o.id === x.proprietaireId)?.associationId : null);
+  const dansEntite = (k, x) => !entite || (entite.startsWith("s:") ? x.syndicatId === entite.slice(2) : assoDe(k, x) === entite.slice(2));
+  const filtreEtat = (l) => {
+    if (etat === "tous") return true;
+    if (!TYPES_AVEC_CARTE.includes(l.k)) return false;
+    return etat === "prete" ? l.etat.prete : etat === "sansOrzayah" ? !l.etat.orzayah : l.etat.manque.length > 0;
+  };
+  const base = TYPES.filter(([k]) => type === "tous" || type === k).flatMap(([k, lib, liste, fmtLigne]) => (liste || [])
+      .filter((x) => !entite || (TYPES_AVEC_CARTE.includes(k) && dansEntite(k, x)))
+      .map((x) => ({ k, lib, x, ...fmtLigne(x), date: x.createdAt || null, par: nomCreateur(x), etat: TYPES_AVEC_CARTE.includes(k) ? etatCarte(k, x, ctxEtat) : null })))
     .filter((l) => !q || normTexte(`${l.titre} ${l.detail} ${l.par}`).includes(q))
-    .filter((l) => (!du || (l.date && l.date.slice(0, 10) >= du)) && (!au || (l.date && l.date.slice(0, 10) <= au)))
+    .filter((l) => (!du || (l.date && l.date.slice(0, 10) >= du)) && (!au || (l.date && l.date.slice(0, 10) <= au)));
+  const compteEtat = (e) => e === "tous" ? base.length : base.filter((l) => l.etat && (e === "prete" ? l.etat.prete : e === "sansOrzayah" ? !l.etat.orzayah : l.etat.manque.length > 0)).length;
+  const lignes = base.filter(filtreEtat)
     .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
   const visibles = lignes.slice(0, 300);
   const compte = (k) => (TYPES.find((t) => t[0] === k)?.[2] || []).length;
@@ -7835,6 +7896,22 @@ function HistoriqueAjouts({ estAdmin, peutCommission, owners, drivers, elements,
           <button onClick={actions.ajouter[type]} className="font-body text-sm font-semibold flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: C.orange, color: "#fff" }}><Plus size={15} /> Ajouter {LIB_AJOUT[type]}</button>
         )}
       </div>
+      <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl" style={{ background: "#fff", border: `1px solid ${C.border}` }}>
+        <span className="text-xs font-semibold" style={{ color: C.slate }}>État des cartes</span>
+        {ETATS_CARTE.map(([k, lib]) => {
+          const couleur = k === "prete" ? C.greenDark : k === "sansOrzayah" ? C.orangeDark : k === "incomplete" ? C.red : C.ink;
+          return (
+            <button key={k} onClick={() => setEtat(k)} className="px-3 py-1.5 rounded-full text-xs font-semibold"
+              style={{ background: etat === k ? couleur : "#fff", color: etat === k ? "#fff" : couleur, border: `1px solid ${couleur}` }}>{lib} ({compteEtat(k)})</button>
+          );
+        })}
+        <select style={{ ...inputStyle, width: "auto", minWidth: 240, padding: "7px 10px", fontSize: 13, marginLeft: "auto" }} className="font-body" value={entite} onChange={(e) => setEntite(e.target.value)}>
+          <option value="">Toutes les entités</option>
+          {syndicats.some((s) => s.compagnie) && <optgroup label="Compagnies">{syndicats.filter((s) => s.compagnie).map((s) => <option key={s.id} value={`s:${s.id}`}>{s.nom}</option>)}</optgroup>}
+          <optgroup label="Collectifs">{syndicats.filter((s) => !s.compagnie).map((s) => <option key={s.id} value={`s:${s.id}`}>{s.sigle ? `${s.sigle} — ` : ""}{s.nom}</option>)}</optgroup>
+          <optgroup label="Associations">{associations.map((a) => <option key={a.id} value={`a:${a.id}`}>{a.sigle ? `${a.sigle} — ` : ""}{a.nom}</option>)}</optgroup>
+        </select>
+      </div>
       <div className="text-xs" style={{ color: C.slate }}>{lignes.length} enregistrement{lignes.length > 1 ? "s" : ""}{lignes.length > visibles.length ? ` — les ${visibles.length} plus récents affichés, affinez la recherche` : ""}</div>
       <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
         {visibles.length === 0 && <div className="p-6 text-sm text-center" style={{ color: C.slate }}>Aucun ajout correspondant.</div>}
@@ -7845,6 +7922,16 @@ function HistoriqueAjouts({ estAdmin, peutCommission, owners, drivers, elements,
             <div style={{ minWidth: 200, flex: 1 }}>
               <div className="text-sm font-semibold" style={{ color: C.ink }}>{l.titre || "—"}</div>
               <div className="text-xs" style={{ color: C.slate }}>{l.detail}{l.par !== "—" ? ` — ajouté par ${l.par}` : ""}</div>
+              {l.etat && (
+                <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                  {l.etat.prete
+                    ? <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: C.greenLight, color: C.greenDark }}>✓ Prête à imprimer</span>
+                    : <>
+                        {!l.etat.orzayah && <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: C.orangeLight, color: C.orangeDark }}>Sans ORZAYAH</span>}
+                        {l.etat.manque.length > 0 && <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: C.redLight, color: C.red }}><b>Manque :</b> {l.etat.manque.join(", ")}</span>}
+                      </>}
+                </div>
+              )}
             </div>
             <span className="flex items-center gap-1.5">
               {actions.voir[l.k] && btn("Voir", () => actions.voir[l.k](l.x))}
