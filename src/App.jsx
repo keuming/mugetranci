@@ -147,6 +147,26 @@ const COMMUNES = [
 // Fonctions courantes dans un collectif ou une association de transport.
 // La liste n'est pas figee : le formulaire y ajoute celles deja saisies
 // ailleurs, et permet d'en creer de nouvelles a la volee.
+// Fonctions d'une COMPAGNIE (assainissement, VTC, transport…) : menu déroulant
+// en deux groupes — administration / direction, puis exploitation et terrain.
+const FONCTIONS_COMPAGNIE_ADMIN = [
+  "Président", "Vice-président", "Directeur général", "Directeur général adjoint", "Directeur administratif et financier",
+  "Directeur des opérations", "Directeur technique", "Secrétaire général", "Secrétaire général adjoint",
+  "Secrétaire à l'organisation", "Secrétaire adjoint à l'organisation", "Trésorier", "Trésorier adjoint",
+  "Commissaire aux comptes", "Comptable", "Responsable des ressources humaines", "Chargé de communication",
+  "Chargé des relations extérieures", "Responsable commercial", "Commercial", "Assistant(e) administratif(ve)",
+  "Secrétaire", "Conseiller", "Membre",
+];
+const FONCTIONS_COMPAGNIE_TERRAIN = [
+  "Chef d'exploitation", "Superviseur", "Chef d'équipe", "Chef de parc", "Chauffeur", "Chauffeur poids lourd",
+  "Technicien", "Technicien d'assainissement", "Vidangeur", "Aide-vidangeur", "Mécanicien", "Électricien",
+  "Plombier", "Agent d'entretien", "Agent de terrain", "Magasinier", "Convoyeur", "Agent de sécurité",
+];
+// undefined = laisser décider le compte connecté (compte d'une compagnie).
+function membreCompagnie(syndicats = [], id) {
+  if (!id) return undefined;
+  return syndicats.find((x) => x.id === id)?.compagnie ? true : undefined;
+}
 const FONCTIONS_COURANTES = [
   "Président", "Vice-président", "Secrétaire général", "Secrétaire adjoint",
   "Trésorier", "Trésorier adjoint", "Commissaire aux comptes",
@@ -782,12 +802,21 @@ function GroupeSanguinField({ value, onChange }) {
   );
 }
 
-function FonctionField({ value, onChange, dejaUtilisees = [], label = "Fonction / Qualification" }) {
+function FonctionField({ value, onChange, dejaUtilisees = [], label = "Fonction / Qualification", compagnie }) {
+  const compte = React.useContext(CompteContext);
   const [nouvelle, setNouvelle] = useState(false);
-  const proposees = Array.from(new Set([...FONCTIONS_COURANTES, ...dejaUtilisees.filter(Boolean), ...(value ? [value] : [])]))
-    .sort((a, b) => a.localeCompare(b, "fr"));
+  const cie = compagnie ?? !!compte?.compagnie;
+  // Membre d'une compagnie : une seule fonction (dans la compagnie), pas de fonction d'association.
+  if (cie && /association/i.test(label)) return null;
+  const libelle = cie ? "Fonction dans la compagnie" : label;
+  const autres = Array.from(new Set([...dejaUtilisees.filter(Boolean), ...(value ? [value] : [])]));
+  const groupes = cie
+    ? [["Administration et direction", FONCTIONS_COMPAGNIE_ADMIN], ["Exploitation et terrain", FONCTIONS_COMPAGNIE_TERRAIN]]
+    : [["Fonctions courantes", FONCTIONS_COURANTES]];
+  const dejaListees = new Set(groupes.flatMap(([, l]) => l));
+  const autresRestantes = autres.filter((f) => !dejaListees.has(f)).sort((a, b) => a.localeCompare(b, "fr"));
   return (
-    <Field label={label} hint={nouvelle ? "Elle sera proposée aux prochains enrôlements." : "Imprimée au recto de la carte."}>
+    <Field label={libelle} hint={nouvelle ? "Elle sera proposée aux prochains enrôlements." : "Imprimée au recto de la carte."}>
       {nouvelle ? (
         <div className="flex items-center gap-2">
           <TextInput value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder="Ex. Chef de parc" autoFocus />
@@ -806,7 +835,10 @@ function FonctionField({ value, onChange, dejaUtilisees = [], label = "Fonction 
           }}
         >
           <option value="">— Aucune —</option>
-          {proposees.map((f) => <option key={f} value={f}>{f}</option>)}
+          {groupes.map(([titre, liste]) => (
+            <optgroup key={titre} label={titre}>{liste.map((f) => <option key={f} value={f}>{f}</option>)}</optgroup>
+          ))}
+          {autresRestantes.length > 0 && <optgroup label="Autres fonctions déjà utilisées">{autresRestantes.map((f) => <option key={f} value={f}>{f}</option>)}</optgroup>}
           <option value="__nouvelle__">+ Ajouter une autre fonction…</option>
         </select>
       )}
@@ -1343,8 +1375,8 @@ function VehicleForm({ auth, owners, drivers, vehicles = [], existants = [], onO
                   <Field label="Numéro CNI"><TextInput value={newOwner.cni} onChange={(e) => setNewOwner({ ...newOwner, cni: e.target.value })} /></Field>
                   <DejaEnregistres existants={existants} associations={associations} saisie={{ nom: newOwner.nom, prenoms: newOwner.prenoms, contact: newOwner.contact1, cni: newOwner.cni }}
                     actions={({ kind, m }) => kind === "transporteur" ? [{ label: "Choisir ce transporteur", onClick: () => { setOwnerMode("existing"); setOwnerId(m.id); } }] : []} />
-                  <FonctionField label="Fonction dans le collectif" value={newOwner.fonction} onChange={(v) => setNewOwner({ ...newOwner, fonction: v })} dejaUtilisees={[...owners, ...drivers].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
-                  <FonctionField label="Fonction dans l'association" value={newOwner.fonctionAssociation} onChange={(v) => setNewOwner({ ...newOwner, fonctionAssociation: v })} dejaUtilisees={[...owners, ...drivers].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
+                  <FonctionField compagnie={membreCompagnie(syndicats, syndicatIdSel || newOwner.logo2Id)} label="Fonction dans le collectif" value={newOwner.fonction} onChange={(v) => setNewOwner({ ...newOwner, fonction: v })} dejaUtilisees={[...owners, ...drivers].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
+                  <FonctionField compagnie={membreCompagnie(syndicats, syndicatIdSel || newOwner.logo2Id)} label="Fonction dans l'association" value={newOwner.fonctionAssociation} onChange={(v) => setNewOwner({ ...newOwner, fonctionAssociation: v })} dejaUtilisees={[...owners, ...drivers].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
                   <GroupeSanguinField value={newOwner.groupeSanguin} onChange={(v) => setNewOwner({ ...newOwner, groupeSanguin: v })} />
                   <Field label="Numéro permis de conduire"><TextInput value={newOwner.numeroPermis} onChange={(e) => setNewOwner({ ...newOwner, numeroPermis: e.target.value })} /></Field>
                   <Field label="Permis valide jusqu'au" hint="Alerte avant expiration"><DateInput value={newOwner.permisDateFin || ""} onChange={(e) => setNewOwner({ ...newOwner, permisDateFin: e.target.value })} /></Field>
@@ -1422,8 +1454,8 @@ function VehicleForm({ auth, owners, drivers, vehicles = [], existants = [], onO
                         <Field label="Numéro CNI"><TextInput value={row.draft.cni} onChange={(e) => updateDriverDraft(i, { cni: e.target.value })} /></Field>
                         <DejaEnregistres existants={existants} associations={associations} saisie={{ nom: row.draft.nom, prenoms: row.draft.prenoms, contact: row.draft.contact1, cni: row.draft.cni }}
                           actions={({ kind, m }) => kind === "chauffeur" ? [{ label: "Choisir ce chauffeur", onClick: () => updateDriverRow(i, { mode: "existing", id: m.id }) }] : []} />
-                        <FonctionField label="Fonction dans le collectif" value={row.draft.fonction} onChange={(v) => updateDriverDraft(i, { fonction: v })} dejaUtilisees={[...owners, ...drivers].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
-                        <FonctionField label="Fonction dans l'association" value={row.draft.fonctionAssociation} onChange={(v) => updateDriverDraft(i, { fonctionAssociation: v })} dejaUtilisees={[...owners, ...drivers].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
+                        <FonctionField compagnie={membreCompagnie(syndicats, syndicatIdSel || row.draft.logo2Id)} label="Fonction dans le collectif" value={row.draft.fonction} onChange={(v) => updateDriverDraft(i, { fonction: v })} dejaUtilisees={[...owners, ...drivers].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
+                        <FonctionField compagnie={membreCompagnie(syndicats, syndicatIdSel || row.draft.logo2Id)} label="Fonction dans l'association" value={row.draft.fonctionAssociation} onChange={(v) => updateDriverDraft(i, { fonctionAssociation: v })} dejaUtilisees={[...owners, ...drivers].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
                         <GroupeSanguinField value={row.draft.groupeSanguin} onChange={(v) => updateDriverDraft(i, { groupeSanguin: v })} />
                         <Field label="Numéro permis de conduire"><TextInput value={row.draft.permisNumero} onChange={(e) => updateDriverDraft(i, { permisNumero: e.target.value })} /></Field>
                         <Field label="Fin de validité du permis"><DateInput value={row.draft.permisDateFin} onChange={(e) => updateDriverDraft(i, { permisDateFin: e.target.value })} /></Field>
@@ -7238,8 +7270,8 @@ function MemberForm({ initialMember, existants = [], onOuvrirExistant, commissio
           <DejaEnregistres existants={existants} associations={associations} saisie={{ nom, prenoms, contact: contact1, cni }}
             actions={({ kind, m }) => onOuvrirExistant ? [{ label: kind === "transporteur" ? "Mettre à jour cette fiche" : "Ouvrir sa fiche", onClick: () => onOuvrirExistant(kind, m) }] : []} />
         )}
-        <FonctionField label="Fonction dans le collectif" value={fonction} onChange={setFonction} dejaUtilisees={tousMembres.flatMap((m) => [m.fonction, m.fonctionAssociation])} />
-        <FonctionField label="Fonction dans l'association" value={fonctionAssociation} onChange={setFonctionAssociation} dejaUtilisees={tousMembres.flatMap((m) => [m.fonction, m.fonctionAssociation])} />
+        <FonctionField compagnie={membreCompagnie(syndicats, logo2Id)} label="Fonction dans le collectif" value={fonction} onChange={setFonction} dejaUtilisees={tousMembres.flatMap((m) => [m.fonction, m.fonctionAssociation])} />
+        <FonctionField compagnie={membreCompagnie(syndicats, logo2Id)} label="Fonction dans l'association" value={fonctionAssociation} onChange={setFonctionAssociation} dejaUtilisees={tousMembres.flatMap((m) => [m.fonction, m.fonctionAssociation])} />
         <GroupeSanguinField value={groupeSanguin} onChange={setGroupeSanguin} />
         <Field label="Numéro permis de conduire"><TextInput value={numeroPermis} onChange={(e) => setNumeroPermis(e.target.value)} /></Field>
         <Field label="Permis valide jusqu'au" hint="Alerte avant expiration"><DateInput value={permisDateFin} onChange={(e) => setPermisDateFin(e.target.value)} /></Field>
@@ -7370,8 +7402,8 @@ function DriverForm({ initialDriver, existants = [], onOuvrirExistant, commissio
           <DejaEnregistres existants={existants} associations={associations} saisie={{ nom, prenoms, contact: contact1, cni }}
             actions={({ kind, m }) => onOuvrirExistant ? [{ label: kind === "chauffeur" ? "Mettre à jour cette fiche" : "Ouvrir sa fiche", onClick: () => onOuvrirExistant(kind, m) }] : []} />
         )}
-        <FonctionField label="Fonction dans le collectif" value={fonction} onChange={setFonction} dejaUtilisees={tousMembres.flatMap((m) => [m.fonction, m.fonctionAssociation])} />
-        <FonctionField label="Fonction dans l'association" value={fonctionAssociation} onChange={setFonctionAssociation} dejaUtilisees={tousMembres.flatMap((m) => [m.fonction, m.fonctionAssociation])} />
+        <FonctionField compagnie={membreCompagnie(syndicats, logo2Id)} label="Fonction dans le collectif" value={fonction} onChange={setFonction} dejaUtilisees={tousMembres.flatMap((m) => [m.fonction, m.fonctionAssociation])} />
+        <FonctionField compagnie={membreCompagnie(syndicats, logo2Id)} label="Fonction dans l'association" value={fonctionAssociation} onChange={setFonctionAssociation} dejaUtilisees={tousMembres.flatMap((m) => [m.fonction, m.fonctionAssociation])} />
         <GroupeSanguinField value={groupeSanguin} onChange={setGroupeSanguin} />
         <Field label="Numéro permis de conduire"><TextInput value={permisNumero} onChange={(e) => setPermisNumero(e.target.value)} /></Field>
         <Field label="Fin de validité du permis"><DateInput value={permisDateFin} onChange={(e) => setPermisDateFin(e.target.value)} /></Field>
@@ -7479,8 +7511,8 @@ function ElementForm({ initialElement, existants = [], onOuvrirExistant, commiss
           <DejaEnregistres existants={existants} associations={associations} saisie={{ nom, prenoms, contact: contact1, cni }}
             actions={({ kind, m }) => onOuvrirExistant ? [{ label: kind === "element" ? "Mettre à jour cette fiche" : "Ouvrir sa fiche", onClick: () => onOuvrirExistant(kind, m) }] : []} />
         )}
-        <FonctionField label="Fonction dans le collectif" value={fonction} onChange={setFonction} dejaUtilisees={[...elements, ...tousMembres].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
-        <FonctionField label="Fonction dans l'association" value={fonctionAssociation} onChange={setFonctionAssociation} dejaUtilisees={[...elements, ...tousMembres].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
+        <FonctionField compagnie={membreCompagnie(syndicats, logo2Id)} label="Fonction dans le collectif" value={fonction} onChange={setFonction} dejaUtilisees={[...elements, ...tousMembres].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
+        <FonctionField compagnie={membreCompagnie(syndicats, logo2Id)} label="Fonction dans l'association" value={fonctionAssociation} onChange={setFonctionAssociation} dejaUtilisees={[...elements, ...tousMembres].flatMap((m) => [m.fonction, m.fonctionAssociation])} />
         <GroupeSanguinField value={groupeSanguin} onChange={setGroupeSanguin} />
         <Field label="Adresse email"><TextInput value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
         <Field label="Contact 1"><TextInput value={contact1} onChange={(e) => setContact1(e.target.value)} /></Field>
