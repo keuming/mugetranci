@@ -7693,7 +7693,8 @@ function CompagnieForm({ initial, onCancel, onSave }) {
   const canSave = nom.trim() && nature.trim() && hexOk(couleurPrimaire) && hexOk(couleurSecondaire) && (!pinCode || /^\d{4}$/.test(pinCode)) && !saving;
 
   const apercu = { compagnie: true, nom: nom || "Nom de la compagnie", sigle, logoUrl, cachetUrl, signatureUrl, faitiereLogoUrl, faitiereNom, couleurPrimaire: hexOk(couleurPrimaire) ? couleurPrimaire : null, couleurSecondaire: hexOk(couleurSecondaire) ? couleurSecondaire : null };
-  const membreExemple = { id: "apercu", nom: "KOUASSI", prenoms: "JEAN", fonction: "Chauffeur titulaire", groupeSanguin: "O+", contact1: "07 07 00 00 00", permisNumero: "CI-123456", permisDateFin: "2029-12-31" };
+  const [exempleFonction, setExempleFonction] = useState("Chauffeur");
+  const membreExemple = { id: "apercu", nom: "KOUASSI", prenoms: "JEAN", fonction: "Chauffeur", groupeSanguin: "O+", contact1: "07 07 00 00 00", permisNumero: "CI-123456", permisDateFin: "2029-12-31" };
 
   const handleSave = async () => {
     setSaving(true); setError(null);
@@ -7722,11 +7723,18 @@ function CompagnieForm({ initial, onCancel, onSave }) {
       </div>
       <CachetSignatureFields qui="de la compagnie" cachet={cachetUrl} onCachet={setCachetUrl} signature={signatureUrl} onSignature={setSignatureUrl} />
       <div>
-        <div className="font-body text-xs mb-2" style={{ color: C.ink, fontWeight: 800 }}>Aperçu de la carte (recto à ses couleurs, verso ORZAYAH)</div>
-        <div className="flex gap-3 flex-wrap">
-          <MemberCardFace member={membreExemple} category="chauffeur" compagnie={apercu} numero="C00001" ficheValue="apercu" side="recto" scale={0.78}
-            infoFields={[{ label: "N° Permis", value: membreExemple.permisNumero }, { label: "Permis valide au", value: "31 déc. 2029" }, { label: "Téléphone", value: membreExemple.contact1 }]} />
-          <MemberCardFace member={membreExemple} category="chauffeur" compagnie={apercu} numero="C00001" ficheValue="apercu" side="verso" scale={0.78} />
+        <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+          <div className="font-body text-xs" style={{ color: C.ink, fontWeight: 800 }}>Aperçu de la carte — format d'impression : recto au-dessus du verso (ORZAYAH)</div>
+          <select style={{ ...inputStyle, width: "auto", padding: "5px 8px", fontSize: 12 }} className="font-body" value={exempleFonction} onChange={(e) => setExempleFonction(e.target.value)} title="Fonction de l'exemple">
+            {["Chauffeur", "Vidangeur", "Technicien", "Secrétaire adjoint à l'organisation", "Directeur général"].map((f) => <option key={f} value={f}>Exemple : {f}</option>)}
+          </select>
+        </div>
+        <div className="flex flex-col items-center gap-3" style={{ background: C.cream, borderRadius: 12, padding: 14 }}>
+          <MemberCardFace member={{ ...membreExemple, fonction: exempleFonction }} category={exempleFonction.startsWith("Chauffeur") ? "chauffeur" : "element"} compagnie={apercu} numero="C00001" ficheValue="apercu" side="recto"
+            infoFields={exempleFonction.startsWith("Chauffeur")
+              ? [{ label: "N° Permis", value: membreExemple.permisNumero }, { label: "Permis valide au", value: "31 déc. 2029" }, { label: "Téléphone", value: membreExemple.contact1 }]
+              : [{ label: "Téléphone", value: membreExemple.contact1 }, { label: "N° CNI", value: "CI000000000" }]} />
+          <MemberCardFace member={{ ...membreExemple, fonction: exempleFonction }} category="chauffeur" compagnie={apercu} numero="C00001" ficheValue="apercu" side="verso" />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
