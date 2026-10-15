@@ -7623,7 +7623,31 @@ function AssociationForm({ initialAsso, collectif, onCancel, onSave }) {
    (logo + 2 couleurs) appliquée à leurs cartes, compte de connexion, et
    agents administrateurs. Verso ORZAYAH toujours inchangé.
    ============================================================ */
-const NATURES_COMPAGNIE = ["Compagnie de transport", "VTC"];
+// Nature (secteur d'activité) d'une compagnie, par grands domaines.
+const NATURES_COMPAGNIE_GROUPES = [
+  ["Transport de personnes", [
+    "Compagnie de transport", "Transport interurbain (cars)", "Transport urbain (bus)", "Minicars (gbaka)",
+    "Taxi communal (woro-woro)", "Taxi compteur", "VTC", "Moto-taxi", "Tricycle", "Transport scolaire",
+    "Transport du personnel", "Location de véhicules", "Transport touristique", "Transport fluvio-lagunaire",
+    "Auto-école",
+  ]],
+  ["Transport de marchandises et logistique", [
+    "Transport de marchandises", "Transport routier poids lourds", "Transport de conteneurs", "Messagerie et livraison",
+    "Déménagement", "Transit et dédouanement", "Logistique et entreposage", "Transport frigorifique",
+    "Transport de matériaux de construction", "Transport de produits agricoles", "Transport de bétail",
+    "Dépannage et remorquage",
+  ]],
+  ["Pétrole, gaz et énergie", [
+    "Transport d'hydrocarbures", "Distribution de carburant", "Station-service", "Dépôt pétrolier",
+    "Distribution de gaz butane", "Transport de gaz", "Lubrifiants", "Négoce de produits pétroliers",
+  ]],
+  ["Assainissement, entretien et maintenance", [
+    "Assainissement", "Vidange de fosses septiques", "Curage de caniveaux", "Collecte des déchets",
+    "Nettoyage et salubrité", "Hydrocurage", "Désinsectisation et dératisation", "Vidange et entretien automobile",
+    "Garage et mécanique", "Lavage auto", "Pneumatique et vulcanisation", "Pièces détachées",
+  ]],
+];
+const NATURES_COMPAGNIE = NATURES_COMPAGNIE_GROUPES.flatMap(([, l]) => l);
 
 function ChoixCouleur({ label, value, onChange }) {
   return (
@@ -7697,10 +7721,12 @@ function CompagnieForm({ initial, onCancel, onSave }) {
         <Field label="Sigle"><TextInput value={sigle} onChange={(e) => setSigle(e.target.value)} placeholder="YDC" maxLength={20} /></Field>
         <Field label="Nature" hint="Transmise à ORZAYAH comme catégorie des comptes marchands">
           <select style={inputStyle} className="font-body" value={NATURES_COMPAGNIE.includes(nature) ? nature : "__autre__"} onChange={(e) => setNature(e.target.value === "__autre__" ? "" : e.target.value)}>
-            {NATURES_COMPAGNIE.map((n) => <option key={n} value={n}>{n}</option>)}
-            <option value="__autre__">Autre…</option>
+            {NATURES_COMPAGNIE_GROUPES.map(([g, liste]) => (
+              <optgroup key={g} label={g}>{liste.map((n) => <option key={n} value={n}>{n}</option>)}</optgroup>
+            ))}
+            <option value="__autre__">Autre activité…</option>
           </select>
-          {!NATURES_COMPAGNIE.includes(nature) && <TextInput value={nature} onChange={(e) => setNature(e.target.value)} placeholder="Ex. Taxi compteur" />}
+          {!NATURES_COMPAGNIE.includes(nature) && <TextInput value={nature} onChange={(e) => setNature(e.target.value)} placeholder="Précisez l'activité" />}
         </Field>
         <div />
         <Field label="Nom du responsable"><TextInput value={presidentNom} onChange={(e) => setPresidentNom(e.target.value)} /></Field>
