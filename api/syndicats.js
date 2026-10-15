@@ -141,6 +141,8 @@ export default async function handler(req, res) {
             couleurSecondaire: couleur(body.couleurSecondaire) || "#E07A1F",
             cachetUrl: body.cachetUrl || null,
             signatureUrl: body.signatureUrl || null,
+            faitiereLogoUrl: body.faitiereLogoUrl || null,
+            faitiereNom: String(body.faitiereNom || "").trim().slice(0, 160) || null,
             presidentNom: body.presidentNom || null,
             presidentContact: body.presidentContact || null,
             login: body.login || null,
@@ -251,6 +253,8 @@ export default async function handler(req, res) {
     if (auth.role === "admin") {
       if ("couleurPrimaire" in body) patch.couleurPrimaire = couleur(body.couleurPrimaire);
       if ("couleurSecondaire" in body) patch.couleurSecondaire = couleur(body.couleurSecondaire);
+      if ("faitiereLogoUrl" in body) patch.faitiereLogoUrl = body.faitiereLogoUrl || null;
+      if ("faitiereNom" in body) patch.faitiereNom = String(body.faitiereNom || "").trim().slice(0, 160) || null;
     } else if (auth.role === "syndicat") {
       // Le compte d'une compagnie ne modifie ni son logo, ni sa nature, ni son nom.
       const [moi] = await db.select().from(syndicats).where(eq(syndicats.id, id));

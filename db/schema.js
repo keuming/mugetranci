@@ -46,6 +46,8 @@ export const syndicats = pgTable("syndicats", {
   compagnie: boolean("compagnie").default(false).notNull(),
   couleurPrimaire: varchar("couleur_primaire", { length: 7 }),
   couleurSecondaire: varchar("couleur_secondaire", { length: 7 }),
+  faitiereLogoUrl: text("faitiere_logo_url"),           // compagnie : logo de sa faîtière / tutelle (à droite de la carte)
+  faitiereNom: varchar("faitiere_nom", { length: 160 }), // nom ou sigle de la faîtière / tutelle
   cachetUrl: text("cachet_url"),       // cachet numérisé (PNG détouré) — imprimé sur les cartes
   signatureUrl: text("signature_url"), // signature numérisée du responsable — imprimée sur les cartes
   presidentNom: varchar("president_nom", { length: 160 }),

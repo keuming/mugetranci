@@ -2003,10 +2003,17 @@ function RectoCompagnie({ compagnie, member, category, numero, ficheValue, infoF
           {compagnie.logoUrl ? <img src={compagnie.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : <Building2 size={16} color={primaire} />}
         </div>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div className="font-display" style={{ fontSize: 12.5, fontWeight: 800, color: surPrimaire, lineHeight: 1.05, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{compagnie.nom}</div>
+          <div className="font-display" style={{ fontSize: (compagnie.nom || "").length > 30 ? 10 : 12.5, fontWeight: 800, color: surPrimaire, lineHeight: 1.08, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{compagnie.nom}</div>
           {compagnie.sigle && compagnie.sigle !== compagnie.nom && <div style={{ fontSize: 7.5, fontWeight: 700, color: surPrimaire, opacity: 0.8, letterSpacing: 0.4 }}>{compagnie.sigle}</div>}
         </div>
-        <div style={{ background: secondaire, color: surSecondaire, fontSize: 8, fontWeight: 800, padding: "3px 7px", borderRadius: 4, letterSpacing: 0.4, textTransform: "uppercase", flexShrink: 0 }}>{LIBELLE_CIE[category] || "Membre"}</div>
+        {compagnie.faitiereLogoUrl && (
+          <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0, maxWidth: 110 }}>
+            {compagnie.faitiereNom && <div style={{ fontSize: 6.3, fontWeight: 700, color: surPrimaire, opacity: 0.85, textAlign: "right", lineHeight: 1.1, maxWidth: 70, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>{compagnie.faitiereNom}</div>}
+            <div style={{ width: 32, height: 32, borderRadius: 7, overflow: "hidden", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <img src={compagnie.faitiereLogoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+            </div>
+          </div>
+        )}
       </div>
       <div style={{ height: 3, background: secondaire, flexShrink: 0 }} />
 
@@ -2017,8 +2024,8 @@ function RectoCompagnie({ compagnie, member, category, numero, ficheValue, infoF
           </div>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink, lineHeight: 1.15 }}>{member.prenoms} {member.nom}</div>
-            <div className="flex items-center gap-1.5" style={{ marginTop: 2 }}>
-              {member.fonction && <span style={{ fontSize: 8.5, fontWeight: 800, color: accent }}>{member.fonction}</span>}
+            <div className="flex items-center gap-1.5" style={{ marginTop: 3, flexWrap: "wrap" }}>
+              <span style={{ background: secondaire, color: surSecondaire, fontSize: 7.6, fontWeight: 800, padding: "2px 6px", borderRadius: 4, letterSpacing: 0.3, textTransform: "uppercase", lineHeight: 1.15, maxWidth: 200 }}>{member.fonction || LIBELLE_CIE[category] || "Membre"}</span>
               {member.groupeSanguin && (
                 <span title="Groupe sanguin" style={{ background: "#C8102E", color: "#fff", fontSize: 7.5, fontWeight: 800, lineHeight: 1, padding: "2px 4px", borderRadius: 3, whiteSpace: "nowrap" }}>GS {member.groupeSanguin}</span>
               )}
@@ -7671,6 +7678,8 @@ function CompagnieForm({ initial, onCancel, onSave }) {
   const [logoUrl, setLogoUrl] = useState(initial?.logoUrl || null);
   const [cachetUrl, setCachetUrl] = useState(initial?.cachetUrl || null);
   const [signatureUrl, setSignatureUrl] = useState(initial?.signatureUrl || null);
+  const [faitiereLogoUrl, setFaitiereLogoUrl] = useState(initial?.faitiereLogoUrl || null);
+  const [faitiereNom, setFaitiereNom] = useState(initial?.faitiereNom || "");
   const [nature, setNature] = useState(initial?.nature || "Compagnie de transport");
   const [couleurPrimaire, setCouleurPrimaire] = useState(initial?.couleurPrimaire || COULEURS_CIE_DEFAUT.primaire);
   const [couleurSecondaire, setCouleurSecondaire] = useState(initial?.couleurSecondaire || COULEURS_CIE_DEFAUT.secondaire);
@@ -7683,13 +7692,13 @@ function CompagnieForm({ initial, onCancel, onSave }) {
   const hexOk = (v) => /^#[0-9A-Fa-f]{6}$/.test(v);
   const canSave = nom.trim() && nature.trim() && hexOk(couleurPrimaire) && hexOk(couleurSecondaire) && (!pinCode || /^\d{4}$/.test(pinCode)) && !saving;
 
-  const apercu = { compagnie: true, nom: nom || "Nom de la compagnie", sigle, logoUrl, cachetUrl, signatureUrl, couleurPrimaire: hexOk(couleurPrimaire) ? couleurPrimaire : null, couleurSecondaire: hexOk(couleurSecondaire) ? couleurSecondaire : null };
+  const apercu = { compagnie: true, nom: nom || "Nom de la compagnie", sigle, logoUrl, cachetUrl, signatureUrl, faitiereLogoUrl, faitiereNom, couleurPrimaire: hexOk(couleurPrimaire) ? couleurPrimaire : null, couleurSecondaire: hexOk(couleurSecondaire) ? couleurSecondaire : null };
   const membreExemple = { id: "apercu", nom: "KOUASSI", prenoms: "JEAN", fonction: "Chauffeur titulaire", groupeSanguin: "O+", contact1: "07 07 00 00 00", permisNumero: "CI-123456", permisDateFin: "2029-12-31" };
 
   const handleSave = async () => {
     setSaving(true); setError(null);
     try {
-      const payload = { compagnie: true, nom: nom.trim(), sigle: sigle.trim(), logoUrl, cachetUrl, signatureUrl, nature: nature.trim(), couleurPrimaire, couleurSecondaire, presidentNom, presidentContact, login: login.trim() };
+      const payload = { compagnie: true, nom: nom.trim(), sigle: sigle.trim(), logoUrl, cachetUrl, signatureUrl, faitiereLogoUrl, faitiereNom: faitiereNom.trim(), nature: nature.trim(), couleurPrimaire, couleurSecondaire, presidentNom, presidentContact, login: login.trim() };
       if (pinCode) payload.pinCode = pinCode;
       await onSave(payload);
     } catch (err) {
@@ -7701,7 +7710,11 @@ function CompagnieForm({ initial, onCancel, onSave }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4">
-        <PhotoUpload value={logoUrl} onChange={setLogoUrl} label="Logo de la compagnie" shape="square" />
+        <div className="flex flex-col gap-3">
+          <PhotoUpload value={logoUrl} onChange={setLogoUrl} label="Logo de la compagnie (à gauche)" shape="square" />
+          <PhotoUpload value={faitiereLogoUrl} onChange={setFaitiereLogoUrl} label="Logo de la faîtière / tutelle (à droite, facultatif)" shape="square" />
+          {faitiereLogoUrl && <TextInput value={faitiereNom} onChange={(e) => setFaitiereNom(e.target.value)} placeholder="Nom ou sigle de la faîtière (ex. PASA / APAA)" />}
+        </div>
         <div className="flex flex-col gap-3">
           <ChoixCouleur label="Couleur principale" value={couleurPrimaire} onChange={setCouleurPrimaire} />
           <ChoixCouleur label="Couleur secondaire" value={couleurSecondaire} onChange={setCouleurSecondaire} />
