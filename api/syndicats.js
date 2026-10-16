@@ -143,7 +143,6 @@ export default async function handler(req, res) {
             signatureUrl: body.signatureUrl || null,
             faitiereLogoUrl: body.faitiereLogoUrl || null,
             faitiereNom: String(body.faitiereNom || "").trim().slice(0, 160) || null,
-            modeleCarte: body.modeleCarte === "officiel" ? "officiel" : "moderne",
             presidentNom: body.presidentNom || null,
             presidentContact: body.presidentContact || null,
             login: body.login || null,
@@ -256,7 +255,6 @@ export default async function handler(req, res) {
       if ("couleurSecondaire" in body) patch.couleurSecondaire = couleur(body.couleurSecondaire);
       if ("faitiereLogoUrl" in body) patch.faitiereLogoUrl = body.faitiereLogoUrl || null;
       if ("faitiereNom" in body) patch.faitiereNom = String(body.faitiereNom || "").trim().slice(0, 160) || null;
-      if ("modeleCarte" in body) patch.modeleCarte = body.modeleCarte === "officiel" ? "officiel" : "moderne";
     } else if (auth.role === "syndicat") {
       // Le compte d'une compagnie ne modifie ni son logo, ni sa nature, ni son nom.
       const [moi] = await db.select().from(syndicats).where(eq(syndicats.id, id));

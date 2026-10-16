@@ -1989,91 +1989,6 @@ function TamponsCarte({ entites = [], largeur = 46, hauteur = 32, clair = false 
 const tampon = (entite, libelle) => entite && (entite.cachetUrl || entite.signatureUrl)
   ? { cachetUrl: entite.cachetUrl, signatureUrl: entite.signatureUrl, libelle: libelle || entite.sigle || entite.nom } : null;
 
-/* Modèle « officiel » (demandé par les compagnies type FAA.CI) : en-tête
-   République de Côte d'Ivoire + drapeau, nom de la compagnie, titre « CARTE
-   DE MEMBRE », identité en lignes « Libellé : valeur », photo à gauche,
-   sigle et matricule sous la photo, signature et cachet en bas à droite.
-   On y garde nos standards : groupe sanguin, validité / lot, QR de
-   vérification, faîtière, et le verso ORZAYAH. */
-function RectoCompagnieOfficiel({ compagnie, member, category, numero, ficheValue }) {
-  const { primaire, secondaire } = couleursCompagnie(compagnie);
-  const accent = texteSurCouleur(primaire) === "#FFFFFF" ? primaire : C.ink;
-  const titre = texteSurCouleur(secondaire) === "#FFFFFF" ? secondaire : "#C8102E";
-  const imp = infosImpression(member);
-  const lignes = [
-    ["Nom", member.nom],
-    ["Prénoms", member.prenoms],
-    ["Fonction", member.fonction || LIBELLE_CIE[category] || "Membre"],
-    ["CNI N°", member.cni],
-    ...(category === "chauffeur" && member.permisNumero ? [["Permis N°", member.permisNumero]] : []),
-    ["Contact", member.contact1],
-  ];
-  return (
-    <div className="font-body" style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", background: "linear-gradient(180deg, #FFFFFF 0%, #F4F7FB 100%)" }}>
-      {/* En-tête */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px 0" }}>
-        <div style={{ width: 44, height: 44, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          {compagnie.logoUrl ? <img src={compagnie.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : <Building2 size={22} color={primaire} />}
-        </div>
-        <div style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
-          <div className="flex items-center justify-center gap-1.5">
-            <span style={{ fontSize: 8.6, fontWeight: 700, color: accent, letterSpacing: 0.4 }}>RÉPUBLIQUE DE CÔTE D'IVOIRE</span>
-            <span style={{ display: "inline-flex", width: 15, height: 10, border: "0.5px solid #ccc", flexShrink: 0 }}>
-              <span style={{ flex: 1, background: "#F77F00" }} /><span style={{ flex: 1, background: "#FFFFFF" }} /><span style={{ flex: 1, background: "#009E60" }} />
-            </span>
-          </div>
-          <div style={{ fontSize: (compagnie.nom || "").length > 40 ? 6.8 : 7.6, fontWeight: 800, color: accent, lineHeight: 1.12, marginTop: 1.5, textTransform: "uppercase" }}>{compagnie.nom}</div>
-          <div className="font-display" style={{ fontSize: 11.5, fontWeight: 800, color: titre, letterSpacing: 2.6, marginTop: 2 }}>CARTE DE MEMBRE</div>
-        </div>
-        {compagnie.faitiereLogoUrl && (
-          <div style={{ width: 30, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <img src={compagnie.faitiereLogoUrl} alt="" style={{ width: 30, height: 30, objectFit: "contain" }} />
-            {compagnie.faitiereNom && <div style={{ fontSize: 4.6, fontWeight: 700, color: C.slate, textAlign: "center", lineHeight: 1.05 }}>{compagnie.faitiereNom}</div>}
-          </div>
-        )}
-      </div>
-
-      {/* Corps : photo + identité */}
-      <div style={{ display: "flex", gap: 10, padding: "4px 10px 0", flex: 1, minHeight: 0 }}>
-        <div style={{ width: 66, flexShrink: 0, display: "flex", flexDirection: "column" }}>
-          <div style={{ width: 66, height: 78, overflow: "hidden", background: C.cream, border: `1.5px solid ${primaire}` }}>
-            {member.photo ? <img src={member.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div className="w-full h-full flex items-center justify-center font-bold" style={{ color: C.slate, fontSize: 18 }}>{initials(member.nom, member.prenoms)}</div>}
-          </div>
-          <div style={{ fontSize: 7.2, fontWeight: 800, color: accent, marginTop: 3, lineHeight: 1.1 }}>{compagnie.sigle || ""}</div>
-          <div style={{ fontSize: 6.4, fontWeight: 700, color: accent, lineHeight: 1.1 }}>MATRICULE</div>
-          <div className="font-mono" style={{ fontSize: 9, fontWeight: 800, color: titre, lineHeight: 1.15 }}>{numero || "—"}</div>
-        </div>
-        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 1.5, paddingTop: 2 }}>
-          {lignes.map(([lib, val]) => (
-            <div key={lib} style={{ fontSize: 8.3, color: C.ink, lineHeight: 1.18, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: lib === "Fonction" ? 2 : 1, WebkitBoxOrient: "vertical" }}>
-              <span style={{ color: C.slate }}>{lib} : </span><b style={{ textTransform: lib === "Nom" ? "uppercase" : "none" }}>{val || "—"}</b>
-            </div>
-          ))}
-          {member.groupeSanguin && (
-            <div style={{ marginTop: 1 }}><span style={{ background: "#C8102E", color: "#fff", fontSize: 7.4, fontWeight: 800, padding: "1.5px 5px", borderRadius: 3 }}>Groupe sanguin {member.groupeSanguin}</span></div>
-          )}
-        </div>
-      </div>
-
-      {/* Pied : validité, signature + cachet, QR */}
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 6, padding: "0 10px 9px" }}>
-        <div style={{ flex: 1, fontSize: 6.4, color: C.ink, fontWeight: 700, lineHeight: 1.2 }}>
-          Valable jusqu'au <span className="font-mono">{imp.finValidite}</span><br /><span style={{ color: C.slate, fontWeight: 600 }}>Lot {imp.lotLisible}</span>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <div style={{ fontSize: 6.8, fontWeight: 800, fontStyle: "italic", color: C.ink }}>Signature</div>
-          <TamponsCarte entites={[tampon(compagnie, compagnie.sigle || "La Direction")]} largeur={62} hauteur={34} />
-          {!(compagnie.cachetUrl || compagnie.signatureUrl) && <div style={{ width: 62, height: 34 }} />}
-        </div>
-        <div style={{ background: "#fff", padding: 2, border: `1px solid ${C.border}`, borderRadius: 4, flexShrink: 0 }}>
-          <QRCodeSVG value={ficheValue} size={44} bgColor="#ffffff" fgColor={C.ink} level="M" />
-        </div>
-      </div>
-      <div style={{ height: 4, background: `linear-gradient(90deg, #F77F00 0%, #F77F00 33%, #FFFFFF 33%, #FFFFFF 66%, #009E60 66%)`, flexShrink: 0 }} />
-    </div>
-  );
-}
-
 function RectoCompagnie({ compagnie, member, category, numero, ficheValue, infoFields = [] }) {
   const { primaire, secondaire } = couleursCompagnie(compagnie);
   const surPrimaire = texteSurCouleur(primaire), surSecondaire = texteSurCouleur(secondaire);
@@ -2246,9 +2161,7 @@ function MemberCardFace({ member, category, logo1, logo2, numero, ficheValue, in
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 8, background: theme.barTop }} />
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 8, background: theme.barBottom }} />
 
-      {isRecto && compagnie && compagnie.modeleCarte === "officiel" ? (
-        <RectoCompagnieOfficiel compagnie={compagnie} member={member} category={category} numero={numero} ficheValue={ficheValue} />
-      ) : isRecto && compagnie ? (
+      {isRecto && compagnie ? (
         <RectoCompagnie compagnie={compagnie} member={member} category={category} numero={numero} ficheValue={ficheValue} infoFields={infoFields} />
       ) : isRecto ? (
         <div className="flex flex-col h-full justify-between" style={{ padding: "7px 18px 9px" }}>
@@ -7767,7 +7680,6 @@ function CompagnieForm({ initial, onCancel, onSave }) {
   const [signatureUrl, setSignatureUrl] = useState(initial?.signatureUrl || null);
   const [faitiereLogoUrl, setFaitiereLogoUrl] = useState(initial?.faitiereLogoUrl || null);
   const [faitiereNom, setFaitiereNom] = useState(initial?.faitiereNom || "");
-  const [modeleCarte, setModeleCarte] = useState(initial?.modeleCarte || "moderne");
   const [nature, setNature] = useState(initial?.nature || "Compagnie de transport");
   const [couleurPrimaire, setCouleurPrimaire] = useState(initial?.couleurPrimaire || COULEURS_CIE_DEFAUT.primaire);
   const [couleurSecondaire, setCouleurSecondaire] = useState(initial?.couleurSecondaire || COULEURS_CIE_DEFAUT.secondaire);
@@ -7780,14 +7692,14 @@ function CompagnieForm({ initial, onCancel, onSave }) {
   const hexOk = (v) => /^#[0-9A-Fa-f]{6}$/.test(v);
   const canSave = nom.trim() && nature.trim() && hexOk(couleurPrimaire) && hexOk(couleurSecondaire) && (!pinCode || /^\d{4}$/.test(pinCode)) && !saving;
 
-  const apercu = { compagnie: true, nom: nom || "Nom de la compagnie", sigle, logoUrl, cachetUrl, signatureUrl, faitiereLogoUrl, faitiereNom, modeleCarte, couleurPrimaire: hexOk(couleurPrimaire) ? couleurPrimaire : null, couleurSecondaire: hexOk(couleurSecondaire) ? couleurSecondaire : null };
+  const apercu = { compagnie: true, nom: nom || "Nom de la compagnie", sigle, logoUrl, cachetUrl, signatureUrl, faitiereLogoUrl, faitiereNom, couleurPrimaire: hexOk(couleurPrimaire) ? couleurPrimaire : null, couleurSecondaire: hexOk(couleurSecondaire) ? couleurSecondaire : null };
   const [exempleFonction, setExempleFonction] = useState("Chauffeur");
-  const membreExemple = { id: "apercu", nom: "KOUASSI", prenoms: "JEAN", fonction: "Chauffeur", cni: "CI000000000", groupeSanguin: "O+", contact1: "07 07 00 00 00", permisNumero: "CI-123456", permisDateFin: "2029-12-31" };
+  const membreExemple = { id: "apercu", nom: "KOUASSI", prenoms: "JEAN", fonction: "Chauffeur", groupeSanguin: "O+", contact1: "07 07 00 00 00", permisNumero: "CI-123456", permisDateFin: "2029-12-31" };
 
   const handleSave = async () => {
     setSaving(true); setError(null);
     try {
-      const payload = { compagnie: true, nom: nom.trim(), sigle: sigle.trim(), logoUrl, cachetUrl, signatureUrl, faitiereLogoUrl, faitiereNom: faitiereNom.trim(), modeleCarte, nature: nature.trim(), couleurPrimaire, couleurSecondaire, presidentNom, presidentContact, login: login.trim() };
+      const payload = { compagnie: true, nom: nom.trim(), sigle: sigle.trim(), logoUrl, cachetUrl, signatureUrl, faitiereLogoUrl, faitiereNom: faitiereNom.trim(), nature: nature.trim(), couleurPrimaire, couleurSecondaire, presidentNom, presidentContact, login: login.trim() };
       if (pinCode) payload.pinCode = pinCode;
       await onSave(payload);
     } catch (err) {
@@ -7816,12 +7728,6 @@ function CompagnieForm({ initial, onCancel, onSave }) {
           <select style={{ ...inputStyle, width: "auto", padding: "5px 8px", fontSize: 12 }} className="font-body" value={exempleFonction} onChange={(e) => setExempleFonction(e.target.value)} title="Fonction de l'exemple">
             {["Chauffeur", "Vidangeur", "Technicien", "Secrétaire adjoint à l'organisation", "Directeur général"].map((f) => <option key={f} value={f}>Exemple : {f}</option>)}
           </select>
-        </div>
-        <div className="flex flex-wrap gap-2 mb-2">
-          {[["moderne", "Modèle moderne (bandeau aux couleurs)"], ["officiel", "Modèle officiel « Carte de membre » (République de Côte d'Ivoire)"]].map(([k, l]) => (
-            <button key={k} type="button" onClick={() => setModeleCarte(k)} className="font-body text-xs font-semibold px-3 py-1.5 rounded-full"
-              style={{ background: modeleCarte === k ? C.greenDark : "#fff", color: modeleCarte === k ? "#fff" : C.ink, border: `1px solid ${modeleCarte === k ? C.greenDark : C.border}` }}>{l}</button>
-          ))}
         </div>
         <div className="flex flex-col items-center gap-3" style={{ background: C.cream, borderRadius: 12, padding: 14 }}>
           <MemberCardFace member={{ ...membreExemple, fonction: exempleFonction }} category={exempleFonction.startsWith("Chauffeur") ? "chauffeur" : "element"} compagnie={apercu} numero="C00001" ficheValue="apercu" side="recto"
