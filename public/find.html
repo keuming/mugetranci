@@ -186,7 +186,7 @@ button{font-family:inherit;cursor:pointer}
     <div id="errLogin" class="err cache"></div>
     <button id="btnLogin" class="btn" type="button">Entrer</button>
   </div>
-  <div id="installLogin" class="install cache"><span>📲 Installer l'application sur ce téléphone</span><button type="button" data-install>Installer</button></div>
+  <div id="installLogin" class="install"><span>📲 Installer l'application sur ce téléphone</span><button type="button" data-install>Installer</button></div>
   <div class="pied">© 2026 ORZAYAH SOLUTIONS</div>
 </section>
 
@@ -200,6 +200,8 @@ button{font-family:inherit;cursor:pointer}
       <button id="btnChercher" class="ok" type="button">Chercher</button>
     </div>
   </header>
+
+  <div id="installMain" class="install" style="margin:12px 16px 0"><span>📲 Installer l'application</span><button type="button" data-install>Installer</button></div>
 
   <!-- Onglet Chercher -->
   <div id="tabChercher">
@@ -256,6 +258,15 @@ button{font-family:inherit;cursor:pointer}
   </nav>
 </section>
 
+<!-- ===== AIDE INSTALLATION ===== -->
+<div id="aideInstall" class="voile cache" style="display:flex;align-items:center;justify-content:center;padding:20px;z-index:60">
+  <div style="background:#fff;border-radius:22px;padding:22px 20px;max-width:380px;width:100%">
+    <h3 style="margin:0 0 10px;font-size:22px">📲 Installer l'application</h3>
+    <div id="aideTexte" style="font-size:18px;line-height:1.5"></div>
+    <button id="btnAideOk" class="btn" type="button">J'ai compris</button>
+  </div>
+</div>
+
 <!-- ===== MENU ===== -->
 <div id="voile" class="voile cache"></div>
 <aside id="tiroir" class="tiroir cache" aria-label="Menu">
@@ -275,8 +286,7 @@ button{font-family:inherit;cursor:pointer}
     <div class="prix"><div>Frais de mise en service<small id="finFrais">Une seule fois</small></div><b id="valFrais">5 000 FCFA</b></div>
     <div id="infoPaiement" style="font-size:15px;color:var(--gris);margin-top:8px">Pour payer, contactez l'administrateur COMIX-CI.</div>
   </div>
-  <div id="installMoi" class="install cache" style="margin:14px 14px 0"><span>📲 Installer l'application</span><button type="button" data-install>Installer</button></div>
-  <div id="aideIos" class="bloc cache" style="font-size:16px">📲 <b>Pour installer sur iPhone :</b> touchez le bouton de partage ⬆️ puis « Sur l'écran d'accueil ».</div>
+  <div id="installMoi" class="install" style="margin:14px 14px 0"><span>📲 Installer l'application</span><button type="button" data-install>Installer</button></div>
   <button id="btnSortir" class="btn sec" type="button">🚪 Se déconnecter</button>
   <div class="pied" style="padding-top:18px">© 2026 ORZAYAH SOLUTIONS</div>
 </aside>
@@ -433,12 +443,22 @@ button{font-family:inherit;cursor:pointer}
   $("tabControle").onclick=function(e){var t=e.target.closest(".tuile");if(t)lancerFiltre(t.getAttribute("data-doc"),t.getAttribute("data-etat"))};
   $("btnAvance").onclick=function(){lancerFiltre($("doc").value,$("etat").value,$("avant").value)};
 
-  /* Installation PWA */
-  window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();promptInstall=e;$("installLogin").classList.remove("cache");$("installMoi").classList.remove("cache")});
-  window.addEventListener("appinstalled",function(){promptInstall=null;$("installLogin").classList.add("cache");$("installMoi").classList.add("cache")});
-  Array.prototype.forEach.call(document.querySelectorAll("[data-install]"),function(b){b.onclick=function(){if(!promptInstall)return;promptInstall.prompt();promptInstall.userChoice.then(function(){promptInstall=null;$("installLogin").classList.add("cache");$("installMoi").classList.add("cache")})}});
-  var ios=/iphone|ipad|ipod/i.test(navigator.userAgent),dejaInstalle=window.matchMedia("(display-mode: standalone)").matches||navigator.standalone;
-  if(ios&&!dejaInstalle)$("aideIos").classList.remove("cache");
+  /* Installation PWA : le bouton reste visible tant que l'appli n'est pas installee */
+  var INSTALLS=["installLogin","installMoi","installMain"];
+  var ua=navigator.userAgent,ios=/iphone|ipad|ipod/i.test(ua),android=/android/i.test(ua);
+  function dejaInstalle(){return window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true}
+  function majInstall(){var cache=dejaInstalle();INSTALLS.forEach(function(id){$(id).classList.toggle("cache",cache)})}
+  window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();promptInstall=e;majInstall()});
+  window.addEventListener("appinstalled",function(){promptInstall=null;try{localStorage.setItem("find_installe","1")}catch(e){}INSTALLS.forEach(function(id){$(id).classList.add("cache")})});
+  function aideInstall(){
+    var t=ios?'<b>Sur iPhone :</b><br>1. Touchez le bouton de partage ⬆️ (en bas de Safari).<br>2. Choisissez <b>« Sur l\'écran d\'accueil »</b>.<br>3. Touchez <b>Ajouter</b>.'
+      :android?'<b>Sur Android :</b><br>1. Touchez les <b>3 points ⋮</b> en haut du navigateur.<br>2. Choisissez <b>« Installer l\'application »</b> (ou « Ajouter à l\'écran d\'accueil »).<br>3. Touchez <b>Installer</b>.'
+      :'<b>Sur ordinateur :</b><br>Cliquez sur l\'icône <b>Installer</b> à droite de la barre d\'adresse, ou ouvrez le menu ⋮ du navigateur puis <b>« Installer COMIX-CI Recherche »</b>.';
+    $("aideTexte").innerHTML=t;$("aideInstall").classList.remove("cache")}
+  $("btnAideOk").onclick=function(){$("aideInstall").classList.add("cache")};
+  Array.prototype.forEach.call(document.querySelectorAll("[data-install]"),function(b){b.onclick=function(){
+    if(promptInstall){promptInstall.prompt();promptInstall.userChoice.then(function(){promptInstall=null})}else aideInstall()}});
+  majInstall();
 
   if(TOKEN)entrer();else vue("vueLogin");
   if("serviceWorker" in navigator)window.addEventListener("load",function(){navigator.serviceWorker.register("/find-sw.js").catch(function(){})});
