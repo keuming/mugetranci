@@ -1,11 +1,6 @@
 {
   "rewrites": [
     {
-      "source": "/",
-      "has": [{ "type": "host", "value": "find.comix-ci.com" }],
-      "destination": "/find.html"
-    },
-    {
       "source": "/find",
       "destination": "/find.html"
     },
@@ -59,5 +54,18 @@
     "api/elements.js": {
       "maxDuration": 60
     }
-  }
+  },
+  "redirects": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "find.comix-ci.com"
+        }
+      ],
+      "destination": "/find",
+      "permanent": false
+    }
+  ]
 }
