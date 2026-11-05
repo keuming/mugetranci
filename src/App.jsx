@@ -8837,6 +8837,8 @@ function AccesRecherchePage() {
     catch (e) { setMsg(e.message); }
   };
   const basculer = async (a) => { try { await apiPatch(`/api/vehicules?resource=recherche-acces&id=${a.id}`, { actif: !a.actif }); charger(); } catch (e) { setMsg(e.message); } };
+  const majAcces = async (a, corps) => { try { await apiPatch(`/api/vehicules?resource=recherche-acces&id=${a.id}`, corps); charger(); } catch (e) { setMsg(e.message); } };
+  const aboActif = (a) => !!a.abonne_jusqua && String(a.abonne_jusqua).slice(0, 10) >= new Date().toISOString().slice(0, 10);
   const retirer = async (a) => {
     if (!window.confirm(`Retirer ${a.nom} (${a.telephone}) ?`)) return;
     try { await apiDelete(`/api/vehicules?resource=recherche-acces&id=${a.id}`); charger(); } catch (e) { setMsg(e.message); }
@@ -8847,7 +8849,7 @@ function AccesRecherchePage() {
       <p className="text-sm mb-5" style={{ color: C.slate }}>
         Les personnes de cette liste entrent sur <b>find.comix-ci.com</b> avec leur <b>numéro de téléphone seul</b> (sans code). Elles peuvent
         chercher un véhicule et voir le transporteur, le chauffeur et l'état des documents, en <b>lecture seule</b>.
-        Désactivez ou retirez un numéro pour couper l'accès.
+        Désactivez ou retirez un numéro pour couper l'accès. Frais de mise en service : 5 000 FCFA (une fois) · abonnement : 250 FCFA par mois — marquez ici les paiements reçus.
       </p>
       <div className="flex flex-wrap items-end gap-3 p-4 mb-5 rounded-xl" style={{ background: "#fff", border: `1px solid ${C.border}` }}>
         <Field label="Nom et prénoms"><input value={nom} onChange={(e) => setNom(e.target.value)} style={inputStyle} /></Field>
@@ -8862,7 +8864,16 @@ function AccesRecherchePage() {
           <div key={a.id} className="flex items-center justify-between gap-3 px-4 py-3" style={{ borderBottom: `1px solid ${C.border}` }}>
             <div>
               <div style={{ fontWeight: 700, color: C.ink }}>{a.nom}</div>
-              <div className="text-xs" style={{ color: C.slate }}>{a.telephone}</div>
+              <div className="text-xs" style={{ color: C.slate }}>{a.telephone}{a.connecte ? " · déjà connecté" : " · jamais connecté"}{a.a_photo ? " · 📷" : ""}</div>
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <button onClick={() => majAcces(a, { fraisPayes: !a.frais_payes })} className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: a.frais_payes ? C.greenLight : C.amberLight, color: a.frais_payes ? C.greenDark : C.amber }}>
+                  {a.frais_payes ? "Frais 5 000 payés ✓" : "Frais 5 000 à payer"}
+                </button>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: aboActif(a) ? C.greenLight : C.redLight, color: aboActif(a) ? C.greenDark : C.red }}>
+                  {a.abonne_jusqua ? (aboActif(a) ? `Abonné jusqu'au ${fmt(a.abonne_jusqua)}` : `Abonnement fini le ${fmt(a.abonne_jusqua)}`) : "Pas abonné"}
+                </span>
+                <button onClick={() => majAcces(a, { prolonger: 1 })} className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: C.orangeLight, color: C.orangeDark }}>+1 mois (250 F)</button>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <button onClick={() => basculer(a)} className="text-xs font-semibold px-2.5 py-1.5 rounded-full" style={{ background: a.actif ? C.greenLight : C.redLight, color: a.actif ? C.greenDark : C.red }}>
