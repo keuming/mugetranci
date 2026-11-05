@@ -5134,6 +5134,7 @@ function Dashboard({ auth, onLogout }) {
         ...(estAdminGeneral || (auth.role === "syndicat" && !auth.compagnie) ? [{ key: "garesroutieres", label: "Gares Routières", icon: <MapPin size={17} /> }] : []),
         ...(estAdminGeneral || auth.role === "commission_mixte" || auth.role === "syndicat" ? [{ key: "agents", label: auth.compagnie ? "Agents administrateurs" : "Agents enrôleurs", icon: <Route size={17} /> }] : []),
         ...(estAdminGeneral ? [{ key: "imprimeur", label: "Accès imprimeur", icon: <Printer size={17} /> }] : []),
+        ...(estAdminGeneral ? [{ key: "accesrecherche", label: "Accès Recherche", icon: <Search size={17} /> }] : []),
         ...(estAdminGeneral ? [{ key: "maintenance", label: "Maintenance", icon: <Settings size={17} /> }] : []),
         { key: "historique", label: "Historique des ajouts", icon: <Calendar size={17} /> },
         { key: "carburant", label: "Carburant", icon: <Fuel size={17} /> },
@@ -5962,6 +5963,7 @@ function Dashboard({ auth, onLogout }) {
               onAddAgent={addAgent} onUpdateAgent={updateAgent} onDeleteAgent={deleteAgent} />
           )}
           {page === "maintenance" && estAdminGeneral && <MaintenancePage />}
+          {page === "accesrecherche" && estAdminGeneral && <AccesRecherchePage />}
           {page === "agents" && (
             <div className="flex flex-col gap-4">
               <div className="flex justify-end">
@@ -8817,6 +8819,59 @@ function MaintenancePage() {
           {etat.enCours ? "Optimisation en cours…" : "Optimiser les photos"}
         </button>
         {etat.message && <p className="text-sm mt-3" style={{ color: etat.erreurs ? C.red : C.greenDark }}>{etat.message}</p>}
+      </div>
+    </div>
+  );
+}
+
+function AccesRecherchePage() {
+  const [liste, setListe] = useState(null);
+  const [nom, setNom] = useState("");
+  const [tel, setTel] = useState("");
+  const [msg, setMsg] = useState(null);
+  const charger = async () => { try { setListe(await apiGet("/api/vehicules?resource=recherche-acces")); } catch (e) { setMsg(e.message); } };
+  React.useEffect(() => { charger(); }, []);
+  const ajouter = async () => {
+    setMsg(null);
+    try { await apiPost("/api/vehicules?resource=recherche-acces", { nom, telephone: tel }); setNom(""); setTel(""); setMsg("Numéro ajouté."); charger(); }
+    catch (e) { setMsg(e.message); }
+  };
+  const basculer = async (a) => { try { await apiPatch(`/api/vehicules?resource=recherche-acces&id=${a.id}`, { actif: !a.actif }); charger(); } catch (e) { setMsg(e.message); } };
+  const retirer = async (a) => {
+    if (!window.confirm(`Retirer ${a.nom} (${a.telephone}) ?`)) return;
+    try { await apiDelete(`/api/vehicules?resource=recherche-acces&id=${a.id}`); charger(); } catch (e) { setMsg(e.message); }
+  };
+  return (
+    <div className="font-body" style={{ maxWidth: 760 }}>
+      <h1 className="font-display mb-1" style={{ fontSize: 26, fontWeight: 800, color: C.ink }}>Accès Recherche (find.comix-ci.com)</h1>
+      <p className="text-sm mb-5" style={{ color: C.slate }}>
+        Les personnes de cette liste entrent sur <b>find.comix-ci.com</b> avec leur <b>numéro de téléphone seul</b> (sans code). Elles peuvent
+        chercher un véhicule et voir le transporteur, le chauffeur et l'état des documents, en <b>lecture seule</b>.
+        Désactivez ou retirez un numéro pour couper l'accès.
+      </p>
+      <div className="flex flex-wrap items-end gap-3 p-4 mb-5 rounded-xl" style={{ background: "#fff", border: `1px solid ${C.border}` }}>
+        <Field label="Nom et prénoms"><input value={nom} onChange={(e) => setNom(e.target.value)} style={inputStyle} /></Field>
+        <Field label="Téléphone"><input value={tel} onChange={(e) => setTel(e.target.value)} inputMode="tel" placeholder="07 00 00 00 00" style={inputStyle} /></Field>
+        <button onClick={ajouter} className="px-4 py-2.5 rounded-lg text-sm font-semibold" style={{ background: C.orange, color: "#fff" }}>Ajouter</button>
+      </div>
+      {msg && <p className="text-sm mb-3" style={{ color: C.slate }}>{msg}</p>}
+      <div className="rounded-xl" style={{ background: "#fff", border: `1px solid ${C.border}` }}>
+        {!liste && <p className="p-4 text-sm" style={{ color: C.slate }}>Chargement…</p>}
+        {liste && !liste.length && <p className="p-4 text-sm" style={{ color: C.slate }}>Aucun numéro.</p>}
+        {(liste || []).map((a) => (
+          <div key={a.id} className="flex items-center justify-between gap-3 px-4 py-3" style={{ borderBottom: `1px solid ${C.border}` }}>
+            <div>
+              <div style={{ fontWeight: 700, color: C.ink }}>{a.nom}</div>
+              <div className="text-xs" style={{ color: C.slate }}>{a.telephone}</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => basculer(a)} className="text-xs font-semibold px-2.5 py-1.5 rounded-full" style={{ background: a.actif ? C.greenLight : C.redLight, color: a.actif ? C.greenDark : C.red }}>
+                {a.actif ? "Actif" : "Désactivé"}
+              </button>
+              <button onClick={() => retirer(a)} title="Retirer" style={{ color: C.red }}><Trash2 size={16} /></button>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

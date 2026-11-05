@@ -5,7 +5,7 @@ import {
 } from "../db/schema.js";
 import { requireAuth, agentPeutGerer } from "../lib/auth.js";
 import { normaliserImmatriculation, genererNumeroLigne } from "../lib/cards.js";
-import { gererRecherche } from "../lib/recherche.js";
+import { gererRecherche, connexionRecherche, gererAccesRecherche } from "../lib/recherche.js";
 import { champsImpression, gererImprimeur, gererMarquageImpression } from "../lib/impression.js";
 
 // Taux de commission de la mutuelle sur chaque achat de carburant.
@@ -260,8 +260,13 @@ export default async function handler(req, res) {
     return handleFichePublique(req, res, id);
   }
 
+  // Connexion au module find.comix-ci.com : numero de telephone seul (public).
+  if (req.query.resource === "recherche-login") return connexionRecherche(req, res);
+
   const auth = requireAuth(req, res);
   if (!auth) return;
+  // Gestion des numeros autorises (administrateur).
+  if (req.query.resource === "recherche-acces") return gererAccesRecherche(req, res, auth);
   // Recherche en lecture seule pour find.comix-ci.com (connexion obligatoire).
   if (req.query.resource === "recherche") return gererRecherche(req, res, auth);
   // Compte imprimeur : uniquement la confirmation d'impression des cartes envoyées.

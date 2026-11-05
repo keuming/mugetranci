@@ -75,11 +75,9 @@ h2{font-size:20px;margin:0 0 10px;color:var(--vert-f)}
 <!-- CONNEXION -->
 <section id="vueLogin" class="cache">
   <div class="carte">
-    <h2>🔑 Connexion</h2>
-    <label for="login">Votre identifiant</label>
-    <input id="login" autocomplete="username" inputmode="text" autocapitalize="off" />
-    <label for="pin">Votre code secret (PIN)</label>
-    <input id="pin" type="password" autocomplete="current-password" inputmode="numeric" />
+    <h2>📱 Entrer</h2>
+    <label for="login">Votre numéro de téléphone</label>
+    <input id="login" type="tel" autocomplete="tel" inputmode="tel" placeholder="07 00 00 00 00" />
     <div id="errLogin" class="err cache"></div>
     <button id="btnLogin" class="gros" type="button">Entrer</button>
   </div>
@@ -162,18 +160,17 @@ h2{font-size:20px;margin:0 0 10px;color:var(--vert-f)}
 
   /* Connexion */
   function connecter(){
-    var l=$("login").value.trim(),p=$("pin").value.trim();
-    if(!l||!p){$("errLogin").textContent="Écrivez votre identifiant et votre code secret.";$("errLogin").classList.remove("cache");return}
+    var l=$("login").value.trim();
+    if(l.replace(/\D/g,"").length<8){$("errLogin").textContent="Écrivez votre numéro de téléphone.";$("errLogin").classList.remove("cache");return}
     $("btnLogin").innerHTML='<span class="spin"></span>';
-    fetch("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({login:l,pin:p})})
-    .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j}})})
+    fetch("/api/vehicules?resource=recherche-login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({telephone:l})})
+    .then(function(r){return r.json().catch(function(){return {}}).then(function(j){return {ok:r.ok,j:j}})})
     .then(function(x){
       $("btnLogin").textContent="Entrer";
-      if(!x.ok){$("errLogin").textContent=x.j.error||"Identifiant ou code incorrect.";$("errLogin").classList.remove("cache");return}
-      if(x.j.role==="imprimeur"){$("errLogin").textContent="Ce compte ne peut pas utiliser la recherche.";$("errLogin").classList.remove("cache");return}
+      if(!x.ok){$("errLogin").textContent=x.j.error||"Ce numéro n'a pas accès.";$("errLogin").classList.remove("cache");return}
       TOKEN=x.j.token;NOM=x.j.nom||"";
       try{localStorage.setItem("find_token",TOKEN);localStorage.setItem("find_nom",NOM)}catch(e){}
-      $("pin").value="";$("errLogin").classList.add("cache");vue("vueRecherche");$("q").focus();
+      $("errLogin").classList.add("cache");vue("vueRecherche");$("q").focus();
     }).catch(function(){$("btnLogin").textContent="Entrer";$("errLogin").textContent="Pas de réseau. Vérifiez votre connexion internet.";$("errLogin").classList.remove("cache")});
   }
 
@@ -261,7 +258,7 @@ h2{font-size:20px;margin:0 0 10px;color:var(--vert-f)}
 
   /* Evenements */
   $("btnLogin").onclick=connecter;
-  $("pin").onkeydown=$("login").onkeydown=function(e){if(e.key==="Enter")connecter()};
+  $("login").onkeydown=function(e){if(e.key==="Enter")connecter()};
   $("btnSortir").onclick=function(){sortir("")};
   $("btnChercher").onclick=chercher;
   $("q").onkeydown=function(e){if(e.key==="Enter"){e.preventDefault();$("q").blur();chercher()}};
