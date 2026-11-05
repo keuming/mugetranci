@@ -4,276 +4,376 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#0B6E4F" />
-<title>Recherche véhicule — COMIX-CI</title>
+<title>COMIX-CI Recherche</title>
 <link rel="manifest" href="/find-manifest.json" />
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="COMIX Recherche" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <style>
-:root{--vert:#0B6E4F;--vert-f:#07422F;--vert-c:#E4F1EC;--or:#E07A1F;--or-c:#FFF1D6;--or-t:#8A5A00;--creme:#FAF8F3;--encre:#1B1F1A;--gris:#5C655E;--bord:#D9D4C7;--rouge:#C0281B;--rouge-c:#FDE6E3}
-*{box-sizing:border-box;-webkit-text-size-adjust:100%}
-html,body{margin:0;background:var(--creme);color:var(--encre);overflow-x:hidden}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:18px;line-height:1.45;touch-action:manipulation}
-header{background:var(--vert);color:#fff;padding:calc(env(safe-area-inset-top) + 14px) 16px 14px;display:flex;align-items:center;gap:12px;border-bottom:5px solid var(--or)}
-header img{width:44px;height:44px;border-radius:10px;background:#fff}
-header h1{font-size:20px;margin:0;font-weight:800;line-height:1.15}
-header small{display:block;font-weight:500;font-size:14px;opacity:.85}
-header button{margin-left:auto;background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-size:15px;font-weight:700}
-main{max-width:640px;margin:0 auto;padding:16px 16px calc(env(safe-area-inset-bottom) + 40px)}
-.carte{background:#fff;border:2px solid var(--bord);border-radius:18px;padding:16px;margin-bottom:14px}
-label{display:block;font-weight:800;margin:14px 0 6px}
-input,select{width:100%;font-size:22px;padding:14px;border:2px solid var(--bord);border-radius:14px;background:#fff;color:var(--encre);font-family:inherit}
-input:focus,select:focus{outline:3px solid var(--or);border-color:var(--or)}
-.gros{width:100%;border:0;border-radius:16px;padding:18px;font-size:22px;font-weight:800;background:var(--vert);color:#fff;margin-top:14px}
-.gros:active{background:var(--vert-f)}
-.gros.sec{background:#fff;color:var(--vert);border:3px solid var(--vert)}
-.err{background:var(--rouge-c);color:var(--rouge);border-radius:12px;padding:12px 14px;font-weight:700;margin-top:12px}
-.puces{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
-.puce{border:2px solid var(--bord);background:#fff;border-radius:14px;padding:14px 8px;font-size:16px;font-weight:800;text-align:center;color:var(--encre)}
-.puce .i{display:block;font-size:28px}
-.puce.on{border-color:var(--vert);background:var(--vert-c);color:var(--vert-f)}
-details summary{font-weight:800;padding:14px 0 4px;color:var(--vert);cursor:pointer;font-size:18px}
-.plaque{display:inline-block;font-family:ui-monospace,Menlo,monospace;font-weight:900;font-size:26px;letter-spacing:1px;background:#fff;border:3px solid var(--encre);border-radius:10px;padding:2px 12px}
-.res{display:block;width:100%;text-align:left;font:inherit;color:inherit;background:#fff;border:2px solid var(--bord);border-radius:18px;padding:14px;margin-bottom:12px}
-.res:active{border-color:var(--vert)}
-.res .desc{color:var(--gris);font-size:16px;margin:4px 0 8px}
-.ligne{display:flex;gap:8px;align-items:baseline;font-size:17px;margin:4px 0}
-.ligne b{flex-shrink:0}
-.docs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
-.doc{border-radius:12px;padding:10px;font-size:15px;font-weight:700;line-height:1.25}
-.doc .n{display:block;font-size:14px;font-weight:600;opacity:.85}
-.doc .s{display:block;font-size:17px;font-weight:900;margin-top:2px}
-.ajour{background:var(--vert-c);color:var(--vert-f)}
-.bientot{background:var(--or-c);color:var(--or-t)}
-.perime{background:var(--rouge-c);color:var(--rouge)}
-.manquant{background:#ECEAE4;color:var(--gris)}
-.bandeau{border-radius:14px;padding:12px 14px;font-weight:900;font-size:20px;margin-bottom:12px;text-align:center}
-h2{font-size:20px;margin:0 0 10px;color:var(--vert-f)}
-.sect{background:#fff;border:2px solid var(--bord);border-radius:18px;padding:16px;margin-bottom:14px}
-.nom{font-size:22px;font-weight:900}
-.tel{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--vert);color:#fff;text-decoration:none;border-radius:14px;padding:14px;font-size:21px;font-weight:800;margin-top:8px}
-.photo{width:84px;height:84px;border-radius:14px;object-fit:cover;background:#ECEAE4;float:right;margin-left:10px}
-.retour{background:none;border:0;color:var(--vert);font-weight:900;font-size:19px;padding:8px 0;margin-bottom:6px}
-.info{color:var(--gris);font-size:16px;text-align:center;padding:10px}
+:root{--vert:#0B6E4F;--vert-f:#06402D;--vert-c:#E4F1EC;--or:#E07A1F;--or-c:#FFF1D6;--or-t:#8A5A00;--fond:#F3F1EA;--encre:#1B1F1A;--gris:#5C655E;--bord:#E2DED2;--rouge:#C0281B;--rouge-c:#FDE6E3;--tab:68px}
+*{box-sizing:border-box;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overscroll-behavior:none}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:18px;line-height:1.4;color:var(--encre);touch-action:manipulation;
+ background-color:#06402D;background-image:radial-gradient(circle at 20% 10%,#0e8a63 0,transparent 45%),radial-gradient(circle at 90% 90%,#b8610f 0,transparent 40%);background-attachment:fixed}
+button{font-family:inherit;cursor:pointer}
+.app{position:relative;max-width:480px;margin:0 auto;min-height:100dvh;background:var(--fond);box-shadow:0 0 60px rgba(0,0,0,.35);overflow-x:hidden}
 .cache{display:none!important}
-.tcarte{border:3px solid var(--vert);border-radius:18px;overflow:hidden;margin-bottom:14px;background:#fff}
-.tcarte .tete{background:var(--vert);color:#fff;padding:10px 14px;font-weight:900;font-size:16px;text-transform:uppercase;letter-spacing:.5px}
-.tcarte .corps{padding:14px;overflow:hidden}
-.spin{display:inline-block;width:22px;height:22px;border:4px solid #fff;border-top-color:transparent;border-radius:50%;animation:t 1s linear infinite;vertical-align:middle}
+.vue{animation:ap .25s ease}
+@keyframes ap{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ---------- Connexion ---------- */
+.hero{background:linear-gradient(160deg,var(--vert) 0,var(--vert-f) 100%);color:#fff;padding:calc(env(safe-area-inset-top) + 56px) 24px 90px;text-align:center;position:relative}
+.hero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:6px;background:linear-gradient(90deg,var(--or) 0 50%,#fff 50% 100%)}
+.logo{width:96px;height:96px;border-radius:26px;background:#fff;margin:0 auto 18px;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+.logo img{width:72px;height:72px;border-radius:16px}
+.hero h1{margin:0;font-size:34px;font-weight:900;letter-spacing:.5px}
+.hero p{margin:6px 0 0;font-size:18px;opacity:.9}
+.feuille{background:#fff;margin:-54px 18px 0;border-radius:24px;padding:22px 20px 24px;box-shadow:0 12px 30px rgba(0,0,0,.18);position:relative;z-index:2}
+.feuille h2{margin:0 0 4px;font-size:22px}
+.feuille .aide{color:var(--gris);font-size:16px;margin:0 0 14px}
+.champ{display:flex;align-items:center;border:2.5px solid var(--bord);border-radius:16px;background:#fff;overflow:hidden}
+.champ:focus-within{border-color:var(--or);box-shadow:0 0 0 4px rgba(224,122,31,.18)}
+.champ .pre{padding:0 12px 0 16px;font-weight:800;color:var(--gris);white-space:nowrap;border-right:2px solid var(--bord);align-self:stretch;display:flex;align-items:center;gap:6px}
+.champ input{flex:1;min-width:0;border:0;outline:0;font:inherit;font-size:24px;font-weight:700;padding:16px 14px;background:transparent;color:var(--encre)}
+.champ input::placeholder{color:#B3B7AE;font-weight:500}
+.btn{width:100%;border:0;border-radius:16px;padding:18px;font-size:21px;font-weight:900;background:var(--vert);color:#fff;margin-top:14px;box-shadow:0 6px 0 var(--vert-f);transition:transform .1s,box-shadow .1s;display:flex;align-items:center;justify-content:center;gap:10px}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 var(--vert-f)}
+.btn.or{background:var(--or);box-shadow:0 6px 0 #a85710}
+.btn.sec{background:#fff;color:var(--vert);border:3px solid var(--vert);box-shadow:none}
+.btn.sec:active{transform:none;background:var(--vert-c)}
+.err{background:var(--rouge-c);color:var(--rouge);border-radius:12px;padding:12px 14px;font-weight:800;margin-top:12px;font-size:17px}
+.pied{text-align:center;color:var(--gris);font-size:13px;padding:22px 20px calc(env(safe-area-inset-bottom) + 22px)}
+.install{margin:14px 18px 0;background:var(--or-c);border:2px solid #F0C97A;border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:12px;font-size:16px;font-weight:700;color:var(--or-t)}
+.install button{margin-left:auto;background:var(--or);color:#fff;border:0;border-radius:12px;padding:10px 14px;font-weight:900;font-size:16px;white-space:nowrap}
+
+/* ---------- Barre haute ---------- */
+.haut{position:sticky;top:0;z-index:20;background:linear-gradient(160deg,var(--vert),var(--vert-f));color:#fff;padding:calc(env(safe-area-inset-top) + 12px) 16px 14px;border-bottom:4px solid var(--or)}
+.haut .ligne1{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.haut img{width:36px;height:36px;border-radius:10px;background:#fff}
+.haut .tit{font-weight:900;font-size:19px;line-height:1.1}
+.haut .tit small{display:block;font-weight:600;font-size:13px;opacity:.8}
+.haut.simple{padding-bottom:12px}
+.retour{background:rgba(255,255,255,.18);border:0;color:#fff;border-radius:12px;width:44px;height:44px;font-size:24px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.recherche{display:flex;align-items:center;background:#fff;border-radius:16px;padding:0 6px 0 14px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.recherche svg{flex-shrink:0;color:var(--gris)}
+.recherche input{flex:1;min-width:0;border:0;outline:0;font:inherit;font-size:21px;font-weight:700;padding:14px 10px;background:transparent;color:var(--encre)}
+.recherche input::placeholder{color:#A9ADA4;font-weight:500}
+.recherche .ok{background:var(--or);border:0;color:#fff;border-radius:12px;font-weight:900;font-size:16px;padding:11px 14px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:12px 16px 4px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex-shrink:0;border:2px solid var(--bord);background:#fff;border-radius:99px;padding:9px 14px;font-size:16px;font-weight:800;color:var(--encre)}
+.chip.on{background:var(--vert);border-color:var(--vert);color:#fff}
+.corps{padding:10px 16px calc(var(--tab) + env(safe-area-inset-bottom) + 24px)}
+.corps.sans-tab{padding-bottom:calc(env(safe-area-inset-bottom) + 30px)}
+
+/* ---------- Resultats ---------- */
+.nb{color:var(--gris);font-size:16px;text-align:center;margin:6px 0 10px}
+.res{display:block;width:100%;text-align:left;font:inherit;color:inherit;background:#fff;border:0;border-radius:20px;padding:14px 14px 12px;margin-bottom:14px;box-shadow:0 2px 10px rgba(0,0,0,.07);border-left:8px solid var(--vert);position:relative}
+.res.bientot{border-left-color:var(--or)}
+.res.perime{border-left-color:var(--rouge)}
+.res:active{transform:scale(.985)}
+.plaque{display:inline-flex;align-items:stretch;border:3px solid var(--encre);border-radius:10px;overflow:hidden;background:#fff;font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:900;font-size:24px;letter-spacing:1px}
+.plaque .ci{background:#0A4DA8;color:#fff;font-size:12px;padding:4px 6px;display:flex;align-items:flex-end;font-family:inherit}
+.plaque .num{padding:2px 12px}
+.desc{color:var(--gris);font-size:16px;margin:6px 0 8px}
+.pers{display:flex;gap:10px;align-items:flex-start;font-size:17px;margin:5px 0}
+.pers .i{font-size:22px;line-height:1.2}
+.pers small{display:block;color:var(--gris);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+.pers b{font-weight:800}
+.docs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.doc{border-radius:12px;padding:9px 10px;font-weight:700;line-height:1.2}
+.doc .n{display:block;font-size:13px;font-weight:700;opacity:.85}
+.doc .s{display:block;font-size:16px;font-weight:900;margin-top:2px}
+.doc .p{display:block;font-size:14px;font-weight:600;margin-top:2px}
+.ajour{background:var(--vert-c);color:var(--vert-f)}
+.bientot-c{background:var(--or-c);color:var(--or-t)}
+.perime-c{background:var(--rouge-c);color:var(--rouge)}
+.manquant-c{background:#ECEAE4;color:var(--gris)}
+.voir{display:flex;align-items:center;justify-content:center;gap:6px;color:var(--vert);font-weight:900;margin-top:10px;font-size:16px}
+.vide{text-align:center;padding:40px 20px;color:var(--gris)}
+.vide .gros{font-size:64px;display:block;margin-bottom:8px}
+.vide b{display:block;color:var(--encre);font-size:21px;margin-bottom:4px}
+
+/* ---------- Controle ---------- */
+.titre{font-size:22px;font-weight:900;margin:16px 0 4px}
+.sous{color:var(--gris);font-size:16px;margin:0 0 14px}
+.tuiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tuile{background:#fff;border:0;border-radius:20px;padding:18px 10px;font-size:17px;font-weight:900;color:var(--encre);box-shadow:0 2px 10px rgba(0,0,0,.07);text-align:center;line-height:1.2}
+.tuile:active{transform:scale(.97)}
+.tuile .i{display:block;font-size:38px;margin-bottom:6px}
+.tuile.r{border-bottom:5px solid var(--rouge)}
+.tuile.o{border-bottom:5px solid var(--or)}
+.avance{background:#fff;border-radius:20px;padding:6px 16px 16px;margin-top:18px;box-shadow:0 2px 10px rgba(0,0,0,.07)}
+.avance label{display:block;font-weight:800;margin:14px 0 6px;font-size:17px}
+.avance select,.avance input{width:100%;font:inherit;font-size:20px;font-weight:700;padding:13px;border:2.5px solid var(--bord);border-radius:14px;background:#fff;color:var(--encre)}
+
+/* ---------- Fiche ---------- */
+.bandeau{border-radius:18px;padding:14px;font-weight:900;font-size:20px;margin-bottom:14px;text-align:center}
+.sect{background:#fff;border-radius:20px;padding:16px;margin-bottom:14px;box-shadow:0 2px 10px rgba(0,0,0,.07)}
+.sect h2{font-size:19px;margin:0 0 10px;color:var(--vert-f);display:flex;align-items:center;gap:8px}
+.l{display:flex;gap:8px;justify-content:space-between;font-size:17px;padding:6px 0;border-bottom:1px solid #F0EDE4}
+.l:last-child{border-bottom:0}
+.l b{color:var(--gris);font-weight:700;flex-shrink:0}
+.l span{text-align:right;font-weight:800;word-break:break-word}
+.nom{font-size:23px;font-weight:900;line-height:1.15}
+.tel{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--vert);color:#fff;text-decoration:none;border-radius:16px;padding:15px;font-size:21px;font-weight:900;margin-top:10px;box-shadow:0 5px 0 var(--vert-f)}
+.tel:active{transform:translateY(3px);box-shadow:0 2px 0 var(--vert-f)}
+.tcarte{border-radius:20px;overflow:hidden;margin-bottom:14px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.1);border:3px solid var(--vert)}
+.tcarte .tete{background:linear-gradient(135deg,var(--vert),var(--vert-f));color:#fff;padding:11px 14px;font-weight:900;font-size:15px;text-transform:uppercase;letter-spacing:.6px;display:flex;justify-content:space-between;align-items:center}
+.tcarte .tete i{font-style:normal;width:26px;height:6px;background:linear-gradient(90deg,var(--or) 50%,#fff 50%);border-radius:3px}
+.tcarte .cr{padding:14px;overflow:hidden}
+.photo{width:92px;height:92px;border-radius:16px;object-fit:cover;background:#ECEAE4;float:right;margin-left:12px;border:3px solid var(--vert-c)}
+.docsx{display:grid;grid-template-columns:1fr;gap:8px}
+.info{color:var(--gris);font-size:16px;text-align:center;padding:12px}
+
+/* ---------- Onglets ---------- */
+.onglets{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;height:calc(var(--tab) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:#fff;border-top:1px solid var(--bord);display:flex;z-index:30;box-shadow:0 -4px 16px rgba(0,0,0,.06)}
+.onglets button{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:13px;font-weight:800;color:var(--gris)}
+.onglets button.on{color:var(--vert)}
+.onglets button.on svg{stroke:var(--vert)}
+.onglets button.on::before{content:"";position:absolute;top:0;width:44px;height:4px;border-radius:0 0 4px 4px;background:var(--or)}
+.onglets button{position:relative}
+.moi .carte{background:#fff;border-radius:20px;padding:18px;margin-top:14px;box-shadow:0 2px 10px rgba(0,0,0,.07)}
+.avatar{width:64px;height:64px;border-radius:50%;background:var(--vert);color:#fff;font-size:28px;font-weight:900;display:flex;align-items:center;justify-content:center;margin:0 auto 8px}
+.spin{display:inline-block;width:22px;height:22px;border:4px solid currentColor;border-top-color:transparent;border-radius:50%;animation:t 1s linear infinite;vertical-align:middle}
 @keyframes t{to{transform:rotate(360deg)}}
+@media(min-width:520px){.app{margin-top:0}}
 </style>
 </head>
 <body>
-<header>
-  <img src="/icon-192.png" alt="" />
-  <h1>Recherche véhicule<small>COMIX-CI</small></h1>
-  <button id="btnSortir" class="cache" type="button">Sortir</button>
-</header>
-<main>
+<div class="app" id="app">
 
-<!-- CONNEXION -->
-<section id="vueLogin" class="cache">
-  <div class="carte">
-    <h2>📱 Entrer</h2>
-    <label for="login">Votre numéro de téléphone</label>
-    <input id="login" type="tel" autocomplete="tel" inputmode="tel" placeholder="07 00 00 00 00" />
+<!-- ===== CONNEXION ===== -->
+<section id="vueLogin" class="vue cache">
+  <div class="hero">
+    <div class="logo"><img src="/icon-192.png" alt="COMIX-CI" /></div>
+    <h1>COMIX-CI</h1>
+    <p>Recherche véhicule</p>
+  </div>
+  <div class="feuille">
+    <h2>Bonjour 👋</h2>
+    <p class="aide">Écrivez votre numéro de téléphone pour entrer.</p>
+    <div class="champ">
+      <span class="pre">🇨🇮 +225</span>
+      <input id="login" type="tel" autocomplete="tel" inputmode="tel" placeholder="07 00 00 00 00" />
+    </div>
     <div id="errLogin" class="err cache"></div>
-    <button id="btnLogin" class="gros" type="button">Entrer</button>
+    <button id="btnLogin" class="btn" type="button">Entrer</button>
   </div>
+  <div id="installLogin" class="install cache"><span>📲 Installer l'application sur ce téléphone</span><button type="button" data-install>Installer</button></div>
+  <div class="pied">© 2026 ORZAYAH SOLUTIONS</div>
 </section>
 
-<!-- RECHERCHE -->
-<section id="vueRecherche" class="cache">
-  <div class="carte">
-    <label for="q" style="margin-top:0">🔍 Écrivez ici</label>
-    <input id="q" placeholder="Plaque, nom ou téléphone" autocomplete="off" autocapitalize="characters" enterkeyhint="search" />
-    <div class="info" style="padding:6px 0 0">Exemple : <b>1234 AB 01</b> ou <b>Kouassi</b> ou <b>0707…</b></div>
-    <button id="btnChercher" class="gros" type="button">🔍 CHERCHER</button>
+<!-- ===== PRINCIPAL ===== -->
+<section id="vuePrincipal" class="vue cache">
+  <header class="haut">
+    <div class="ligne1"><img src="/icon-192.png" alt="" /><div class="tit">COMIX-CI<small id="titreSous">Recherche véhicule</small></div></div>
+    <div id="barreRecherche" class="recherche">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="q" placeholder="Plaque, nom ou téléphone" autocomplete="off" autocapitalize="characters" enterkeyhint="search" />
+      <button id="btnChercher" class="ok" type="button">Chercher</button>
+    </div>
+  </header>
 
-    <details style="margin-top:8px">
-      <summary>➕ Chercher par document</summary>
-      <div class="puces" id="puces">
-        <button class="puce" type="button" data-doc="vignette" data-etat="nonajour"><span class="i">🏷️</span>Vignette<br>pas à jour</button>
-        <button class="puce" type="button" data-doc="visite" data-etat="nonajour"><span class="i">🔧</span>Visite technique<br>pas à jour</button>
-        <button class="puce" type="button" data-doc="assurance" data-etat="nonajour"><span class="i">🛡️</span>Assurance<br>pas à jour</button>
-        <button class="puce" type="button" data-doc="tous" data-etat="nonajour"><span class="i">📄</span>Un document<br>pas à jour</button>
-        <button class="puce" type="button" data-doc="tous" data-etat="bientot"><span class="i">⏳</span>À renouveler<br>bientôt (30 jours)</button>
-        <button class="puce" type="button" data-doc="stationnement" data-etat="nonajour"><span class="i">🅿️</span>Carte stationnement<br>pas à jour</button>
+  <!-- Onglet Chercher -->
+  <div id="tabChercher">
+    <div class="chips" id="chips">
+      <button class="chip" type="button" data-doc="vignette" data-etat="nonajour">🏷️ Vignette</button>
+      <button class="chip" type="button" data-doc="visite" data-etat="nonajour">🔧 Visite technique</button>
+      <button class="chip" type="button" data-doc="assurance" data-etat="nonajour">🛡️ Assurance</button>
+      <button class="chip" type="button" data-doc="tous" data-etat="bientot">⏳ Bientôt à renouveler</button>
+    </div>
+    <div class="corps"><div id="zoneRes">
+      <div class="vide"><span class="gros">🚗</span><b>Cherchez un véhicule</b>Écrivez une plaque, un nom ou un numéro de téléphone.</div>
+    </div></div>
+  </div>
+
+  <!-- Onglet Controle -->
+  <div id="tabControle" class="cache">
+    <div class="corps">
+      <div class="titre">Contrôle des documents</div>
+      <p class="sous">Touchez pour voir les véhicules concernés.</p>
+      <div class="tuiles">
+        <button class="tuile r" type="button" data-doc="vignette" data-etat="nonajour"><span class="i">🏷️</span>Vignette<br>pas à jour</button>
+        <button class="tuile r" type="button" data-doc="visite" data-etat="nonajour"><span class="i">🔧</span>Visite technique<br>pas à jour</button>
+        <button class="tuile r" type="button" data-doc="assurance" data-etat="nonajour"><span class="i">🛡️</span>Assurance<br>pas à jour</button>
+        <button class="tuile r" type="button" data-doc="stationnement" data-etat="nonajour"><span class="i">🅿️</span>Stationnement<br>pas à jour</button>
+        <button class="tuile r" type="button" data-doc="tous" data-etat="nonajour"><span class="i">📄</span>Un document<br>pas à jour</button>
+        <button class="tuile o" type="button" data-doc="tous" data-etat="bientot"><span class="i">⏳</span>À renouveler<br>dans 30 jours</button>
       </div>
-      <label for="doc">Ou choisir un document</label>
-      <select id="doc">
-        <option value="">— Aucun —</option>
-        <option value="vignette">Vignette</option>
-        <option value="visite">Visite technique</option>
-        <option value="assurance">Assurance</option>
-        <option value="stationnement">Carte de stationnement</option>
-        <option value="tous">Tous les documents</option>
-      </select>
-      <label for="avant">Qui se termine avant le (date)</label>
-      <input id="avant" type="date" />
-      <button id="btnEffacer" class="gros sec" type="button">Effacer</button>
-    </details>
+      <div class="avance">
+        <label for="doc">Choisir un document</label>
+        <select id="doc">
+          <option value="vignette">Vignette</option><option value="visite">Visite technique</option>
+          <option value="assurance">Assurance</option><option value="stationnement">Carte de stationnement</option>
+          <option value="tous">Tous les documents</option>
+        </select>
+        <label for="etat">Qui est</label>
+        <select id="etat">
+          <option value="nonajour">Pas à jour</option><option value="perime">Fini (date passée)</option>
+          <option value="bientot">À renouveler (30 jours)</option><option value="manquant">Pas renseigné</option><option value="ajour">À jour</option>
+        </select>
+        <label for="avant">Qui se termine avant le (facultatif)</label>
+        <input id="avant" type="date" />
+        <button id="btnAvance" class="btn or" type="button">Voir les véhicules</button>
+      </div>
+    </div>
   </div>
-  <div id="zoneRes"></div>
+
+  <!-- Onglet Moi -->
+  <div id="tabMoi" class="cache moi">
+    <div class="corps">
+      <div class="carte" style="text-align:center">
+        <div class="avatar" id="avatar">?</div>
+        <div class="nom" id="moiNom"></div>
+        <div style="color:var(--gris);font-size:16px">Accès recherche — lecture seule</div>
+      </div>
+      <div id="installMoi" class="install cache" style="margin:14px 0 0"><span>📲 Installer l'application</span><button type="button" data-install>Installer</button></div>
+      <div id="aideIos" class="carte cache" style="font-size:16px">📲 <b>Pour installer sur iPhone :</b> touchez le bouton de partage ⬆️ puis « Sur l'écran d'accueil ».</div>
+      <button id="btnSortir" class="btn sec" type="button" style="margin-top:18px">🚪 Sortir</button>
+    </div>
+  </div>
+
+  <nav class="onglets" id="onglets">
+    <button type="button" data-tab="Chercher" class="on">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>Chercher</button>
+    <button type="button" data-tab="Controle">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 14l2 2 4-4"/></svg>Documents</button>
+    <button type="button" data-tab="Moi">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>Moi</button>
+  </nav>
 </section>
 
-<!-- FICHE -->
-<section id="vueFiche" class="cache">
-  <button id="btnRetour" class="retour" type="button">⬅ Retour à la liste</button>
-  <div id="zoneFiche"></div>
+<!-- ===== FICHE ===== -->
+<section id="vueFiche" class="vue cache">
+  <header class="haut simple"><div class="ligne1" style="margin:0"><button id="btnRetour" class="retour" type="button" aria-label="Retour">‹</button><div class="tit">Fiche du véhicule<small id="ficheSous"></small></div></div></header>
+  <div class="corps sans-tab" id="zoneFiche"></div>
 </section>
 
-</main>
+</div>
 <script>
 (function(){
   var $=function(id){return document.getElementById(id)};
-  var TOKEN=null, NOM="";
+  var TOKEN=null,NOM="",filtre=null,promptInstall=null,tabCourant="Chercher";
   try{TOKEN=localStorage.getItem("find_token");NOM=localStorage.getItem("find_nom")||""}catch(e){}
-  var etatPuce=null;
 
   function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
   function fmtDate(d){if(!d)return "—";var p=String(d).slice(0,10).split("-");return p.length===3?p[2]+"/"+p[1]+"/"+p[0]:d}
-  function pluriel(n){return n>1?"s":""}
-  function statut(d){
-    var j=d.jours;
-    if(d.statut==="ajour")return {c:"ajour",ico:"✅",t:"À JOUR",p:"Valable jusqu'au "+fmtDate(d.date)};
-    if(d.statut==="bientot")return {c:"bientot",ico:"⚠️",t:"À RENOUVELER",p:j===0?"Se termine AUJOURD'HUI":"Se termine dans "+j+" jour"+pluriel(j)};
-    if(d.statut==="perime")return {c:"perime",ico:"❌",t:"PAS À JOUR",p:"Fini depuis "+Math.abs(j)+" jour"+pluriel(Math.abs(j))+" ("+fmtDate(d.date)+")"};
-    return {c:"manquant",ico:"❓",t:"PAS RENSEIGNÉ",p:"Aucune date enregistrée"};
-  }
-  function vue(n){["vueLogin","vueRecherche","vueFiche"].forEach(function(v){$(v).classList.toggle("cache",v!==n)});
-    $("btnSortir").classList.toggle("cache",n==="vueLogin");window.scrollTo(0,0)}
-  function api(url,opts){
-    opts=opts||{};opts.headers=Object.assign({},opts.headers||{});
-    if(TOKEN)opts.headers.Authorization="Bearer "+TOKEN;
-    return fetch(url,opts).then(function(r){
-      return r.json().catch(function(){return {}}).then(function(j){
-        if(r.status===401&&TOKEN){sortir("Votre session est finie. Reconnectez-vous.");throw new Error("401")}
-        if(!r.ok)throw new Error(j.error||"Erreur. Réessayez.");return j});
-    },function(){throw new Error("Pas de réseau. Vérifiez votre connexion internet.")});
-  }
-  function sortir(msg){
-    TOKEN=null;try{localStorage.removeItem("find_token");localStorage.removeItem("find_nom")}catch(e){}
-    vue("vueLogin");if(msg){$("errLogin").textContent=msg;$("errLogin").classList.remove("cache")}
-  }
+  function pl(n){return n>1?"s":""}
+  function statut(d){var j=d.jours;
+    if(d.statut==="ajour")return {c:"ajour",ico:"✅",t:"À JOUR",p:"Jusqu'au "+fmtDate(d.date)};
+    if(d.statut==="bientot")return {c:"bientot-c",ico:"⚠️",t:"À RENOUVELER",p:j===0?"Se termine AUJOURD'HUI":"Dans "+j+" jour"+pl(j)};
+    if(d.statut==="perime")return {c:"perime-c",ico:"❌",t:"PAS À JOUR",p:"Fini depuis "+Math.abs(j)+" jour"+pl(Math.abs(j))};
+    return {c:"manquant-c",ico:"❓",t:"PAS RENSEIGNÉ",p:"Aucune date"};}
+  function etatGlobal(docs){var p=0,b=0;docs.forEach(function(d){if(d.statut==="perime"||d.statut==="manquant")p++;else if(d.statut==="bientot")b++});return p?"perime":(b?"bientot":"ok")}
 
-  /* Connexion */
-  function connecter(){
-    var l=$("login").value.trim();
+  function vue(n){["vueLogin","vuePrincipal","vueFiche"].forEach(function(v){var e=$(v);e.classList.toggle("cache",v!==n);if(v===n){e.classList.remove("vue");void e.offsetWidth;e.classList.add("vue")}});window.scrollTo(0,0)}
+  function onglet(t){tabCourant=t;["Chercher","Controle","Moi"].forEach(function(x){$("tab"+x).classList.toggle("cache",x!==t)});
+    Array.prototype.forEach.call(document.querySelectorAll(".onglets button"),function(b){b.classList.toggle("on",b.getAttribute("data-tab")===t)});
+    $("barreRecherche").classList.toggle("cache",t!=="Chercher");
+    $("titreSous").textContent={Chercher:"Recherche véhicule",Controle:"Contrôle des documents",Moi:"Mon compte"}[t];window.scrollTo(0,0)}
+  function api(url,opts){opts=opts||{};opts.headers=Object.assign({},opts.headers||{});if(TOKEN)opts.headers.Authorization="Bearer "+TOKEN;
+    return fetch(url,opts).then(function(r){return r.json().catch(function(){return {}}).then(function(j){
+      if(r.status===401&&TOKEN){sortir("Session finie. Entrez votre numéro.");throw new Error("401")}
+      if(!r.ok)throw new Error(j.error||"Erreur. Réessayez.");return j})},function(){throw new Error("Pas de réseau. Vérifiez votre connexion internet.")})}
+  function entrer(){$("moiNom").textContent=NOM||"Utilisateur";$("avatar").textContent=(NOM||"?").trim().charAt(0).toUpperCase();vue("vuePrincipal");onglet("Chercher")}
+  function sortir(msg){TOKEN=null;try{localStorage.removeItem("find_token");localStorage.removeItem("find_nom")}catch(e){}
+    $("zoneRes").innerHTML='<div class="vide"><span class="gros">🚗</span><b>Cherchez un véhicule</b>Écrivez une plaque, un nom ou un numéro de téléphone.</div>';
+    $("q").value="";filtre=null;majChips();vue("vueLogin");
+    if(msg){$("errLogin").textContent=msg;$("errLogin").classList.remove("cache")}}
+
+  /* Connexion par telephone */
+  function connecter(){var l=$("login").value.trim();
     if(l.replace(/\D/g,"").length<8){$("errLogin").textContent="Écrivez votre numéro de téléphone.";$("errLogin").classList.remove("cache");return}
     $("btnLogin").innerHTML='<span class="spin"></span>';
     fetch("/api/vehicules?resource=recherche-login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({telephone:l})})
     .then(function(r){return r.json().catch(function(){return {}}).then(function(j){return {ok:r.ok,j:j}})})
-    .then(function(x){
-      $("btnLogin").textContent="Entrer";
+    .then(function(x){$("btnLogin").textContent="Entrer";
       if(!x.ok){$("errLogin").textContent=x.j.error||"Ce numéro n'a pas accès.";$("errLogin").classList.remove("cache");return}
-      TOKEN=x.j.token;NOM=x.j.nom||"";
-      try{localStorage.setItem("find_token",TOKEN);localStorage.setItem("find_nom",NOM)}catch(e){}
-      $("errLogin").classList.add("cache");vue("vueRecherche");$("q").focus();
-    }).catch(function(){$("btnLogin").textContent="Entrer";$("errLogin").textContent="Pas de réseau. Vérifiez votre connexion internet.";$("errLogin").classList.remove("cache")});
-  }
+      TOKEN=x.j.token;NOM=x.j.nom||"";try{localStorage.setItem("find_token",TOKEN);localStorage.setItem("find_nom",NOM)}catch(e){}
+      $("errLogin").classList.add("cache");entrer()})
+    .catch(function(){$("btnLogin").textContent="Entrer";$("errLogin").textContent="Pas de réseau. Vérifiez votre connexion internet.";$("errLogin").classList.remove("cache")})}
 
-  /* Liste */
-  function carteRes(r){
-    var dv=r.documents.map(function(d){var s=statut(d);
-      return '<div class="doc '+s.c+'"><span class="n">'+esc(d.label)+'</span><span class="s">'+s.ico+' '+s.t+'</span></div>'}).join("");
-    var ch=r.chauffeurs.length?r.chauffeurs.map(function(c){return esc(c.nom)+(c.contacts[0]?" — "+esc(c.contacts[0]):"")}).join("<br>"):"<i>Aucun chauffeur</i>";
-    var pr=r.proprietaire?esc(r.proprietaire.nom)+(r.proprietaire.contacts[0]?" — "+esc(r.proprietaire.contacts[0]):""):"<i>Non renseigné</i>";
-    return '<button class="res" type="button" data-id="'+esc(r.id)+'">'
-      +'<span class="plaque">'+esc(r.immatriculation)+'</span>'
+  /* Resultats */
+  function carteRes(r){var g=etatGlobal(r.documents);
+    var dv=r.documents.map(function(d){var s=statut(d);return '<div class="doc '+s.c+'"><span class="n">'+esc(d.label)+'</span><span class="s">'+s.ico+' '+s.t+'</span></div>'}).join("");
+    var ch=r.chauffeurs.length?r.chauffeurs.map(function(c){return '<b>'+esc(c.nom)+'</b>'+(c.contacts[0]?" · "+esc(c.contacts[0]):"")}).join("<br>"):"<i>Aucun chauffeur</i>";
+    var pr=r.proprietaire?'<b>'+esc(r.proprietaire.nom)+'</b>'+(r.proprietaire.contacts[0]?" · "+esc(r.proprietaire.contacts[0]):""):"<i>Non renseigné</i>";
+    return '<button class="res '+(g==="perime"?"perime":g==="bientot"?"bientot":"")+'" type="button" data-id="'+esc(r.id)+'">'
+      +'<span class="plaque"><span class="ci">CI</span><span class="num">'+esc(r.immatriculation)+'</span></span>'
       +'<div class="desc">'+esc(r.description||r.categorie||"")+'</div>'
-      +'<div class="ligne"><b>👤 Propriétaire :</b><span>'+pr+'</span></div>'
-      +'<div class="ligne"><b>🚖 Chauffeur :</b><span>'+ch+'</span></div>'
-      +'<div class="docs">'+dv+'</div>'
-      +'<div style="text-align:center;font-weight:900;color:var(--vert);margin-top:10px">👉 Toucher pour tout voir</div></button>';
-  }
-  function chercher(){
-    var q=$("q").value.trim(),doc=$("doc").value,avant=$("avant").value;
-    var etat=etatPuce&&etatPuce.doc===doc?etatPuce.etat:(doc&&avant?"":(doc?"nonajour":""));
+      +'<div class="pers"><span class="i">👤</span><div><small>Propriétaire</small>'+pr+'</div></div>'
+      +'<div class="pers"><span class="i">🚖</span><div><small>Chauffeur</small>'+ch+'</div></div>'
+      +'<div class="docs">'+dv+'</div><div class="voir">Voir tout ›</div></button>'}
+  function majChips(){Array.prototype.forEach.call(document.querySelectorAll(".chip"),function(c){
+    c.classList.toggle("on",!!filtre&&filtre.doc===c.getAttribute("data-doc")&&filtre.etat===c.getAttribute("data-etat")&&!filtre.avant)})}
+  function chercher(){var q=$("q").value.trim();
+    if(q.length<2&&!filtre){$("zoneRes").innerHTML='<div class="vide"><span class="gros">✏️</span><b>Écrivez un peu plus</b>Au moins 2 lettres ou chiffres.</div>';return}
     var u="/api/vehicules?resource=recherche&q="+encodeURIComponent(q);
-    if(doc){u+="&doc="+doc;if(etat)u+="&etat="+etat;if(avant)u+="&avant="+avant}
-    $("zoneRes").innerHTML='<div class="info"><span class="spin" style="border-color:var(--vert);border-top-color:transparent"></span> Recherche…</div>';
+    if(filtre){u+="&doc="+filtre.doc;if(filtre.etat)u+="&etat="+filtre.etat;if(filtre.avant)u+="&avant="+filtre.avant}
+    $("zoneRes").innerHTML='<div class="vide"><span class="spin" style="color:var(--vert)"></span></div>';
     api(u).then(function(d){
-      if(!d.resultats.length){$("zoneRes").innerHTML='<div class="carte info" style="font-size:20px">😕 Rien trouvé.<br>Vérifiez ce que vous avez écrit.</div>';return}
-      var t=d.total>d.resultats.length?'<div class="info"><b>'+d.total+'</b> véhicules trouvés. On montre les '+d.resultats.length+' premiers : précisez votre recherche.</div>'
-        :'<div class="info"><b>'+d.total+'</b> véhicule'+pluriel(d.total)+' trouvé'+pluriel(d.total)+'</div>';
+      if(!d.resultats.length){$("zoneRes").innerHTML='<div class="vide"><span class="gros">😕</span><b>Rien trouvé</b>Vérifiez ce que vous avez écrit.</div>';return}
+      var t=d.total>d.resultats.length?'<div class="nb"><b>'+d.total+'</b> véhicules. Voici les '+d.resultats.length+' premiers : précisez la recherche.</div>':'<div class="nb"><b>'+d.total+'</b> véhicule'+pl(d.total)+' trouvé'+pl(d.total)+'</div>';
       $("zoneRes").innerHTML=t+d.resultats.map(carteRes).join("");
-      if(d.resultats.length===1)ouvrir(d.resultats[0].id);
-    }).catch(function(e){if(e.message!=="401")$("zoneRes").innerHTML='<div class="err">'+esc(e.message)+'</div>'});
-  }
+      if(d.resultats.length===1&&q)ouvrir(d.resultats[0].id)})
+    .catch(function(e){if(e.message!=="401")$("zoneRes").innerHTML='<div class="err">'+esc(e.message)+'</div>'})}
 
   /* Fiche */
-  function blocDocs(docs){return '<div class="docs" style="grid-template-columns:1fr">'+docs.map(function(d){var s=statut(d);
-    return '<div class="doc '+s.c+'"><span class="n">'+esc(d.label)+'</span><span class="s">'+s.ico+' '+s.t+'</span><span class="n">'+esc(s.p)+'</span></div>'}).join("")+'</div>'}
+  function blocDocs(docs){return '<div class="docsx">'+docs.map(function(d){var s=statut(d);return '<div class="doc '+s.c+'"><span class="n">'+esc(d.label)+'</span><span class="s">'+s.ico+' '+s.t+'</span><span class="p">'+esc(s.p)+(d.statut==="perime"?" ("+fmtDate(d.date)+")":"")+'</span></div>'}).join("")+'</div>'}
   function tels(c){return (c||[]).map(function(t){var n=String(t).replace(/[^\d+]/g,"");return '<a class="tel" href="tel:'+esc(n)+'">📞 Appeler '+esc(t)+'</a>'}).join("")}
   function photo(u){return u&&(u.indexOf("data:image/")===0||u.indexOf("https://")===0)?'<img class="photo" alt="" src="'+esc(u)+'" />':""}
-  function fiche(d){
-    var v=d.vehicule,h="";
-    var tous=v.documents.every(function(x){return x.statut==="ajour"||x.statut==="bientot"});
-    var nb=v.documents.filter(function(x){return x.statut==="perime"||x.statut==="manquant"}).length;
-    h+='<div class="bandeau '+(tous?"ajour":"perime")+'">'+(tous?"✅ DOCUMENTS À JOUR":"❌ "+nb+" DOCUMENT"+(nb>1?"S":"")+" PAS À JOUR")+'</div>';
-    h+='<div class="sect">'+photo(v.photoUrl)+'<h2>🚗 Véhicule</h2><span class="plaque">'+esc(v.immatriculation)+'</span>'
-      +'<div class="ligne"><b>Type :</b><span>'+esc([v.marque,v.modele].filter(Boolean).join(" ")||"—")+'</span></div>'
-      +'<div class="ligne"><b>Catégorie :</b><span>'+esc(v.categorie||"—")+'</span></div>'
-      +'<div class="ligne"><b>Couleur :</b><span>'+esc(v.couleur||"—")+'</span></div>'
-      +(v.nombrePlaces?'<div class="ligne"><b>Places :</b><span>'+esc(v.nombrePlaces)+'</span></div>':"")
-      +'<div class="ligne"><b>Carte grise :</b><span>'+esc(v.carteGrise||"—")+'</span></div>'
-      +(v.numeroMacaron?'<div class="ligne"><b>Macaron :</b><span>'+esc(v.numeroMacaron)+'</span></div>':"")
-      +'</div>';
+  function ligne(k,v){return v?'<div class="l"><b>'+esc(k)+'</b><span>'+esc(v)+'</span></div>':""}
+  function fiche(d){var v=d.vehicule,h="";$("ficheSous").textContent=v.immatriculation;
+    var g=etatGlobal(v.documents),nb=v.documents.filter(function(x){return x.statut==="perime"||x.statut==="manquant"}).length;
+    h+='<div class="bandeau '+(g==="ok"?"ajour":g==="bientot"?"bientot-c":"perime-c")+'">'+(g==="ok"?"✅ DOCUMENTS À JOUR":g==="bientot"?"⚠️ DES DOCUMENTS À RENOUVELER":"❌ "+nb+" DOCUMENT"+(nb>1?"S":"")+" PAS À JOUR")+'</div>';
+    h+='<div class="sect">'+photo(v.photoUrl)+'<h2>🚗 Véhicule</h2><span class="plaque"><span class="ci">CI</span><span class="num">'+esc(v.immatriculation)+'</span></span>'
+      +ligne("Type",[v.marque,v.modele].filter(Boolean).join(" "))+ligne("Catégorie",v.categorie)+ligne("Couleur",v.couleur)+ligne("Places",v.nombrePlaces)+ligne("Carte grise",v.carteGrise)+ligne("Macaron",v.numeroMacaron)+'</div>';
     h+='<div class="sect"><h2>📄 Documents du véhicule</h2>'+blocDocs(v.documents)+'</div>';
     var t=d.transporteur;
-    if(t){
-      h+='<div class="tcarte"><div class="tete">🪪 Carte du transporteur (propriétaire)</div><div class="corps">'+photo(t.photoUrl)
-        +'<div class="nom">'+esc(t.nom)+'</div>'
-        +(t.numeroCarte?'<div class="ligne"><b>N° carte :</b><span>'+esc(t.numeroCarte)+'</span></div>':"")
-        +(t.collectif?'<div class="ligne"><b>Collectif :</b><span>'+esc(t.collectif.nom)+'</span></div>':"")
-        +(t.fonction?'<div class="ligne"><b>Fonction :</b><span>'+esc(t.fonction)+'</span></div>':"")
-        +(t.ville||t.quartier?'<div class="ligne"><b>Habite :</b><span>'+esc([t.quartier,t.ville].filter(Boolean).join(", "))+'</span></div>':"")
-        +tels(t.contacts)+'</div></div>';
-      h+='<div class="sect"><h2>📄 Documents du transporteur</h2>'+blocDocs(t.documents)+'</div>';
-    } else h+='<div class="sect"><h2>👤 Transporteur</h2><div class="info">Non renseigné</div></div>';
+    if(t){h+='<div class="tcarte"><div class="tete">🪪 Carte du transporteur<i></i></div><div class="cr">'+photo(t.photoUrl)+'<div class="nom">'+esc(t.nom)+'</div>'
+        +ligne("N° carte",t.numeroCarte)+ligne("Collectif",t.collectif&&t.collectif.nom)+ligne("Fonction",t.fonction)+ligne("Habite",[t.quartier,t.ville].filter(Boolean).join(", "))+tels(t.contacts)+'</div></div>';
+      h+='<div class="sect"><h2>📄 Documents du transporteur</h2>'+blocDocs(t.documents)+'</div>'}
+    else h+='<div class="sect"><h2>👤 Transporteur</h2><div class="info">Non renseigné</div></div>';
     if(d.proprietaireReel)h+='<div class="sect"><h2>🔁 Vrai propriétaire (véhicule racheté)</h2><div class="nom">'+esc(d.proprietaireReel.nom)+'</div>'+tels(d.proprietaireReel.contact?[d.proprietaireReel.contact]:[])+'</div>';
     h+='<div class="sect"><h2>🚖 Chauffeur'+(d.chauffeurs.length>1?"s":"")+' affecté'+(d.chauffeurs.length>1?"s":"")+'</h2>';
     if(!d.chauffeurs.length)h+='<div class="info">Aucun chauffeur affecté à ce véhicule</div>';
-    d.chauffeurs.forEach(function(c){
-      h+='<div style="overflow:hidden;border-bottom:2px solid var(--bord);padding-bottom:12px;margin-bottom:12px">'+photo(c.photoUrl)+'<div class="nom">'+esc(c.nom)+'</div>'
-        +(c.numeroCarte?'<div class="ligne"><b>N° carte :</b><span>'+esc(c.numeroCarte)+'</span></div>':"")
-        +(c.numeroPermis?'<div class="ligne"><b>N° permis :</b><span>'+esc(c.numeroPermis)+'</span></div>':"")
-        +tels(c.contacts)+blocDocs([c.permis])+'</div>';
-    });
+    d.chauffeurs.forEach(function(c){h+='<div style="overflow:hidden;margin-bottom:6px">'+photo(c.photoUrl)+'<div class="nom">'+esc(c.nom)+'</div>'+ligne("N° carte",c.numeroCarte)+ligne("N° permis",c.numeroPermis)+tels(c.contacts)+'<div style="margin-top:10px">'+blocDocs([c.permis])+'</div></div>'});
     h+='</div>';
-    if(d.pointFocal)h+='<div class="sect"><h2>📍 Gare / ligne</h2><div class="ligne"><b>Gare :</b><span>'+esc(d.pointFocal.gare)+(d.pointFocal.commune?" ("+esc(d.pointFocal.commune)+")":"")+'</span></div>'
-      +(d.pointFocal.ligne?'<div class="ligne"><b>Ligne :</b><span>'+esc(d.pointFocal.ligne)+'</span></div>':"")
-      +(d.pointFocal.chefGare?'<div class="ligne"><b>Chef de gare :</b><span>'+esc(d.pointFocal.chefGare)+'</span></div>':"")
-      +tels(d.pointFocal.chefGareContact?[d.pointFocal.chefGareContact]:[])+'</div>';
-    $("zoneFiche").innerHTML=h;
-  }
-  function ouvrir(id){
-    $("zoneFiche").innerHTML='<div class="info"><span class="spin" style="border-color:var(--vert);border-top-color:transparent"></span> Chargement…</div>';
-    vue("vueFiche");
-    api("/api/vehicules?resource=recherche&id="+encodeURIComponent(id)).then(fiche)
-      .catch(function(e){if(e.message!=="401")$("zoneFiche").innerHTML='<div class="err">'+esc(e.message)+'</div>'});
-  }
+    if(d.pointFocal)h+='<div class="sect"><h2>📍 Gare / ligne</h2>'+ligne("Gare",d.pointFocal.gare+(d.pointFocal.commune?" ("+d.pointFocal.commune+")":""))+ligne("Ligne",d.pointFocal.ligne)+ligne("Chef de gare",d.pointFocal.chefGare)+tels(d.pointFocal.chefGareContact?[d.pointFocal.chefGareContact]:[])+'</div>';
+    $("zoneFiche").innerHTML=h}
+  function ouvrir(id){$("zoneFiche").innerHTML='<div class="vide"><span class="spin" style="color:var(--vert)"></span></div>';$("ficheSous").textContent="";vue("vueFiche");
+    api("/api/vehicules?resource=recherche&id="+encodeURIComponent(id)).then(fiche).catch(function(e){if(e.message!=="401")$("zoneFiche").innerHTML='<div class="err">'+esc(e.message)+'</div>'})}
+
+  function lancerFiltre(doc,etat,avant){filtre={doc:doc,etat:etat,avant:avant||""};majChips();onglet("Chercher");chercher()}
 
   /* Evenements */
   $("btnLogin").onclick=connecter;
   $("login").onkeydown=function(e){if(e.key==="Enter")connecter()};
   $("btnSortir").onclick=function(){sortir("")};
-  $("btnChercher").onclick=chercher;
+  $("btnChercher").onclick=function(){$("q").blur();chercher()};
   $("q").onkeydown=function(e){if(e.key==="Enter"){e.preventDefault();$("q").blur();chercher()}};
-  $("btnRetour").onclick=function(){vue("vueRecherche")};
+  $("btnRetour").onclick=function(){vue("vuePrincipal");onglet(tabCourant)};
   $("zoneRes").onclick=function(e){var b=e.target.closest(".res");if(b)ouvrir(b.getAttribute("data-id"))};
-  $("puces").onclick=function(e){var b=e.target.closest(".puce");if(!b)return;
-    etatPuce={doc:b.getAttribute("data-doc"),etat:b.getAttribute("data-etat")};
-    $("doc").value=etatPuce.doc;
-    Array.prototype.forEach.call(document.querySelectorAll(".puce"),function(p){p.classList.toggle("on",p===b)});
-    chercher()};
-  $("doc").onchange=function(){etatPuce=null;Array.prototype.forEach.call(document.querySelectorAll(".puce"),function(p){p.classList.remove("on")})};
-  $("btnEffacer").onclick=function(){$("q").value="";$("doc").value="";$("avant").value="";etatPuce=null;
-    Array.prototype.forEach.call(document.querySelectorAll(".puce"),function(p){p.classList.remove("on")});$("zoneRes").innerHTML=""};
+  $("onglets").onclick=function(e){var b=e.target.closest("button");if(b)onglet(b.getAttribute("data-tab"))};
+  $("chips").onclick=function(e){var c=e.target.closest(".chip");if(!c)return;
+    var d=c.getAttribute("data-doc"),t=c.getAttribute("data-etat");
+    if(filtre&&filtre.doc===d&&filtre.etat===t&&!filtre.avant){filtre=null;majChips();if($("q").value.trim().length>=2)chercher();else $("zoneRes").innerHTML='<div class="vide"><span class="gros">🚗</span><b>Cherchez un véhicule</b>Écrivez une plaque, un nom ou un numéro de téléphone.</div>'}
+    else lancerFiltre(d,t)};
+  $("tabControle").onclick=function(e){var t=e.target.closest(".tuile");if(t)lancerFiltre(t.getAttribute("data-doc"),t.getAttribute("data-etat"))};
+  $("btnAvance").onclick=function(){lancerFiltre($("doc").value,$("etat").value,$("avant").value)};
 
-  vue(TOKEN?"vueRecherche":"vueLogin");
+  /* Installation PWA */
+  window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();promptInstall=e;$("installLogin").classList.remove("cache");$("installMoi").classList.remove("cache")});
+  window.addEventListener("appinstalled",function(){promptInstall=null;$("installLogin").classList.add("cache");$("installMoi").classList.add("cache")});
+  Array.prototype.forEach.call(document.querySelectorAll("[data-install]"),function(b){b.onclick=function(){if(!promptInstall)return;promptInstall.prompt();promptInstall.userChoice.then(function(){promptInstall=null;$("installLogin").classList.add("cache");$("installMoi").classList.add("cache")})}});
+  var ios=/iphone|ipad|ipod/i.test(navigator.userAgent),dejaInstalle=window.matchMedia("(display-mode: standalone)").matches||navigator.standalone;
+  if(ios&&!dejaInstalle)$("aideIos").classList.remove("cache");
+
+  if(TOKEN)entrer();else vue("vueLogin");
   if("serviceWorker" in navigator)window.addEventListener("load",function(){navigator.serviceWorker.register("/find-sw.js").catch(function(){})});
 })();
 </script>

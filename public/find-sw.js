@@ -1,6 +1,6 @@
 // Service worker de find.comix-ci.com : met en cache la page seulement.
 // Les données (API) ne sont JAMAIS mises en cache : elles sont personnelles.
-const CACHE = "comix-find-v2";
+const CACHE = "comix-find-v3";
 const FICHIERS = ["/find.html", "/find-manifest.json", "/icon-192.png", "/icon-512.png", "/favicon-32.png"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FICHIERS)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
