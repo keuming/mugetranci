@@ -1,6 +1,15 @@
 {
   "rewrites": [
     {
+      "source": "/",
+      "has": [{ "type": "host", "value": "find.comix-ci.com" }],
+      "destination": "/find.html"
+    },
+    {
+      "source": "/find",
+      "destination": "/find.html"
+    },
+    {
       "source": "/mobile",
       "destination": "/"
     },

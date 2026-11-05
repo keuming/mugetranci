@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0B6E4F" />
+<title>Recherche véhicule — COMIX-CI</title>
+<link rel="manifest" href="/find-manifest.json" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<style>
+:root{--vert:#0B6E4F;--vert-f:#07422F;--vert-c:#E4F1EC;--or:#E07A1F;--or-c:#FFF1D6;--or-t:#8A5A00;--creme:#FAF8F3;--encre:#1B1F1A;--gris:#5C655E;--bord:#D9D4C7;--rouge:#C0281B;--rouge-c:#FDE6E3}
+*{box-sizing:border-box;-webkit-text-size-adjust:100%}
+html,body{margin:0;background:var(--creme);color:var(--encre);overflow-x:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:18px;line-height:1.45;touch-action:manipulation}
+header{background:var(--vert);color:#fff;padding:calc(env(safe-area-inset-top) + 14px) 16px 14px;display:flex;align-items:center;gap:12px;border-bottom:5px solid var(--or)}
+header img{width:44px;height:44px;border-radius:10px;background:#fff}
+header h1{font-size:20px;margin:0;font-weight:800;line-height:1.15}
+header small{display:block;font-weight:500;font-size:14px;opacity:.85}
+header button{margin-left:auto;background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-size:15px;font-weight:700}
+main{max-width:640px;margin:0 auto;padding:16px 16px calc(env(safe-area-inset-bottom) + 40px)}
+.carte{background:#fff;border:2px solid var(--bord);border-radius:18px;padding:16px;margin-bottom:14px}
+label{display:block;font-weight:800;margin:14px 0 6px}
+input,select{width:100%;font-size:22px;padding:14px;border:2px solid var(--bord);border-radius:14px;background:#fff;color:var(--encre);font-family:inherit}
+input:focus,select:focus{outline:3px solid var(--or);border-color:var(--or)}
+.gros{width:100%;border:0;border-radius:16px;padding:18px;font-size:22px;font-weight:800;background:var(--vert);color:#fff;margin-top:14px}
+.gros:active{background:var(--vert-f)}
+.gros.sec{background:#fff;color:var(--vert);border:3px solid var(--vert)}
+.err{background:var(--rouge-c);color:var(--rouge);border-radius:12px;padding:12px 14px;font-weight:700;margin-top:12px}
+.puces{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.puce{border:2px solid var(--bord);background:#fff;border-radius:14px;padding:14px 8px;font-size:16px;font-weight:800;text-align:center;color:var(--encre)}
+.puce .i{display:block;font-size:28px}
+.puce.on{border-color:var(--vert);background:var(--vert-c);color:var(--vert-f)}
+details summary{font-weight:800;padding:14px 0 4px;color:var(--vert);cursor:pointer;font-size:18px}
+.plaque{display:inline-block;font-family:ui-monospace,Menlo,monospace;font-weight:900;font-size:26px;letter-spacing:1px;background:#fff;border:3px solid var(--encre);border-radius:10px;padding:2px 12px}
+.res{display:block;width:100%;text-align:left;font:inherit;color:inherit;background:#fff;border:2px solid var(--bord);border-radius:18px;padding:14px;margin-bottom:12px}
+.res:active{border-color:var(--vert)}
+.res .desc{color:var(--gris);font-size:16px;margin:4px 0 8px}
+.ligne{display:flex;gap:8px;align-items:baseline;font-size:17px;margin:4px 0}
+.ligne b{flex-shrink:0}
+.docs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.doc{border-radius:12px;padding:10px;font-size:15px;font-weight:700;line-height:1.25}
+.doc .n{display:block;font-size:14px;font-weight:600;opacity:.85}
+.doc .s{display:block;font-size:17px;font-weight:900;margin-top:2px}
+.ajour{background:var(--vert-c);color:var(--vert-f)}
+.bientot{background:var(--or-c);color:var(--or-t)}
+.perime{background:var(--rouge-c);color:var(--rouge)}
+.manquant{background:#ECEAE4;color:var(--gris)}
+.bandeau{border-radius:14px;padding:12px 14px;font-weight:900;font-size:20px;margin-bottom:12px;text-align:center}
+h2{font-size:20px;margin:0 0 10px;color:var(--vert-f)}
+.sect{background:#fff;border:2px solid var(--bord);border-radius:18px;padding:16px;margin-bottom:14px}
+.nom{font-size:22px;font-weight:900}
+.tel{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--vert);color:#fff;text-decoration:none;border-radius:14px;padding:14px;font-size:21px;font-weight:800;margin-top:8px}
+.photo{width:84px;height:84px;border-radius:14px;object-fit:cover;background:#ECEAE4;float:right;margin-left:10px}
+.retour{background:none;border:0;color:var(--vert);font-weight:900;font-size:19px;padding:8px 0;margin-bottom:6px}
+.info{color:var(--gris);font-size:16px;text-align:center;padding:10px}
+.cache{display:none!important}
+.tcarte{border:3px solid var(--vert);border-radius:18px;overflow:hidden;margin-bottom:14px;background:#fff}
+.tcarte .tete{background:var(--vert);color:#fff;padding:10px 14px;font-weight:900;font-size:16px;text-transform:uppercase;letter-spacing:.5px}
+.tcarte .corps{padding:14px;overflow:hidden}
+.spin{display:inline-block;width:22px;height:22px;border:4px solid #fff;border-top-color:transparent;border-radius:50%;animation:t 1s linear infinite;vertical-align:middle}
+@keyframes t{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<header>
+  <img src="/icon-192.png" alt="" />
+  <h1>Recherche véhicule<small>COMIX-CI</small></h1>
+  <button id="btnSortir" class="cache" type="button">Sortir</button>
+</header>
+<main>
+
+<!-- CONNEXION -->
+<section id="vueLogin" class="cache">
+  <div class="carte">
+    <h2>🔑 Connexion</h2>
+    <label for="login">Votre identifiant</label>
+    <input id="login" autocomplete="username" inputmode="text" autocapitalize="off" />
+    <label for="pin">Votre code secret (PIN)</label>
+    <input id="pin" type="password" autocomplete="current-password" inputmode="numeric" />
+    <div id="errLogin" class="err cache"></div>
+    <button id="btnLogin" class="gros" type="button">Entrer</button>
+  </div>
+</section>
+
+<!-- RECHERCHE -->
+<section id="vueRecherche" class="cache">
+  <div class="carte">
+    <label for="q" style="margin-top:0">🔍 Écrivez ici</label>
+    <input id="q" placeholder="Plaque, nom ou téléphone" autocomplete="off" autocapitalize="characters" enterkeyhint="search" />
+    <div class="info" style="padding:6px 0 0">Exemple : <b>1234 AB 01</b> ou <b>Kouassi</b> ou <b>0707…</b></div>
+    <button id="btnChercher" class="gros" type="button">🔍 CHERCHER</button>
+
+    <details style="margin-top:8px">
+      <summary>➕ Chercher par document</summary>
+      <div class="puces" id="puces">
+        <button class="puce" type="button" data-doc="vignette" data-etat="nonajour"><span class="i">🏷️</span>Vignette<br>pas à jour</button>
+        <button class="puce" type="button" data-doc="visite" data-etat="nonajour"><span class="i">🔧</span>Visite technique<br>pas à jour</button>
+        <button class="puce" type="button" data-doc="assurance" data-etat="nonajour"><span class="i">🛡️</span>Assurance<br>pas à jour</button>
+        <button class="puce" type="button" data-doc="tous" data-etat="nonajour"><span class="i">📄</span>Un document<br>pas à jour</button>
+        <button class="puce" type="button" data-doc="tous" data-etat="bientot"><span class="i">⏳</span>À renouveler<br>bientôt (30 jours)</button>
+        <button class="puce" type="button" data-doc="stationnement" data-etat="nonajour"><span class="i">🅿️</span>Carte stationnement<br>pas à jour</button>
+      </div>
+      <label for="doc">Ou choisir un document</label>
+      <select id="doc">
+        <option value="">— Aucun —</option>
+        <option value="vignette">Vignette</option>
+        <option value="visite">Visite technique</option>
+        <option value="assurance">Assurance</option>
+        <option value="stationnement">Carte de stationnement</option>
+        <option value="tous">Tous les documents</option>
+      </select>
+      <label for="avant">Qui se termine avant le (date)</label>
+      <input id="avant" type="date" />
+      <button id="btnEffacer" class="gros sec" type="button">Effacer</button>
+    </details>
+  </div>
+  <div id="zoneRes"></div>
+</section>
+
+<!-- FICHE -->
+<section id="vueFiche" class="cache">
+  <button id="btnRetour" class="retour" type="button">⬅ Retour à la liste</button>
+  <div id="zoneFiche"></div>
+</section>
+
+</main>
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var TOKEN=null, NOM="";
+  try{TOKEN=localStorage.getItem("find_token");NOM=localStorage.getItem("find_nom")||""}catch(e){}
+  var etatPuce=null;
+
+  function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+  function fmtDate(d){if(!d)return "—";var p=String(d).slice(0,10).split("-");return p.length===3?p[2]+"/"+p[1]+"/"+p[0]:d}
+  function pluriel(n){return n>1?"s":""}
+  function statut(d){
+    var j=d.jours;
+    if(d.statut==="ajour")return {c:"ajour",ico:"✅",t:"À JOUR",p:"Valable jusqu'au "+fmtDate(d.date)};
+    if(d.statut==="bientot")return {c:"bientot",ico:"⚠️",t:"À RENOUVELER",p:j===0?"Se termine AUJOURD'HUI":"Se termine dans "+j+" jour"+pluriel(j)};
+    if(d.statut==="perime")return {c:"perime",ico:"❌",t:"PAS À JOUR",p:"Fini depuis "+Math.abs(j)+" jour"+pluriel(Math.abs(j))+" ("+fmtDate(d.date)+")"};
+    return {c:"manquant",ico:"❓",t:"PAS RENSEIGNÉ",p:"Aucune date enregistrée"};
+  }
+  function vue(n){["vueLogin","vueRecherche","vueFiche"].forEach(function(v){$(v).classList.toggle("cache",v!==n)});
+    $("btnSortir").classList.toggle("cache",n==="vueLogin");window.scrollTo(0,0)}
+  function api(url,opts){
+    opts=opts||{};opts.headers=Object.assign({},opts.headers||{});
+    if(TOKEN)opts.headers.Authorization="Bearer "+TOKEN;
+    return fetch(url,opts).then(function(r){
+      return r.json().catch(function(){return {}}).then(function(j){
+        if(r.status===401&&TOKEN){sortir("Votre session est finie. Reconnectez-vous.");throw new Error("401")}
+        if(!r.ok)throw new Error(j.error||"Erreur. Réessayez.");return j});
+    },function(){throw new Error("Pas de réseau. Vérifiez votre connexion internet.")});
+  }
+  function sortir(msg){
+    TOKEN=null;try{localStorage.removeItem("find_token");localStorage.removeItem("find_nom")}catch(e){}
+    vue("vueLogin");if(msg){$("errLogin").textContent=msg;$("errLogin").classList.remove("cache")}
+  }
+
+  /* Connexion */
+  function connecter(){
+    var l=$("login").value.trim(),p=$("pin").value.trim();
+    if(!l||!p){$("errLogin").textContent="Écrivez votre identifiant et votre code secret.";$("errLogin").classList.remove("cache");return}
+    $("btnLogin").innerHTML='<span class="spin"></span>';
+    fetch("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({login:l,pin:p})})
+    .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j}})})
+    .then(function(x){
+      $("btnLogin").textContent="Entrer";
+      if(!x.ok){$("errLogin").textContent=x.j.error||"Identifiant ou code incorrect.";$("errLogin").classList.remove("cache");return}
+      if(x.j.role==="imprimeur"){$("errLogin").textContent="Ce compte ne peut pas utiliser la recherche.";$("errLogin").classList.remove("cache");return}
+      TOKEN=x.j.token;NOM=x.j.nom||"";
+      try{localStorage.setItem("find_token",TOKEN);localStorage.setItem("find_nom",NOM)}catch(e){}
+      $("pin").value="";$("errLogin").classList.add("cache");vue("vueRecherche");$("q").focus();
+    }).catch(function(){$("btnLogin").textContent="Entrer";$("errLogin").textContent="Pas de réseau. Vérifiez votre connexion internet.";$("errLogin").classList.remove("cache")});
+  }
+
+  /* Liste */
+  function carteRes(r){
+    var dv=r.documents.map(function(d){var s=statut(d);
+      return '<div class="doc '+s.c+'"><span class="n">'+esc(d.label)+'</span><span class="s">'+s.ico+' '+s.t+'</span></div>'}).join("");
+    var ch=r.chauffeurs.length?r.chauffeurs.map(function(c){return esc(c.nom)+(c.contacts[0]?" — "+esc(c.contacts[0]):"")}).join("<br>"):"<i>Aucun chauffeur</i>";
+    var pr=r.proprietaire?esc(r.proprietaire.nom)+(r.proprietaire.contacts[0]?" — "+esc(r.proprietaire.contacts[0]):""):"<i>Non renseigné</i>";
+    return '<button class="res" type="button" data-id="'+esc(r.id)+'">'
+      +'<span class="plaque">'+esc(r.immatriculation)+'</span>'
+      +'<div class="desc">'+esc(r.description||r.categorie||"")+'</div>'
+      +'<div class="ligne"><b>👤 Propriétaire :</b><span>'+pr+'</span></div>'
+      +'<div class="ligne"><b>🚖 Chauffeur :</b><span>'+ch+'</span></div>'
+      +'<div class="docs">'+dv+'</div>'
+      +'<div style="text-align:center;font-weight:900;color:var(--vert);margin-top:10px">👉 Toucher pour tout voir</div></button>';
+  }
+  function chercher(){
+    var q=$("q").value.trim(),doc=$("doc").value,avant=$("avant").value;
+    var etat=etatPuce&&etatPuce.doc===doc?etatPuce.etat:(doc&&avant?"":(doc?"nonajour":""));
+    var u="/api/vehicules?resource=recherche&q="+encodeURIComponent(q);
+    if(doc){u+="&doc="+doc;if(etat)u+="&etat="+etat;if(avant)u+="&avant="+avant}
+    $("zoneRes").innerHTML='<div class="info"><span class="spin" style="border-color:var(--vert);border-top-color:transparent"></span> Recherche…</div>';
+    api(u).then(function(d){
+      if(!d.resultats.length){$("zoneRes").innerHTML='<div class="carte info" style="font-size:20px">😕 Rien trouvé.<br>Vérifiez ce que vous avez écrit.</div>';return}
+      var t=d.total>d.resultats.length?'<div class="info"><b>'+d.total+'</b> véhicules trouvés. On montre les '+d.resultats.length+' premiers : précisez votre recherche.</div>'
+        :'<div class="info"><b>'+d.total+'</b> véhicule'+pluriel(d.total)+' trouvé'+pluriel(d.total)+'</div>';
+      $("zoneRes").innerHTML=t+d.resultats.map(carteRes).join("");
+      if(d.resultats.length===1)ouvrir(d.resultats[0].id);
+    }).catch(function(e){if(e.message!=="401")$("zoneRes").innerHTML='<div class="err">'+esc(e.message)+'</div>'});
+  }
+
+  /* Fiche */
+  function blocDocs(docs){return '<div class="docs" style="grid-template-columns:1fr">'+docs.map(function(d){var s=statut(d);
+    return '<div class="doc '+s.c+'"><span class="n">'+esc(d.label)+'</span><span class="s">'+s.ico+' '+s.t+'</span><span class="n">'+esc(s.p)+'</span></div>'}).join("")+'</div>'}
+  function tels(c){return (c||[]).map(function(t){var n=String(t).replace(/[^\d+]/g,"");return '<a class="tel" href="tel:'+esc(n)+'">📞 Appeler '+esc(t)+'</a>'}).join("")}
+  function photo(u){return u&&(u.indexOf("data:image/")===0||u.indexOf("https://")===0)?'<img class="photo" alt="" src="'+esc(u)+'" />':""}
+  function fiche(d){
+    var v=d.vehicule,h="";
+    var tous=v.documents.every(function(x){return x.statut==="ajour"||x.statut==="bientot"});
+    var nb=v.documents.filter(function(x){return x.statut==="perime"||x.statut==="manquant"}).length;
+    h+='<div class="bandeau '+(tous?"ajour":"perime")+'">'+(tous?"✅ DOCUMENTS À JOUR":"❌ "+nb+" DOCUMENT"+(nb>1?"S":"")+" PAS À JOUR")+'</div>';
+    h+='<div class="sect">'+photo(v.photoUrl)+'<h2>🚗 Véhicule</h2><span class="plaque">'+esc(v.immatriculation)+'</span>'
+      +'<div class="ligne"><b>Type :</b><span>'+esc([v.marque,v.modele].filter(Boolean).join(" ")||"—")+'</span></div>'
+      +'<div class="ligne"><b>Catégorie :</b><span>'+esc(v.categorie||"—")+'</span></div>'
+      +'<div class="ligne"><b>Couleur :</b><span>'+esc(v.couleur||"—")+'</span></div>'
+      +(v.nombrePlaces?'<div class="ligne"><b>Places :</b><span>'+esc(v.nombrePlaces)+'</span></div>':"")
+      +'<div class="ligne"><b>Carte grise :</b><span>'+esc(v.carteGrise||"—")+'</span></div>'
+      +(v.numeroMacaron?'<div class="ligne"><b>Macaron :</b><span>'+esc(v.numeroMacaron)+'</span></div>':"")
+      +'</div>';
+    h+='<div class="sect"><h2>📄 Documents du véhicule</h2>'+blocDocs(v.documents)+'</div>';
+    var t=d.transporteur;
+    if(t){
+      h+='<div class="tcarte"><div class="tete">🪪 Carte du transporteur (propriétaire)</div><div class="corps">'+photo(t.photoUrl)
+        +'<div class="nom">'+esc(t.nom)+'</div>'
+        +(t.numeroCarte?'<div class="ligne"><b>N° carte :</b><span>'+esc(t.numeroCarte)+'</span></div>':"")
+        +(t.collectif?'<div class="ligne"><b>Collectif :</b><span>'+esc(t.collectif.nom)+'</span></div>':"")
+        +(t.fonction?'<div class="ligne"><b>Fonction :</b><span>'+esc(t.fonction)+'</span></div>':"")
+        +(t.ville||t.quartier?'<div class="ligne"><b>Habite :</b><span>'+esc([t.quartier,t.ville].filter(Boolean).join(", "))+'</span></div>':"")
+        +tels(t.contacts)+'</div></div>';
+      h+='<div class="sect"><h2>📄 Documents du transporteur</h2>'+blocDocs(t.documents)+'</div>';
+    } else h+='<div class="sect"><h2>👤 Transporteur</h2><div class="info">Non renseigné</div></div>';
+    if(d.proprietaireReel)h+='<div class="sect"><h2>🔁 Vrai propriétaire (véhicule racheté)</h2><div class="nom">'+esc(d.proprietaireReel.nom)+'</div>'+tels(d.proprietaireReel.contact?[d.proprietaireReel.contact]:[])+'</div>';
+    h+='<div class="sect"><h2>🚖 Chauffeur'+(d.chauffeurs.length>1?"s":"")+' affecté'+(d.chauffeurs.length>1?"s":"")+'</h2>';
+    if(!d.chauffeurs.length)h+='<div class="info">Aucun chauffeur affecté à ce véhicule</div>';
+    d.chauffeurs.forEach(function(c){
+      h+='<div style="overflow:hidden;border-bottom:2px solid var(--bord);padding-bottom:12px;margin-bottom:12px">'+photo(c.photoUrl)+'<div class="nom">'+esc(c.nom)+'</div>'
+        +(c.numeroCarte?'<div class="ligne"><b>N° carte :</b><span>'+esc(c.numeroCarte)+'</span></div>':"")
+        +(c.numeroPermis?'<div class="ligne"><b>N° permis :</b><span>'+esc(c.numeroPermis)+'</span></div>':"")
+        +tels(c.contacts)+blocDocs([c.permis])+'</div>';
+    });
+    h+='</div>';
+    if(d.pointFocal)h+='<div class="sect"><h2>📍 Gare / ligne</h2><div class="ligne"><b>Gare :</b><span>'+esc(d.pointFocal.gare)+(d.pointFocal.commune?" ("+esc(d.pointFocal.commune)+")":"")+'</span></div>'
+      +(d.pointFocal.ligne?'<div class="ligne"><b>Ligne :</b><span>'+esc(d.pointFocal.ligne)+'</span></div>':"")
+      +(d.pointFocal.chefGare?'<div class="ligne"><b>Chef de gare :</b><span>'+esc(d.pointFocal.chefGare)+'</span></div>':"")
+      +tels(d.pointFocal.chefGareContact?[d.pointFocal.chefGareContact]:[])+'</div>';
+    $("zoneFiche").innerHTML=h;
+  }
+  function ouvrir(id){
+    $("zoneFiche").innerHTML='<div class="info"><span class="spin" style="border-color:var(--vert);border-top-color:transparent"></span> Chargement…</div>';
+    vue("vueFiche");
+    api("/api/vehicules?resource=recherche&id="+encodeURIComponent(id)).then(fiche)
+      .catch(function(e){if(e.message!=="401")$("zoneFiche").innerHTML='<div class="err">'+esc(e.message)+'</div>'});
+  }
+
+  /* Evenements */
+  $("btnLogin").onclick=connecter;
+  $("pin").onkeydown=$("login").onkeydown=function(e){if(e.key==="Enter")connecter()};
+  $("btnSortir").onclick=function(){sortir("")};
+  $("btnChercher").onclick=chercher;
+  $("q").onkeydown=function(e){if(e.key==="Enter"){e.preventDefault();$("q").blur();chercher()}};
+  $("btnRetour").onclick=function(){vue("vueRecherche")};
+  $("zoneRes").onclick=function(e){var b=e.target.closest(".res");if(b)ouvrir(b.getAttribute("data-id"))};
+  $("puces").onclick=function(e){var b=e.target.closest(".puce");if(!b)return;
+    etatPuce={doc:b.getAttribute("data-doc"),etat:b.getAttribute("data-etat")};
+    $("doc").value=etatPuce.doc;
+    Array.prototype.forEach.call(document.querySelectorAll(".puce"),function(p){p.classList.toggle("on",p===b)});
+    chercher()};
+  $("doc").onchange=function(){etatPuce=null;Array.prototype.forEach.call(document.querySelectorAll(".puce"),function(p){p.classList.remove("on")})};
+  $("btnEffacer").onclick=function(){$("q").value="";$("doc").value="";$("avant").value="";etatPuce=null;
+    Array.prototype.forEach.call(document.querySelectorAll(".puce"),function(p){p.classList.remove("on")});$("zoneRes").innerHTML=""};
+
+  vue(TOKEN?"vueRecherche":"vueLogin");
+  if("serviceWorker" in navigator)window.addEventListener("load",function(){navigator.serviceWorker.register("/find-sw.js").catch(function(){})});
+})();
+</script>
+</body>
+</html>
